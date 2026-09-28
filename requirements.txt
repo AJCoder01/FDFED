@@ -1,0 +1,153 @@
+================================================================================
+                      SERVICEHUB - PROJECT REQUIREMENTS SPECIFICATION
+================================================================================
+Product Name  : ServiceHub
+Product Type  : Trusted Non-Retail Services Marketplace (India - INR Currency)
+Architecture  : Single-Page Application (React SPA) with Client-Side Routing
+Data Strategy : Frontend Repository/API Adapter with Realistic Mock Fixtures
+================================================================================
+
+--------------------------------------------------------------------------------
+1. FUNCTIONAL REQUIREMENTS (FR)
+--------------------------------------------------------------------------------
+
+1.1 Visitor & Guest Workflows (FR-GUEST)
+  FR-GUEST-01: Service Discovery & Search
+    - Visitors must be able to search for local services by keyword, category, and location.
+    - Visitors must be able to filter search results by category, price range, rating, service mode, and availability slots.
+    - Visitors must be able to sort service listings by relevance, customer rating, price (low to high / high to low), and earliest available slot.
+  FR-GUEST-02: Service & Provider Detail Inspection
+    - Visitors must be able to view detailed service pages containing service scope, fixed INR price breakdown, estimated duration, provider profile summary, trust badges, customer reviews, service area coverage, cancellation/refund policy, and availability slot preview.
+  FR-GUEST-03: Custom Job Request (/post-a-job)
+    - Visitors must be able to submit a custom job request when catalog services do not fit their exact need.
+    - The request form must capture category, location, description, preferred date, budget, and contact details, providing a submission confirmation with a unique Request ID.
+  FR-GUEST-04: Authentication & Intent Preservation
+    - Visitors must be able to register or log in as a Customer, Provider, Platform Admin, or Arbitrator.
+    - The SPA must preserve selected service, slot, and booking intent across authentication, returning the user to their target action post-login.
+
+1.2 Customer Workflows (FR-CUST)
+  FR-CUST-01: Profile & Address Management
+    - Customers must be able to manage their personal profile details, saved delivery/service addresses, and notification preferences.
+  FR-CUST-02: Saved Services & Favorites
+    - Customers must be able to save service listings to a favorites list for quick access and booking later.
+  FR-CUST-03: Step-Based Booking Wizard & Mock Checkout
+    - Customers must be able to complete a multi-step booking process: Slot Selection -> Address & Notes -> Price Review & Snapshot -> Demo Payment Method Selection -> Confirmation.
+    - The booking confirmation must generate a unique Booking ID and display clear next steps and schedule details.
+  FR-CUST-04: Booking Management & Timeline Tracking
+    - Customers must be able to view a list of active, upcoming, completed, and cancelled bookings with status filters.
+    - Customers must be able to open a detailed booking timeline showing status events, assigned provider info, schedule, location, and payment snapshot.
+  FR-CUST-05: Reschedule & Cancellation Management
+    - Customers must be able to request a booking reschedule or cancellation directly from the timeline view.
+    - The system must display clear consequences, policy rules, and plain-language mock refund calculations prior to confirmation.
+  FR-CUST-06: Service Completion, Review & Support
+    - Customers must be able to confirm service completion and submit exactly one rating and review per completed booking.
+    - Customers must be able to open a support ticket linked to a specific booking, specifying issue type, severity, description, and evidence attachments.
+  FR-CUST-07: Dispute Filing
+    - Customers must be able to file a dispute against a provider if a support ticket or service fulfillment fails resolution, triggering the Arbitrator workflow.
+
+1.3 Individual Provider Workflows (FR-PROV)
+  FR-PROV-01: Onboarding & Profile Verification
+    - Providers must be able to complete onboarding by supplying business/identity details, selected service categories, coverage area, experience, and document placeholders.
+    - Providers must be able to view their real-time mock verification status (Draft, Submitted, Changes Requested, Approved, Suspended) with clear feedback commentary.
+  FR-PROV-02: Service Listing Management
+    - Approved providers must be able to create, preview, publish, pause, edit, and archive service listings.
+    - Listing forms must validate service scope, pricing, duration, service area, inclusions/exclusions, and cancellation rules with unsaved-change prompts.
+  FR-PROV-03: Weekly Availability & Blackout Scheduler
+    - Providers must be able to manage their recurring weekly availability hours, set lead times and buffer periods, and add specific blackout dates.
+  FR-PROV-04: Job Inbox & Order Acceptance
+    - Providers must be able to view incoming job requests in a central Job Inbox.
+    - Providers must be able to accept jobs, reject jobs with reasons, or propose alternative times (which require explicit customer agreement).
+  FR-PROV-05: Job Fulfillment & Timeline Progression
+    - Providers must be able to track and update job states: Accepted -> In Progress (adding progress notes) -> Completed (adding completion notes/proof).
+    - Providers must be able to view display-only mock earnings resulting from completed jobs.
+  FR-PROV-06: Review Responses
+    - Providers must be able to view customer reviews on their services and post public responses.
+
+1.4 Platform Admin & Operations Workflows (FR-ADMIN)
+  FR-ADMIN-01: Operational Dashboard & Metrics
+    - Admins must have an action-oriented dashboard displaying key metrics: pending provider approvals, pending listing reviews, today's scheduled bookings, open support tickets, cancellation rates, and recent marketplace activity.
+  FR-ADMIN-02: Provider & Listing Moderation
+    - Admins must be able to inspect pending provider profiles and service listings, executing actions: Approve, Reject, Request Changes, Suspend, or Restore with mandatory audit notes.
+  FR-ADMIN-03: Booking Inspection & Category Management
+    - Admins must be able to inspect all marketplace bookings without exposing unnecessary private user data.
+    - Admins must be able to add, edit, enable, or disable service categories and subcategories.
+  FR-ADMIN-04: Support Ticket Triage & Resolution
+    - Admins must be able to review open support tickets and enforce resolution outcomes: Redo Service, Partial Mock Refund, Full Mock Refund, Warning, No Action, or Escalate to Dispute.
+  FR-ADMIN-05: Dispute Case Assignment
+    - Admins must be able to review escalated dispute cases between customers and providers and assign an Arbitrator.
+
+1.5 Arbitrator Workflows (FR-ARBIT)
+  FR-ARBIT-01: Case History Dashboard
+    - Arbitrators must be able to view assigned dispute cases, active case statuses, past case history, and scheduled hearings.
+  FR-ARBIT-02: Evidence Document Review
+    - Arbitrators must be able to view and download evidence records and documents submitted by both customer and provider for an assigned case.
+  FR-ARBIT-03: Hearing Scheduler
+    - Arbitrators must be able to schedule virtual hearings, set hearing dates/times, and send automated notifications to both involved parties.
+  FR-ARBIT-04: Ruling & Award Issuance
+    - Arbitrators must be able to record formal rulings and award decisions, notify all parties of the outcome, and transition the dispute case to Closed.
+  FR-ARBIT-05: Profile Management
+    - Arbitrators must be able to manage their professional profile and contact details.
+
+1.6 Global System & Notification Workflows (FR-SYS)
+  FR-SYS-01: Role-Aware Notification Center
+    - The system must provide a global notification center for signed-in users with unread badge indicators, mark-as-read controls, and deep-link routing to relevant booking, ticket, or dispute pages.
+  FR-SYS-02: Demo Reset Action
+    - The system must provide a visible "Reset Demo Data" action in developer/admin settings to restore all mock fixtures, seeded scenarios, and demo accounts to their baseline state.
+
+
+--------------------------------------------------------------------------------
+2. NON-FUNCTIONAL REQUIREMENTS (NFR)
+--------------------------------------------------------------------------------
+
+2.1 SPA Architecture & Technical Constraints (NFR-ARCH)
+  NFR-ARCH-01: Single-Page Application Execution
+    - The application must be built as a single React SPA build artifact. All navigation across public, customer, provider, admin, and arbitrator views must occur without full-document page reloads.
+  NFR-ARCH-02: Client-Side Routing & Nested Layouts
+    - Client-side routing must use React Router, organizing screens under role-specific nested layouts (PublicLayout, CustomerLayout, ProviderLayout, AdminLayout, ArbitratorLayout).
+  NFR-ARCH-03: Repository / Adapter Pattern
+    - Frontend components must consume data exclusively through TypeScript repository interfaces and API adapters. Mock data repositories must simulate latency (300-800 ms) and configurable error scenarios to mimic a real backend.
+  NFR-ARCH-04: URL State Synchronization
+    - Search terms, filter selections, sorting parameters, and pagination counts must synchronize with URL search parameters to preserve application state across page refreshes, browser back/forward buttons, and deep links.
+
+2.2 UI/UX & Design System Standards (NFR-UIUX)
+  NFR-UIUX-01: Unified Design System & Tokens
+    - All screens must strictly adhere to the central ServiceHub design system:
+      * Palette: Primary (#3454D1), Primary Hover (#263FA7), Ink (#172033), Muted (#667085), Page (#F6F8FC), Surface (#FFFFFF), Border (#DDE3EE), Success (#16794A), Warning (#B66A00), Danger (#C0362C).
+      * Spacing: 8-point rhythm (4, 8, 12, 16, 24, 32, 48, 64 px).
+      * Radius: 8px for controls, 12px for cards, 16px for large panels.
+  NFR-UIUX-02: Mandatory 6-State Coverage
+    - Every routed feature and data surface must explicitly implement 6 distinct UI states:
+      1. Loading (layout-aligned skeletons)
+      2. Empty (no data/results with next action)
+      3. Validation (inline field checks & summaries)
+      4. Success (clear confirmation & state change)
+      5. Error (recoverable failures with retry)
+      6. Confirmation (dialogs for consequential actions)
+  NFR-UIUX-03: Localization & Currency Formatting
+    - All pricing must display INR currency symbol (₹) formatted according to Indian numbering standards. All locations must reflect realistic Indian geography.
+
+2.3 Responsiveness & Cross-Device Compatibility (NFR-RESP)
+  NFR-RESP-01: Responsive Breakpoint Verification
+    - All P0 screens must be fully usable and visually optimized across target viewport widths: Mobile (~360px), Tablet (~768px), and Desktop (~1440px).
+  NFR-RESP-02: Layout Integrity
+    - No screen or page container may produce horizontal scrollbars at any target resolution. Data tables on mobile must convert to cards or scroll cleanly inside isolated containers.
+
+2.4 Accessibility & Focus Management (NFR-A11Y)
+  NFR-A11Y-01: Keyboard Navigation
+    - 100% of interactive elements (buttons, inputs, links, dropdowns, tabs, modals) must be reachable and operable using keyboard navigation alone.
+  NFR-A11Y-02: Visible Focus & Focus Trapping
+    - All focusable elements must display a distinct, high-contrast visible focus ring. Modals and drawers must trap focus while open and restore focus to the triggering element upon closure.
+  NFR-A11Y-03: Accessible Semantics & Status Communication
+    - Proper semantic HTML5 landmarks and ARIA attributes must be used throughout. Form inputs must be linked to labels and error text. Status badges must never rely on color alone to convey meaning.
+
+2.5 Performance & Code Quality (NFR-QUAL)
+  NFR-QUAL-01: Zero Console Errors
+    - The application must execute without uncaught JavaScript runtime errors, broken routes, or unhandled promise rejections in the developer console.
+  NFR-QUAL-02: Domain Model Integrity
+    - Data models (User, Service, Booking, Job, SupportTicket, Dispute, Review, Notification) must be centrally defined in TypeScript under the domain layer to prevent schema duplication or inconsistencies.
+  NFR-QUAL-03: Modular Component Architecture
+    - Common UI controls must be built as reusable design-system components instead of duplicating styling or logic across feature routes.
+
+================================================================================
+                              END OF REQUIREMENTS
+================================================================================
