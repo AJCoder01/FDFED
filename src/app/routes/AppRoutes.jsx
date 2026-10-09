@@ -7,6 +7,7 @@ import { CustomerLayout } from '../layouts/CustomerLayout';
 import { ProviderLayout } from '../layouts/ProviderLayout';
 import { AdminLayout } from '../layouts/AdminLayout';
 import { ArbitratorLayout } from '../layouts/ArbitratorLayout';
+import { AuthGuard } from './AuthGuard';
 
 // Public Pages
 import { LandingPage } from '../../features/public/LandingPage';
@@ -68,7 +69,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Customer Protected Routes */}
-      <Route element={<CustomerLayout />}>
+      <Route element={<AuthGuard allowedRoles={['customer']}><CustomerLayout /></AuthGuard>}>
         <Route path="/customer" element={<CustomerDashboard />} />
         <Route path="/customer/checkout" element={<BookingWizard />} />
         <Route path="/customer/bookings" element={<BookingsListPage />} />
@@ -81,7 +82,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Provider Protected Routes */}
-      <Route element={<ProviderLayout />}>
+      <Route element={<AuthGuard allowedRoles={['provider']}><ProviderLayout /></AuthGuard>}>
         <Route path="/provider" element={<ProviderDashboard />} />
         <Route path="/provider/services" element={<ListingManagerPage />} />
         <Route path="/provider/services/new" element={<ListingManagerPage />} />
@@ -94,7 +95,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Admin Protected Routes */}
-      <Route element={<AdminLayout />}>
+      <Route element={<AuthGuard allowedRoles={['admin']}><AdminLayout /></AuthGuard>}>
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/revenue" element={<AdminRevenuePage />} />
         <Route path="/admin/providers" element={<ProviderModerationPage />} />
@@ -107,7 +108,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Arbitrator Protected Routes */}
-      <Route element={<ArbitratorLayout />}>
+      <Route element={<AuthGuard allowedRoles={['arbitrator']}><ArbitratorLayout /></AuthGuard>}>
         <Route path="/arbitrator" element={<ArbitratorDashboard />} />
         <Route path="/arbitrator/cases" element={<ArbitratorDashboard />} />
         <Route path="/arbitrator/cases/:caseId" element={<DisputeCaseDetailPage />} />

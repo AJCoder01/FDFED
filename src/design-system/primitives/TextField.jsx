@@ -7,6 +7,7 @@ export function TextField({
   onChange,
   placeholder,
   type = 'text',
+  min,
   error,
   helperText,
   required = false,
@@ -72,6 +73,7 @@ export function TextField({
           id={name}
           name={name}
           type={type}
+          min={min}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
@@ -86,4 +88,3 @@ export function TextField({
     </div>
   );
 }
-

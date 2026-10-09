@@ -5,6 +5,7 @@ import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
 import { useApp } from '../../app/context/AppContext';
+import { getTodayDateInputValue } from '../../utils/date';
 
 export function PostAJobPage() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export function PostAJobPage() {
     title: '',
     location: 'Bengaluru',
     description: '',
-    preferredDate: '2026-08-25',
+    preferredDate: getTodayDateInputValue(),
     budget: '2000',
     contactName: 'Aarav Sharma',
     contactPhone: '+91 98765 43210'
@@ -146,6 +147,7 @@ export function PostAJobPage() {
             label="Preferred Service Date"
             name="preferredDate"
             type="date"
+            min={getTodayDateInputValue()}
             value={formData.preferredDate}
             onChange={handleChange}
             required

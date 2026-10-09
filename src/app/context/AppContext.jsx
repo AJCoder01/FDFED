@@ -5,14 +5,18 @@ import { getNotifications, resetDemoData as repoResetDemoData } from '../../data
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
-  const [currentRole, setCurrentRole] = useState('customer'); // guest, customer, provider, admin, arbitrator
-  const [currentUser, setCurrentUser] = useState(DEMO_USERS.customer);
+  const [currentRole, setCurrentRole] = useState('guest'); // guest, customer, provider, admin, arbitrator
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isSuperUser, setIsSuperUser] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [savedIntent, setSavedIntent] = useState(null); // stores { serviceId, slot, address } for post-auth return
   const [toast, setToast] = useState({ message: null, type: 'info' });
 
   // Update currentUser when role changes
-  const switchRole = (newRole) => {
+  const switchRole = (newRole, preserveSuperUser = false) => {
+    if (newRole === 'admin') setIsSuperUser(true);
+    else if (!preserveSuperUser) setIsSuperUser(false);
+
     setCurrentRole(newRole);
     if (newRole === 'guest') {
       setCurrentUser(null);
@@ -50,7 +54,7 @@ export function AppProvider({ children }) {
 
   const handleResetDemoData = async () => {
     const res = await repoResetDemoData();
-    switchRole('customer');
+    switchRole('guest');
     await loadNotifications();
     showToast(res.message, 'success');
   };
@@ -61,6 +65,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider
       value={{
         currentRole,
+        isSuperUser,
         currentUser,
         switchRole,
         notifications,

@@ -6,13 +6,13 @@ import { Button } from '../../design-system/primitives/Button';
 import { Toast } from '../../design-system/primitives/Toast';
 
 export function PublicLayout() {
-  const { currentRole, switchRole, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, isSuperUser, switchRole, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
-      {/* Top Demo Bar for Professor Walkthrough */}
+      {isSuperUser && (
       <div style={{ backgroundColor: '#090F1E', color: '#94A3B8', padding: '8px 24px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span style={{ fontWeight: '700', color: '#60A5FA', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -25,7 +25,7 @@ export function PublicLayout() {
               <button
                 key={role}
                 onClick={() => {
-                  switchRole(role);
+                  switchRole(role, true);
                   if (role === 'customer') navigate('/customer');
                   else if (role === 'provider') navigate('/provider');
                   else if (role === 'admin') navigate('/admin');
@@ -58,6 +58,7 @@ export function PublicLayout() {
           <RotateCcw size={12} /> Reset Demo Data
         </button>
       </div>
+      )}
 
       {/* Main Navbar */}
       <header style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-xs)' }}>
@@ -188,4 +189,3 @@ export function PublicLayout() {
     </div>
   );
 }
-

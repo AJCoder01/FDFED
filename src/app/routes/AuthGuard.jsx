@@ -3,9 +3,9 @@ import { Navigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
 export function AuthGuard({ allowedRoles, children }) {
-  const { currentRole } = useApp();
+  const { currentRole, isSuperUser } = useApp();
 
-  if (allowedRoles && !allowedRoles.includes(currentRole)) {
+  if (allowedRoles && !allowedRoles.includes(currentRole) && !isSuperUser) {
     return <Navigate to="/login" replace />;
   }
 

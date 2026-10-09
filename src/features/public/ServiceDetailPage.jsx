@@ -6,6 +6,7 @@ import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
+import { getTodayDateInputValue } from '../../utils/date';
 
 export function ServiceDetailPage() {
   const { serviceId } = useParams();
@@ -15,7 +16,7 @@ export function ServiceDetailPage() {
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState('');
-  const [selectedDate, setSelectedDate] = useState('2026-08-20');
+  const [selectedDate, setSelectedDate] = useState(getTodayDateInputValue);
 
   useEffect(() => {
     async function loadDetail() {
@@ -176,7 +177,7 @@ export function ServiceDetailPage() {
               <input
                 type="date"
                 value={selectedDate}
-                min="2026-08-17"
+                min={getTodayDateInputValue()}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', fontSize: '13px', marginBottom: '16px' }}
               />

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, LayoutDashboard, Wrench, Calendar, Briefcase, DollarSign, Star, User, Bell, RotateCcw, ChevronRight } from 'lucide-react';
+import { Shield, LayoutDashboard, Wrench, Calendar, Briefcase, DollarSign, Star, User, Bell, RotateCcw, ChevronRight, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
 
 export function ProviderLayout() {
-  const { currentRole, switchRole, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, isSuperUser, switchRole, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -23,7 +23,7 @@ export function ProviderLayout() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
-      {/* Top Demo Bar */}
+      {isSuperUser && (
       <div style={{ backgroundColor: '#090F1E', color: '#94A3B8', padding: '8px 24px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span style={{ fontWeight: '700', color: '#60A5FA', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -36,7 +36,7 @@ export function ProviderLayout() {
               <button
                 key={role}
                 onClick={() => {
-                  switchRole(role);
+                  switchRole(role, true);
                   if (role === 'guest') navigate('/');
                   else if (role === 'customer') navigate('/customer');
                   else if (role === 'admin') navigate('/admin');
@@ -68,10 +68,11 @@ export function ProviderLayout() {
           <RotateCcw size={12} /> Reset Demo Data
         </button>
       </div>
+      )}
 
       <div style={{ display: 'flex', flex: 1 }}>
         <aside style={{ width: 'var(--sidebar-width)', backgroundColor: '#FFFFFF', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link to="/" aria-label="Return Home" title="Return Home" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 10px rgba(37,99,235,0.25)' }}>
               <Shield size={20} />
             </div>
@@ -79,7 +80,7 @@ export function ProviderLayout() {
               <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)', letterSpacing: '-0.02em' }}>ServiceHub</div>
               <div style={{ fontSize: '10px', color: 'var(--color-success)', fontWeight: '800', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Provider Workspace</div>
             </div>
-          </div>
+          </Link>
 
           <nav style={{ padding: '20px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {navItems.map((item) => {
@@ -119,7 +120,10 @@ export function ProviderLayout() {
           <header style={{ height: '72px', backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--color-border)', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-xs)' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-ink)', letterSpacing: '-0.02em' }}>Provider Workspace</h2>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button onClick={() => { switchRole('guest'); navigate('/'); }} aria-label="Log out" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: '#FFFFFF', color: 'var(--color-ink)', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
+                <LogOut size={16} /> Log Out
+              </button>
               <button
                 onClick={() => setNotifOpen(true)}
                 style={{ position: 'relative', background: 'var(--color-page-bg)', border: '1px solid var(--color-border)', cursor: 'pointer', padding: '10px', borderRadius: '50%', color: 'var(--color-ink)', transition: 'all 0.15s ease' }}
@@ -153,4 +157,3 @@ export function ProviderLayout() {
     </div>
   );
 }
-

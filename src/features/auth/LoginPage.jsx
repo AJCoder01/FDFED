@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Shield, User, Wrench, BarChart2, Scale, ArrowRight } from 'lucide-react';
+import { Shield, UserRound, Wrench, Scale, ArrowLeft } from 'lucide-react';
+import { DEMO_USERS } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
@@ -10,28 +11,63 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
+  const selectedRole = searchParams.get('role');
 
-  const [email, setEmail] = useState('aarav.sharma@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleRoleSelect = (role) => {
+  const roleChoices = [
+    { role: 'customer', label: 'Customer', description: 'Book and manage services', icon: UserRound },
+    { role: 'provider', label: 'Provider', description: 'Manage services and jobs', icon: Wrench },
+    { role: 'arbitrator', label: 'Arbitrator', description: 'Review and resolve disputes', icon: Scale },
+    { role: 'superuser', label: 'SuperUser', description: 'Platform administration', icon: Shield }
+  ];
+  const credentialRoles = ['customer', 'provider', 'arbitrator'];
+  const hasSelectedCredentialRole = credentialRoles.includes(selectedRole);
+  const selectedRoleLabel = roleChoices.find(({ role }) => role === selectedRole)?.label;
+
+  const chooseRole = (role) => {
+    if (role === 'superuser') {
+      handleSignIn('admin');
+      return;
+    }
+    const query = new URLSearchParams({ role });
+    if (redirectParam) query.set('redirect', redirectParam);
+    setError('');
+    setEmail('');
+    setPassword('');
+    navigate(`/login?${query.toString()}`);
+  };
+
+  const handleSignIn = (role) => {
     switchRole(role);
     showToast(`Signed in successfully as ${role.toUpperCase()}!`, 'success');
 
-    if (savedIntent && (role === 'customer' || role === 'guest')) {
+    if (savedIntent && role === 'customer') {
       navigate('/customer/checkout');
     } else {
-      if (role === 'customer') navigate('/customer');
-      else if (role === 'provider') navigate('/provider');
-      else if (role === 'admin') navigate('/admin');
-      else if (role === 'arbitrator') navigate('/arbitrator');
-      else navigate('/');
+      const destinations = {
+        customer: '/customer',
+        provider: '/provider',
+        admin: '/admin',
+        arbitrator: '/arbitrator'
+      };
+      navigate(redirectParam === 'checkout' && role === 'customer' ? '/customer/checkout' : destinations[role]);
     }
   };
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    handleRoleSelect('customer');
+    const account = DEMO_USERS[selectedRole];
+
+    if (!account || account.email.toLowerCase() !== email.trim().toLowerCase() || password !== '123456Ab@') {
+      setError('Email or password is incorrect. Check your credentials and try again.');
+      return;
+    }
+
+    setError('');
+    handleSignIn(account.role);
   };
 
   return (
@@ -41,52 +77,32 @@ export function LoginPage() {
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', margin: '0 auto 12px' }}>
             <Shield size={24} />
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>Sign in to ServiceHub</h1>
+          <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>
+            {hasSelectedCredentialRole ? `Sign in as ${selectedRoleLabel}` : 'Welcome to ServiceHub'}
+          </h1>
           <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>
-            {savedIntent ? 'Sign in to complete your saved booking' : 'Choose a demo persona or enter credentials'}
+            {hasSelectedCredentialRole ? (savedIntent && selectedRole === 'customer' ? 'Sign in to complete your saved booking' : 'Enter the credentials for this role') : 'Choose your role to continue'}
           </p>
         </div>
 
-        {/* Demo Quick Logins */}
-        <div style={{ backgroundColor: 'var(--color-page-bg)', padding: '16px', borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>
-            ⚡ One-Click Demo Role Login
-          </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button onClick={() => handleRoleSelect('customer')} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: '#FFF', cursor: 'pointer', textAlign: 'left' }}>
-              <User size={16} color="var(--color-primary)" />
-              <div style={{ fontSize: '12px', flex: 1 }}>
-                <strong>Customer Persona:</strong> Aarav Sharma
-              </div>
-            </button>
-            <button onClick={() => handleRoleSelect('provider')} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: '#FFF', cursor: 'pointer', textAlign: 'left' }}>
-              <Wrench size={16} color="var(--color-success)" />
-              <div style={{ fontSize: '12px', flex: 1 }}>
-                <strong>Provider Persona:</strong> Apex Fix Services
-              </div>
-            </button>
-            <button onClick={() => handleRoleSelect('admin')} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: '#FFF', cursor: 'pointer', textAlign: 'left' }}>
-              <BarChart2 size={16} color="var(--color-warning)" />
-              <div style={{ fontSize: '12px', flex: 1 }}>
-                <strong>Platform Admin Persona:</strong> Priya Nair
-              </div>
-            </button>
-            <button onClick={() => handleRoleSelect('arbitrator')} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: '#FFF', cursor: 'pointer', textAlign: 'left' }}>
-              <Scale size={16} color="var(--color-conflict)" />
-              <div style={{ fontSize: '12px', flex: 1 }}>
-                <strong>Arbitrator Persona:</strong> Justice Sundaram
-              </div>
-            </button>
+        {!hasSelectedCredentialRole ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {roleChoices.map(({ role, label, description, icon: Icon }) => (
+              <button key={role} type="button" onClick={() => chooseRole(role)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '14px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: '#FFFFFF', color: 'var(--color-ink)', cursor: 'pointer', textAlign: 'left' }}>
+                <Icon size={20} color="var(--color-primary)" />
+                <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+                  <strong style={{ fontSize: '14px' }}>{label}</strong>
+                  <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>{description}</span>
+                </span>
+                <span aria-hidden="true" style={{ color: 'var(--color-muted)' }}>→</span>
+              </button>
+            ))}
           </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--color-muted)', fontSize: '12px' }}>
-          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--color-border)' }} />
-          <span>OR SIGN IN WITH EMAIL</span>
-          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--color-border)' }} />
-        </div>
-
-        <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        ) : (
+          <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <button type="button" onClick={() => navigate(`/login${redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ''}`)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start', border: 0, background: 'none', color: 'var(--color-primary)', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
+            <ArrowLeft size={16} /> Choose another role
+          </button>
           <TextField
             label="Email Address"
             type="email"
@@ -94,6 +110,7 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
+          {error && <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '13px', margin: 0 }}>{error}</p>}
           <TextField
             label="Password"
             type="password"
@@ -104,7 +121,8 @@ export function LoginPage() {
           <Button type="submit" variant="primary" fullWidth size="lg">
             Sign In
           </Button>
-        </form>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -11,8 +11,8 @@ export const INITIAL_CATEGORIES = [
 export const DEMO_USERS = {
   customer: {
     id: 'user-cust-1',
-    name: 'Aarav Sharma',
-    email: 'aarav.sharma@example.com',
+    name: 'Aarav Mehta',
+    email: 'aarav@gmail.com',
     role: 'customer',
     phone: '+91 98765 43210',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
@@ -23,8 +23,8 @@ export const DEMO_USERS = {
   },
   provider: {
     id: 'user-prov-1',
-    name: 'Rajesh Kumar (Apex Fix Services)',
-    email: 'rajesh.apex@example.com',
+    name: 'Rohan Verma',
+    email: 'rohan@gmail.com',
     role: 'provider',
     phone: '+91 91234 56789',
     avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=120&q=80',
@@ -43,16 +43,16 @@ export const DEMO_USERS = {
   },
   admin: {
     id: 'user-admin-1',
-    name: 'Priya Nair (Ops Lead)',
-    email: 'admin.ops@servicehub.in',
+    name: 'Naina Kapoor',
+    email: 'admin@gmail.com',
     role: 'admin',
     phone: '+91 99000 11223',
     avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=120&q=80'
   },
   arbitrator: {
     id: 'user-arbit-1',
-    name: 'Justice V. K. Sundaram (Retd.)',
-    email: 'arbitrator.sundaram@servicehub.in',
+    name: 'Kabir Malhotra',
+    email: 'kabir@gmail.com',
     role: 'arbitrator',
     phone: '+91 94444 88888',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
