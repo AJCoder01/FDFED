@@ -7,7 +7,7 @@ import { NotificationDrawer } from '../../features/notifications/NotificationDra
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 
 export function ProviderLayout() {
-  const { currentRole, isSuperUser, switchRole, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, isSuperUser, switchRole, currentUser, handleResetDemoData, toast, clearToast, unreadCount, reloadNotifications, showToast } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -23,7 +23,7 @@ export function ProviderLayout() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
+    <div className="provider-workspace" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
       {isSuperUser && (
       <div style={{ backgroundColor: '#090F1E', color: '#94A3B8', padding: '8px 24px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -71,8 +71,8 @@ export function ProviderLayout() {
       </div>
       )}
 
-      <div style={{ display: 'flex', flex: 1 }}>
-        <aside style={{ width: 'var(--sidebar-width)', backgroundColor: 'var(--color-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
+      <div className="provider-shell" style={{ display: 'flex', flex: 1 }}>
+        <aside className="provider-sidebar" style={{ width: 'var(--sidebar-width)', backgroundColor: 'var(--color-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
           <Link to="/" aria-label="Return Home" title="Return Home" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 10px rgba(37,99,235,0.25)' }}>
               <Shield size={20} />
@@ -86,15 +86,16 @@ export function ProviderLayout() {
           <nav style={{ padding: '20px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path || (item.path !== '/provider' && location.pathname.startsWith(`${item.path}/`));
               return (
                 <Link
                   key={item.path}
                   to={item.path}
+                  aria-current={isActive ? 'page' : undefined}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     padding: '11px 16px',
                     borderRadius: 'var(--radius-control)',
                     fontSize: '14px',
@@ -117,8 +118,8 @@ export function ProviderLayout() {
           </nav>
         </aside>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <header style={{ height: '72px', backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-xs)' }}>
+        <div className="provider-content" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <header className="provider-header" style={{ height: '72px', backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-xs)' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-ink)', letterSpacing: '-0.02em' }}>Provider Workspace</h2>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -127,7 +128,12 @@ export function ProviderLayout() {
                 <LogOut size={16} /> Log Out
               </button>
               <button
-                onClick={() => setNotifOpen(true)}
+                aria-label={`Open notifications (${unreadCount} unread)`}
+                onClick={async () => {
+                  setNotifOpen(true);
+                  try { await reloadNotifications(); }
+                  catch { showToast('Unable to refresh notifications.', 'error'); }
+                }}
                 style={{ position: 'relative', background: 'var(--color-page-bg)', border: '1px solid var(--color-border)', cursor: 'pointer', padding: '10px', borderRadius: '50%', color: 'var(--color-ink)', transition: 'all 0.15s ease' }}
               >
                 <Bell size={20} />
@@ -138,18 +144,18 @@ export function ProviderLayout() {
                 )}
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)' }}>
+              <div className="provider-user" style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)' }}>
                 <img src={currentUser?.avatar} alt={currentUser?.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-success)' }} />
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{currentUser?.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700' }}>Verified Professional</div>
+                  <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'capitalize' }}>{currentUser?.verificationStatus?.replaceAll('_', ' ') || 'Verification unavailable'}</div>
                 </div>
               </div>
             </div>
           </header>
 
-          <main style={{ flex: 1, padding: '32px' }}>
-            <Outlet />
+          <main className="provider-main" style={{ flex: 1, padding: '32px' }}>
+            <Outlet key={currentUser?.id} />
           </main>
         </div>
       </div>

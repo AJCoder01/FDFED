@@ -1,95 +1,45 @@
-import React, { useState } from 'react';
-import { Star, MessageSquare } from 'lucide-react';
+import { useCallback } from 'react';
+import { Star } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
+import { getBookings } from '../../data/mockRepository';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
-import { TextField } from '../../design-system/primitives/TextField';
+import { useProviderQuery } from './useProviderQuery';
+import { formatDate } from './providerUtils';
 
 export function ReviewsPage() {
-  const { showToast } = useApp();
+  const { currentUser } = useApp();
+  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
+  const { data: jobs, loading, error, refresh } = useProviderQuery(load);
 
-  const [reviews, setReviews] = useState([
-    {
-      id: 'rev-1',
-      customerName: 'Aarav Sharma',
-      rating: 5,
-      comment: 'Excellent work by Rajesh! Very professional and checked earthing thoroughly.',
-      date: '2026-08-14',
-      reply: 'Thank you Aarav! Glad we could fix the earthing issue safely.'
-    },
-    {
-      id: 'rev-2',
-      customerName: 'Meera Patel',
-      rating: 4,
-      comment: 'AC foam cleaning was very good. Cooling improved significantly.',
-      date: '2026-08-05',
-      reply: null
-    }
-  ]);
-
-  const [replyInput, setReplyInput] = useState('');
-  const [activeReplyId, setActiveReplyId] = useState(null);
-
-  const handleSendReply = (revId) => {
-    if (!replyInput) return;
-    setReviews(reviews.map(r => r.id === revId ? { ...r, reply: replyInput } : r));
-    setActiveReplyId(null);
-    setReplyInput('');
-    showToast('Public reply posted successfully!', 'success');
-  };
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="200px" borderRadius="12px" />;
+  const reviews = jobs.filter(job => job.reviewSubmitted);
+  const rated = reviews.filter(job => Number(job.reviewRating) >= 1 && Number(job.reviewRating) <= 5);
+  const average = rated.length ? (rated.reduce((sum, job) => sum + Number(job.reviewRating), 0) / rated.length).toFixed(1) : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="provider-page">
       <div className="page-header">
         <h1 className="page-title">Customer Reviews & Ratings</h1>
-        <p className="page-subtitle">View customer feedback and post public provider replies</p>
+        <p className="page-subtitle">{reviews.length} stored booking review{reviews.length === 1 ? '' : 's'}{average && ` · Average ${average} / 5`}</p>
       </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {reviews.map((rev) => (
-          <div key={rev.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <strong style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{rev.customerName}</strong>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  {[...Array(rev.rating)].map((_, i) => (
-                    <Star key={i} size={14} fill="#F59E0B" color="#F59E0B" />
-                  ))}
-                </div>
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>{rev.date}</span>
-            </div>
-
-            <p style={{ fontSize: '14px', color: 'var(--color-ink)' }}>"{rev.comment}"</p>
-
-            {/* Existing Reply */}
-            {rev.reply ? (
-              <div style={{ backgroundColor: 'var(--color-primary-light)', padding: '12px', borderRadius: 'var(--radius-control)', marginTop: '8px', fontSize: '13px' }}>
-                <strong style={{ color: 'var(--color-primary)' }}>Your Reply:</strong> {rev.reply}
-              </div>
-            ) : (
-              <div>
-                {activeReplyId === rev.id ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                    <TextField
-                      placeholder="Write your professional response..."
-                      value={replyInput}
-                      onChange={(e) => setReplyInput(e.target.value)}
-                    />
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <Button variant="primary" size="sm" onClick={() => handleSendReply(rev.id)}>Post Reply</Button>
-                      <Button variant="secondary" size="sm" onClick={() => setActiveReplyId(null)}>Cancel</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button variant="outline" size="sm" icon={MessageSquare} onClick={() => setActiveReplyId(rev.id)}>
-                    Reply to Review
-                  </Button>
-                )}
-              </div>
-            )}
+      <p className="provider-hint">Public replies are currently unavailable. Only reviews saved to booking records appear here.</p>
+      {reviews.length === 0 && <div className="card">No customer reviews have been saved yet.</div>}
+      {reviews.map(job => (
+        <div key={job.id} className="card provider-stack">
+          <div className="provider-row provider-between">
+            <div><strong>{job.customerName}</strong><p className="provider-hint">{job.serviceTitle} · #{job.id}</p></div>
+            <span className="provider-hint">Service date: {formatDate(job.scheduledDate)}</span>
           </div>
-        ))}
-      </div>
+          <div className="provider-row" aria-label={`Rating: ${job.reviewRating} out of 5`}>
+            {[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} fill={star <= Number(job.reviewRating) ? '#F59E0B' : 'none'} color="#F59E0B" />)}
+          </div>
+          <p>{job.reviewComment}</p>
+          <Button variant="outline" size="sm" disabled>Reply to Review</Button>
+        </div>
+      ))}
     </div>
   );
 }
