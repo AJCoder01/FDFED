@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 export function Button({ 
   children, 
@@ -9,7 +9,8 @@ export function Button({
   type = 'button',
   fullWidth = false,
   icon: Icon,
-  style: customStyle = {}
+  style: customStyle = {},
+  ...props
 }) {
   const baseStyles = {
     display: 'inline-flex',
@@ -34,6 +35,7 @@ export function Button({
       borderColor: 'var(--color-primary)',
       boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
     },
+    success: { backgroundColor: 'var(--color-success)', color: '#FFFFFF', borderColor: 'var(--color-success)' },
     secondary: {
       backgroundColor: 'var(--color-surface)',
       color: 'var(--color-ink)',
@@ -72,7 +74,7 @@ export function Button({
   };
 
   return (
-    <button type={type} style={style} disabled={disabled} onClick={onClick}>
+    <button {...props} type={type} style={style} disabled={disabled} onClick={onClick}>
       {Icon && <Icon size={size === 'sm' ? 14 : size === 'lg' ? 20 : 16} />}
       {children}
     </button>

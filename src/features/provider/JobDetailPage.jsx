@@ -8,9 +8,10 @@ import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
-import { useProviderQuery } from './useProviderQuery';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ProviderDisputeResponse } from './ProviderDisputeResponse';
 import { JobRequestActions } from './JobRequestActions';
-import { formatDate, isAccepted, isPaid, money, netPayout, platformFee, updateJob } from './providerUtils';
+import { formatDate, formatTimestamp, isAccepted, isPaid, money, netPayout, platformFee, updateJob } from './providerUtils';
 
 export function JobDetailPage() {
   const { jobId } = useParams();
@@ -25,7 +26,7 @@ export function JobDetailPage() {
     const disputes = await getDisputes();
     return { job, disputes: disputes.filter(dispute => dispute.bookingId === job.id && dispute.providerId === currentUser.id) };
   }, [jobId, currentUser.id]);
-  const { data, setData, error, loading, refresh } = useProviderQuery(load);
+  const { data, setData, error, loading, refresh } = useRepositoryQuery(load);
   const job = data?.job;
   const setJob = updated => setData(value => ({ ...value, job: updated }));
 
@@ -78,21 +79,25 @@ export function JobDetailPage() {
             <form className="card provider-stack" onSubmit={event => changeStatus(event, 'complete')}>
               <h2>Job Fulfillment & Completion</h2>
               <TextField name="completion-notes" label="Completion Notes" value={notes} onChange={event => setNotes(event.target.value)} multiline required disabled={busy} />
-              <Button type="submit" icon={CheckCircle2} disabled={busy}>{busy ? 'Saving…' : 'Mark Job Completed'}</Button>
+              <Button type="submit" icon={CheckCircle2} disabled={busy}>{busy ? 'Saving…' : job.paymentStatus === 'Pending' ? 'Complete Job & Record Cash Payment' : 'Mark Job Completed'}</Button>
             </form>
           )}
           <section className="card provider-stack">
             <h2>Fulfillment Timeline</h2>
             <div className="provider-timeline">
-              {job.timeline?.map((event, index) => <div key={`${event.time}-${index}`} className="provider-stack"><strong>{event.title}</strong><p className="provider-hint">{event.desc}</p><span className="provider-hint">{event.time}</span></div>)}
+              {job.timeline?.map((event, index) => <div key={`${event.time}-${index}`} className="provider-stack"><strong>{event.title}</strong><p className="provider-hint">{event.desc}</p><span className="provider-hint">{formatTimestamp(event.time)}</span></div>)}
             </div>
           </section>
           {data.disputes.map(dispute => (
             <section key={dispute.id} className="card provider-stack">
               <div className="provider-row provider-between"><h2>Dispute #{dispute.id}</h2><StatusBadge status={dispute.status} /></div>
               <p>{dispute.customerStatement}</p>
+              {dispute.status === 'ruled' && dispute.providerStatement && <p><strong>Your Response:</strong> {dispute.providerStatement}</p>}
+              <ProviderDisputeResponse dispute={dispute} />
+              {dispute.evidences.length > 0 && <div><strong>Evidence Records</strong><ul style={{ paddingLeft: '20px' }}>{dispute.evidences.map(evidence => <li key={evidence.id}>{evidence.filename}</li>)}</ul></div>}
               <p className="provider-hint">Assigned arbitrator: {dispute.arbitratorName || 'Not assigned'}</p>
               {dispute.hearingSchedule && <p>Hearing: {formatDate(dispute.hearingSchedule.scheduledDate)} at {dispute.hearingSchedule.scheduledTime}</p>}
+              {dispute.hearingSchedule && dispute.status !== 'ruled' && <a href={dispute.hearingSchedule.meetUrl} target="_blank" rel="noreferrer">Join Hearing</a>}
               {dispute.ruling && <div className="provider-record"><strong>{dispute.ruling.verdict}</strong><p>Award: {money(dispute.ruling.awardAmount)}</p><p>{dispute.ruling.reason}</p></div>}
             </section>
           ))}
@@ -106,6 +111,7 @@ export function JobDetailPage() {
           <hr />
           <h2>Payment Breakdown</h2>
           <div className="provider-row provider-between"><span>Gross Price</span><strong>{money(job.amount)}</strong></div>
+          {job.refundedAmount > 0 && <div className="provider-row provider-between"><span>Refunded Amount</span><span>{money(job.refundedAmount)}</span></div>}
           <div className="provider-row provider-between"><span>Platform Fee (5%)</span><span>{money(platformFee(job))}</span></div>
           <div className="provider-row provider-between"><span>Net Amount</span><strong>{money(netPayout(job))}</strong></div>
           <p className="provider-hint">Payment: {job.paymentStatus}. {job.status === 'completed' && isPaid(job) ? 'Included in completed earnings.' : 'Not included in completed earnings.'}</p>

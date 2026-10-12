@@ -1,118 +1,56 @@
-import React, { useState } from 'react';
-import { Users, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { getProviders, moderateProvider } from '../../data/mockRepository';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { Modal } from '../../design-system/primitives/Modal';
 import { TextField } from '../../design-system/primitives/TextField';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 
 export function ProviderModerationPage() {
   const { showToast } = useApp();
-
-  const [providers, setProviders] = useState([
-    {
-      id: 'user-prov-1',
-      name: 'Rajesh Kumar',
-      businessName: 'Apex Fix Services & Repairs',
-      status: 'approved',
-      serviceArea: 'Bengaluru Urban',
-      skills: 'AC Maintenance, Electrical',
-      appliedDate: '2026-08-01'
-    },
-    {
-      id: 'user-prov-2',
-      name: 'Sunil Verma',
-      businessName: 'Quick Clean Express',
-      status: 'submitted',
-      serviceArea: 'Mumbai Suburbs',
-      skills: 'Home Cleaning',
-      appliedDate: '2026-08-15'
-    }
-  ]);
-
-  const [selectedProvider, setSelectedProvider] = useState(null);
-  const [auditReason, setAuditReason] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [actionType, setActionType] = useState('approve'); // approve, reject, changes
-
-  const handleActionClick = (prov, action) => {
-    setSelectedProvider(prov);
-    setActionType(action);
-    setAuditReason('');
-    setModalOpen(true);
+  const { data: providers, loading, error, refresh } = useRepositoryQuery(getProviders);
+  const [decision, setDecision] = useState(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const close = () => { if (!busy) { setDecision(null); setReason(''); setSaveError(''); } };
+  const confirm = async event => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true); setSaveError('');
+    try {
+      await moderateProvider(decision.id, decision.status, reason);
+      setDecision(null); setReason(''); showToast('Provider verification decision saved.');
+    } catch (error) { setSaveError(error.message); }
+    finally { setBusy(false); }
   };
-
-  const handleConfirmAction = () => {
-    if (!auditReason) {
-      showToast('Please enter an audit reason note.', 'warning');
-      return;
-    }
-
-    const newStatus = actionType === 'approve' ? 'approved' : actionType === 'reject' ? 'rejected' : 'changes_requested';
-    setProviders(providers.map(p => p.id === selectedProvider.id ? { ...p, status: newStatus } : p));
-    setModalOpen(false);
-    showToast(`Provider ${selectedProvider.businessName} updated to ${newStatus.toUpperCase()}!`, 'success');
-  };
-
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="300px" />;
   const columns = [
-    { header: 'Business Name', accessor: 'businessName', render: (row) => <strong>{row.businessName}</strong> },
-    { header: 'Applicant', accessor: 'name' },
+    { header: 'Business Name', accessor: 'businessName' }, { header: 'Applicant', accessor: 'name' },
     { header: 'Service Area', accessor: 'serviceArea' },
-    { header: 'Skills', accessor: 'skills' },
-    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
-    {
-      header: 'Actions',
-      accessor: 'id',
-      render: (row) => (
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <Button variant="success" size="sm" onClick={() => handleActionClick(row, 'approve')}>Approve</Button>
-          <Button variant="danger" size="sm" onClick={() => handleActionClick(row, 'reject')}>Reject</Button>
-          <Button variant="outline" size="sm" onClick={() => handleActionClick(row, 'changes')}>Request Changes</Button>
-        </div>
-      )
-    }
+    { header: 'Skills', render: row => row.skills.join(', ') },
+    { header: 'Status', render: row => <StatusBadge status={row.verificationStatus} /> },
+    { header: 'Document Record', render: row => row.documentName || 'Not submitted' },
+    { header: 'Actions', render: row => <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+      {[['approved', row.verificationStatus === 'suspended' ? 'Restore' : 'Approve'], ['rejected', 'Reject'], ['changes_requested', 'Request Changes'], ['suspended', 'Suspend']].map(([status, label]) =>
+        <Button key={status} variant={status === 'approved' ? 'success' : status === 'suspended' || status === 'rejected' ? 'danger' : 'outline'} size="sm" disabled={busy || row.verificationStatus === status} onClick={() => setDecision({ id: row.id, status })}>{label}</Button>)}
+    </div> }
   ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div className="page-header">
-        <h1 className="page-title">Provider Moderation Queue</h1>
-        <p className="page-subtitle">Review, approve, or reject business onboarding applications with audit logs</p>
-      </div>
-
-      <div className="card">
-        <DataTable columns={columns} data={providers} keyField="id" />
-      </div>
-
-      <Modal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={`Audit Decision: ${actionType.toUpperCase()}`}
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button variant={actionType === 'reject' ? 'danger' : 'primary'} onClick={handleConfirmAction}>
-              Confirm Audit Decision
-            </Button>
-          </>
-        )}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ fontSize: '13px', color: 'var(--color-ink)' }}>
-            Target Provider: <strong>{selectedProvider?.businessName}</strong>
-          </p>
-          <TextField
-            label="Mandatory Audit Reason / Feedback Note"
-            value={auditReason}
-            onChange={(e) => setAuditReason(e.target.value)}
-            placeholder="Explain why this decision was taken for compliance records..."
-            multiline
-            rows={3}
-            required
-          />
-        </div>
-      </Modal>
+      <div className="page-header"><h1 className="page-title">Provider Moderation Queue</h1><p className="page-subtitle">Review saved provider profiles and record verification decisions</p></div>
+      <div className="card"><DataTable columns={columns} data={providers} /></div>
+      <form onSubmit={confirm}>
+        <Modal isOpen={Boolean(decision)} onClose={close} title="Provider Verification Decision" footer={<><Button variant="secondary" disabled={busy} onClick={close}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Confirm Audit Decision'}</Button></>}>
+          <TextField name="audit-reason" label="Audit Reason / Feedback" value={reason} onChange={event => setReason(event.target.value)} multiline required disabled={busy} />
+          {saveError && <p role="alert" style={{ color: 'var(--color-danger)' }}>{saveError}</p>}
+        </Modal>
+      </form>
     </div>
   );
 }

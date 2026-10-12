@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Star, Shield, Clock, CheckCircle2, XCircle, Calendar, ArrowLeft } from 'lucide-react';
-import { getAvailableSlots, getServiceById } from '../../data/mockRepository';
+import { Star, Shield, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { getAvailableSlots, getServiceById, getServiceReviews } from '../../data/mockRepository';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
@@ -12,53 +13,25 @@ export function ServiceDetailPage() {
   const { serviceId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentRole, setSavedIntent, showToast } = useApp();
+  const { currentRole, currentUser, setSavedIntent, showToast } = useApp();
 
-  const [service, setService] = useState(null);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [slotsLoading, setSlotsLoading] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    const [service, reviews] = await Promise.all([getServiceById(serviceId, { role: currentRole, userId: currentUser?.id }), getServiceReviews(serviceId)]);
+    return { service, reviews };
+  }, [serviceId, currentRole, currentUser?.id]);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const service = data?.service;
   const [selectedSlot, setSelectedSlot] = useState('');
   const [selectedDate, setSelectedDate] = useState(
     location.state?.selectedDate || getTodayDateInputValue()
   );
 
+  const loadSlots = useCallback(() => selectedDate && service ? getAvailableSlots(service.id, selectedDate) : Promise.resolve([]), [service?.id, selectedDate]);
+  const { data: slots, error: slotError, loading: slotsLoading } = useRepositoryQuery(loadSlots);
+  const availableSlots = slots || [];
   useEffect(() => {
-    async function loadDetail() {
-      setLoading(true);
-      const data = await getServiceById(serviceId);
-      setService(data);
-      setLoading(false);
-    }
-    loadDetail();
-  }, [serviceId]);
-
-  useEffect(() => {
-    if (!service || service.id !== serviceId) return undefined;
-    if (!selectedDate) {
-      setAvailableSlots([]);
-      setSelectedSlot('');
-      setSlotsLoading(false);
-      return undefined;
-    }
-
-    let isCurrentRequest = true;
-    setSlotsLoading(true);
-    setAvailableSlots([]);
-    async function loadAvailableSlots() {
-      const slots = await getAvailableSlots(service.id, selectedDate);
-      if (isCurrentRequest) {
-        setAvailableSlots(slots);
-        setSelectedSlot(currentSlot => slots.includes(currentSlot) ? currentSlot : (slots[0] || ''));
-        setSlotsLoading(false);
-      }
-    }
-    loadAvailableSlots();
-
-    return () => {
-      isCurrentRequest = false;
-    };
-  }, [service, serviceId, selectedDate]);
+    if (slots) setSelectedSlot(value => slots.includes(value) ? value : (slots[0] || ''));
+  }, [slots]);
 
   const handleBookingStart = () => {
     if (!selectedDate || !selectedSlot || !availableSlots.includes(selectedSlot)) {
@@ -84,6 +57,8 @@ export function ServiceDetailPage() {
       navigate('/customer/checkout', { state: { intent: bookingIntent } });
     }
   };
+
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
 
   if (loading) {
     return (
@@ -122,7 +97,7 @@ export function ServiceDetailPage() {
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', color: 'var(--color-ink)', fontWeight: '700' }}>
-                  <Star size={16} fill="#F59E0B" color="#F59E0B" /> {service.rating}
+                  <Star size={16} fill="#F59E0B" color="#F59E0B" /> {service.reviewCount ? Number(service.rating).toFixed(1) : 'No reviews yet'}
                   <span style={{ color: 'var(--color-muted)', fontWeight: 'normal' }}>({service.reviewCount} customer reviews)</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', color: 'var(--color-muted)' }}>
@@ -167,6 +142,12 @@ export function ServiceDetailPage() {
             </div>
           </div>
 
+          <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3>Customer Reviews</h3>
+            {data.reviews.length === 0 && <p>No customer reviews yet.</p>}
+            {data.reviews.map(review => <div key={review.id}><strong>{review.customerName} · {review.rating}/5</strong><p>{review.comment}</p>{review.reply && <p><strong>Provider Reply:</strong> {review.reply}</p>}</div>)}
+          </section>
+
           {/* Policy & Trust */}
           <div className="card">
             <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)', marginBottom: '8px' }}>Cancellation & Service Policy</h3>
@@ -192,7 +173,7 @@ export function ServiceDetailPage() {
               </div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{service.providerName}</div>
-                <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '600' }}>Verified Professional</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '600' }}>{service.providerVerificationStatus === 'approved' ? 'Verified Professional' : service.providerVerificationStatus?.replaceAll('_', ' ')}</div>
               </div>
             </div>
 
@@ -200,10 +181,11 @@ export function ServiceDetailPage() {
 
             {/* Slot Selector */}
             <div>
-              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)', display: 'block', marginBottom: '8px' }}>
+              <label htmlFor="booking-date" style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)', display: 'block', marginBottom: '8px' }}>
                 1. Select Preferred Date:
               </label>
               <input
+                id="booking-date"
                 type="date"
                 value={selectedDate}
                 min={getTodayDateInputValue()}
@@ -247,8 +229,9 @@ export function ServiceDetailPage() {
               )}
             </div>
 
-            <Button variant="primary" size="lg" fullWidth onClick={handleBookingStart}>
-              Proceed to Booking ({selectedSlot || 'Select Slot'})
+            {slotError && <p role="alert">{slotError}</p>}
+            <Button variant="primary" size="lg" fullWidth disabled={slotsLoading || !selectedSlot || !['guest', 'customer'].includes(currentRole)} onClick={handleBookingStart}>
+              {['guest', 'customer'].includes(currentRole) ? `Proceed to Booking (${selectedSlot || 'Select Slot'})` : 'Service Preview'}
             </Button>
           </div>
         </div>

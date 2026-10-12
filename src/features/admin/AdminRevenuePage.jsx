@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, CreditCard, Users, PieChart, Search, Filter, ShieldCheck, ArrowUpRight, Download, Info, CheckCircle2, Eye, X } from 'lucide-react';
-import { getRevenueStats, getBookings } from '../../data/mockRepository';
+import { useState } from 'react';
+import { DollarSign, TrendingUp, CreditCard, Users, PieChart, Search, Filter, ShieldCheck, Eye } from 'lucide-react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { getRevenueStats } from '../../data/mockRepository';
+import { platformFee, netPayout } from '../../data/bookingRules';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -9,30 +13,13 @@ import { Select } from '../../design-system/primitives/Select';
 import { Modal } from '../../design-system/primitives/Modal';
 
 export function AdminRevenuePage() {
-  const [stats, setStats] = useState({
-    gmv: 0,
-    totalRevenue: 0,
-    totalNetPayouts: 0,
-    transactionCount: 0,
-    avgFeePerBooking: 0,
-    categoryBreakdown: [],
-    recentTransactions: []
-  });
-  const [loading, setLoading] = useState(true);
+  const { data: stats, loading, error, refresh } = useRepositoryQuery(getRevenueStats);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedTxn, setSelectedTxn] = useState(null);
 
-  const loadData = async () => {
-    setLoading(true);
-    const data = await getRevenueStats();
-    setStats(data);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="400px" />;
 
   // Filter transactions
   const filteredTransactions = stats.recentTransactions.filter(txn => {
@@ -44,7 +31,7 @@ export function AdminRevenuePage() {
     
     const matchesStatus = 
       statusFilter === 'ALL' || 
-      (statusFilter === 'Paid' && (txn.paymentStatus === 'Paid' || txn.status === 'completed' || txn.status === 'active')) ||
+      (statusFilter === 'Paid' && ['Paid', 'Completed', 'Partially Refunded'].includes(txn.paymentStatus)) ||
       (statusFilter === 'Disputed' && txn.status === 'disputed');
 
     return matchesSearch && matchesStatus;
@@ -90,7 +77,7 @@ export function AdminRevenuePage() {
       header: '5% Platform Fee',
       accessor: 'platformFee',
       render: (row) => {
-        const fee = row.platformFee !== undefined ? row.platformFee : Math.round(row.amount * 0.05);
+        const fee = platformFee(row);
         return (
           <span style={{ fontWeight: '800', color: '#059669', backgroundColor: '#ECFDF5', padding: '4px 8px', borderRadius: '6px' }}>
             +₹{fee}
@@ -102,9 +89,7 @@ export function AdminRevenuePage() {
       header: 'Net Provider Payout',
       accessor: 'netPayout',
       render: (row) => {
-        const fee = row.platformFee !== undefined ? row.platformFee : Math.round(row.amount * 0.05);
-        const payout = row.netPayout !== undefined ? row.netPayout : (row.amount - fee);
-        return <span style={{ fontWeight: '600', color: 'var(--color-ink-secondary)' }}>₹{payout}</span>;
+        return <span style={{ fontWeight: '600', color: 'var(--color-ink-secondary)' }}>₹{netPayout(row)}</span>;
       }
     },
     {
@@ -139,7 +124,7 @@ export function AdminRevenuePage() {
               <ShieldCheck size={14} /> 5% Commission Model
             </span>
           </div>
-          <p className="page-subtitle">Platform revenue accounting, booking fees, gross marketplace value (GMV), and provider payout disbursements</p>
+          <p className="page-subtitle">Platform revenue accounting, booking fees, gross marketplace value (GMV), and provider earnings</p>
         </div>
       </div>
 
@@ -152,7 +137,7 @@ export function AdminRevenuePage() {
           <div>
             <div style={{ fontSize: '14px', fontWeight: '700', color: '#0369A1' }}>ServiceHub Platform Fee Structure</div>
             <div style={{ fontSize: '12px', color: '#075985', marginTop: '2px' }}>
-              ServiceHub automatically retains a <strong>5% platform booking fee</strong> on all customer paid bookings. The remaining <strong>95% net amount</strong> is directly credited to provider wallets upon job completion.
+              ServiceHub automatically retains a <strong>5% platform booking fee</strong> on all customer paid bookings. The remaining <strong>95% net amount</strong> is recorded as provider earnings once the paid job is completed.
             </div>
           </div>
         </div>
@@ -165,7 +150,7 @@ export function AdminRevenuePage() {
             <TrendingUp size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>TOTAL PLATFORM REVENUE (5%)</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>PLATFORM REVENUE AFTER REFUNDS</span>
             <div style={{ fontSize: '26px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>
               ₹{stats.totalRevenue.toLocaleString()}
             </div>
@@ -182,7 +167,7 @@ export function AdminRevenuePage() {
             <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '2px' }}>
               ₹{stats.gmv.toLocaleString()}
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Total transaction volume</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Gross collected; refunds: ₹{stats.totalRefunds.toLocaleString()}</span>
           </div>
         </div>
 
@@ -191,11 +176,11 @@ export function AdminRevenuePage() {
             <Users size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>NET PROVIDER PAYOUTS (95%)</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>COMPLETED PROVIDER EARNINGS</span>
             <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '2px' }}>
               ₹{stats.totalNetPayouts.toLocaleString()}
             </div>
-            <span style={{ fontSize: '11px', color: '#6D28D9', fontWeight: '600' }}>Released to service providers</span>
+            <span style={{ fontSize: '11px', color: '#6D28D9', fontWeight: '600' }}>Completed paid bookings</span>
           </div>
         </div>
 
@@ -291,10 +276,11 @@ export function AdminRevenuePage() {
               </div>
             </div>
 
+            <p>Payment: {selectedTxn.paymentStatus} · Refunded: ₹{selectedTxn.refundedAmount || 0}</p>
             <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)', marginTop: '4px' }}>Financial Itemization</h4>
             <div style={{ border: '1px solid var(--color-border)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Gross Booking Price Paid by Customer:</span>
+                <span>Gross Booking Price:</span>
                 <strong style={{ fontSize: '15px' }}>₹{selectedTxn.amount}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', fontWeight: '700' }}>
@@ -303,8 +289,8 @@ export function AdminRevenuePage() {
               </div>
               <hr style={{ border: 'none', borderTop: '1px dashed var(--color-border)' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-primary)', fontWeight: '800', fontSize: '16px' }}>
-                <span>Net Credited to Provider Wallet (95%):</span>
-                <span>₹{selectedTxn.netPayout !== undefined ? selectedTxn.netPayout : (selectedTxn.amount - Math.round(selectedTxn.amount * 0.05))}</span>
+                <span>Net Provider Amount After Refunds:</span>
+                <span>₹{netPayout(selectedTxn)}</span>
               </div>
             </div>
 

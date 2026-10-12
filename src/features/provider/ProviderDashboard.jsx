@@ -7,7 +7,7 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
-import { useProviderQuery } from './useProviderQuery';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { bookingTime, formatDate, isPending, isPaid, money, netPayout, slotMinutes } from './providerUtils';
 import { getTodayDateInputValue } from '../../utils/date';
 
@@ -15,7 +15,7 @@ export function ProviderDashboard() {
   const { currentUser } = useApp();
   const navigate = useNavigate();
   const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, loading, error, refresh } = useProviderQuery(load);
+  const { data: jobs, loading, error, refresh } = useRepositoryQuery(load);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="400px" borderRadius="12px" />;

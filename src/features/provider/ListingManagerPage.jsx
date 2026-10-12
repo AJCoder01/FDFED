@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { getCategories, getServiceById, getServices, saveService } from '../../data/mockRepository';
+import { getCategories, getServices, saveService } from '../../data/mockRepository';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
@@ -11,7 +11,7 @@ import { Modal } from '../../design-system/primitives/Modal';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { SlotEditor } from './SlotEditor';
-import { useProviderQuery } from './useProviderQuery';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { money, validateSlots } from './providerUtils';
 
 const emptyForm = {
@@ -27,17 +27,19 @@ export function ListingManagerPage() {
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(pathname.endsWith('/new'));
   const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState(false);
   const [formError, setFormError] = useState('');
   const approved = currentUser.verificationStatus === 'approved';
   const load = useCallback(async () => {
-    const [services, categories] = await Promise.all([getServices(), getCategories()]);
-    return { services: services.filter(service => service.providerId === currentUser.id), categories };
+    const [services, categories] = await Promise.all([getServices({ role: 'provider', userId: currentUser.id }), getCategories()]);
+    return { services, categories };
   }, [currentUser.id]);
-  const { data, loading, error, refresh } = useProviderQuery(load);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
 
   useEffect(() => {
     if (pathname.endsWith('/new')) {
       setForm(emptyForm);
+      setDraft(false);
       setFormError('');
       setOpen(true);
     }
@@ -80,24 +82,19 @@ export function ListingManagerPage() {
     setBusy(true);
     setFormError('');
     try {
-      if (form.id) {
-        const existing = await getServiceById(form.id);
-        if (!existing || existing.providerId !== currentUser.id) throw new Error('This listing is unavailable.');
-      }
-      const result = await saveService({
+      await saveService({
         ...(form.id ? { id: form.id } : {}),
         title: form.title.trim(), description: form.description.trim(), price, duration: `${duration} mins`,
         categoryId: category.id, categoryName: category.name, policy: form.policy.trim(), image: form.image.trim(),
         inclusions: form.inclusions.split(',').map(item => item.trim()).filter(Boolean),
         exclusions: form.exclusions.split(',').map(item => item.trim()).filter(Boolean),
         providerId: currentUser.id, providerName: currentUser.businessName || currentUser.name,
-        availableSlots: form.availableSlots
-      });
-      if (!result.success) throw new Error('The listing could not be saved.');
+        availableSlots: form.availableSlots,
+        ...(!form.id ? { status: draft ? 'draft' : 'published' } : {})
+      }, { role: 'provider', userId: currentUser.id });
       setOpen(false);
       if (pathname.endsWith('/new')) navigate('/provider/services', { replace: true });
-      refresh();
-      showToast(form.id ? 'Listing changes saved.' : 'Listing published.');
+      showToast(form.id ? 'Listing changes saved.' : draft ? 'Listing draft saved.' : 'Listing published.');
     } catch (error) {
       setFormError(error.message);
     } finally {
@@ -109,11 +106,7 @@ export function ListingManagerPage() {
     if (busy || !approved) return;
     setBusy(true);
     try {
-      const existing = await getServiceById(service.id);
-      if (!existing || existing.providerId !== currentUser.id) throw new Error('This listing is unavailable.');
-      const result = await saveService({ id: service.id, status });
-      if (!result.success) throw new Error('The listing status could not be saved.');
-      refresh();
+      await saveService({ id: service.id, status }, { role: 'provider', userId: currentUser.id });
       showToast(`Listing status saved as ${status}.`);
     } catch (error) {
       showToast(error.message, 'error');
@@ -132,7 +125,7 @@ export function ListingManagerPage() {
         <Button icon={Plus} disabled={busy || !approved} onClick={() => navigate('/provider/services/new')}>Create New Listing</Button>
       </div>
       {!approved && <p className="provider-hint">An approved provider profile is required to manage listings.</p>}
-      <p className="provider-hint">Paused and archived listings may still appear in customer search until marketplace visibility controls are completed.</p>
+
       {data.services.length === 0 && <div className="card">No service listings yet.</div>}
       <div className="grid-cols-3">
         {data.services.map(service => (
@@ -160,12 +153,13 @@ export function ListingManagerPage() {
             <>
               <Button variant="secondary" disabled={busy} onClick={close}>Cancel</Button>
               <Button type="submit" disabled={busy || !approved}>
-                {busy ? 'Saving…' : form.id ? 'Save Changes' : 'Save & Publish'}
+                {busy ? 'Saving…' : form.id ? 'Save Changes' : draft ? 'Save Draft' : 'Save & Publish'}
               </Button>
             </>
           )}
         >
           <div className="provider-stack">
+            {!form.id && <label className="provider-row"><input type="checkbox" checked={draft} onChange={event => setDraft(event.target.checked)} disabled={busy} />Save as a draft</label>}
             <TextField name="title" label="Service Title" value={form.title} onChange={change} disabled={busy} required />
             <Select name="categoryId" label="Service Category" value={form.categoryId} onChange={change} disabled={busy} required options={data.categories.map(category => ({ value: category.id, label: category.name }))} />
             <div className="grid-cols-2">

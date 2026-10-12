@@ -1,111 +1,117 @@
-# Provider functionality audit — 12 October 2026
+# Provider audit and presentation guide
 
-Provider fixes are implemented within the assigned ownership boundary. The supported booking, listing, earnings, and daily scheduling flows work against the existing repository. A fully configurable weekly calendar, profile submission, customer-approved rescheduling, review replies, and notification read updates still require shared operations that do not exist. Those controls now explain their limitations instead of reporting fake success.
+Updated 13 October 2026. The Provider section and its shared dependencies now use the same persisted profiles, schedules, bookings, reviews, disputes, and notifications. The expanded changes follow the later request to fix the previously reported teammate dependencies. The existing design and mock localStorage architecture are preserved.
 
-No Customer, Admin, Arbitrator, public/authentication, repository, context, routing, shared primitive, package, or mock-data files were changed. Existing browser storage was not reset. Tests used in-memory storage or fresh, disposable Chromium contexts.
+Earlier work is saved on `codex/provider-audit-baseline` (`5da6b21`). The complete implementation is on `codex/provider-workflow-complete`, based on that baseline. `main`, `mockData.js`, package configuration, and the user's browser storage were not changed or reset by testing.
 
 ## A. Provider functionality audit
 
 | Page | Features checked | Bugs fixed | Remaining issues | Status |
 | --- | --- | --- | --- | --- |
-| ProviderDashboard | Counts, verification, earnings, recent/upcoming jobs, quick actions | Gross earnings replaced with completed paid net earnings; pending requests distinguished from accepted work; fabricated rating removed; verification comes from current profile; recent records sorted across both timestamp formats; upcoming records sorted by date/time | Profile status can only reflect the immutable shared demo profile until shared profile persistence exists | Supported flow verified |
-| ProviderOnboardingPage | Business, coverage, skills, contact details, verification | Fake submission and fabricated document removed; saved profile shown accurately; unavailable updates disabled | No shared profile save/submission operation; Admin profile moderation is disconnected | Blocked dependency |
-| ListingManagerPage | Create route, create/edit forms, category, price, duration, scope, policy, image URL, slots, preview, publication states | Create route opens the form; real edit/pause/archive/publish operations added; trimmed validation and real form submission; existing slots/status/rating preserved on edits; loading/errors/empty states; duplicate submission prevention | Marketplace ignores paused/archived visibility; Admin moderation does not persist; new drafts and approval queues are not supported by creation operation | Partial integration |
-| AvailabilitySchedulerPage | Weekly profile display; service slot editing; daily date selection/navigation; stored bookings; customer availability | Replaced false schedule-save success with actual service-slot persistence; current date replaces hardcoded date; duplicate/overlapping/overnight slot validation; daily booking preview; reload persistence; drafts survive focus refresh | Weekly settings have no save operation and are not enforced; provider-wide overlaps, lead time, buffers, and timezone contract missing | Partial integration |
-| JobInboxPage | Provider ownership, filters, acceptance/rejection, status changes, workspace navigation | Terminal/disputed jobs no longer expose request actions; repeat acceptance prevented; mandatory rejection reason; confirmation and pending states; immediate updates; cross-tab booking refresh | Customer-approved time proposal operation and response UI are missing; acceptance is a timeline event because shared status remains `active` | Supported actions verified; proposal blocked |
-| JobDetailPage | Direct access, acceptance, start, completion, notes, timeline, schedule, payment, disputes | Other-provider bookings blocked; fresh status/ownership checked before mutations; work requires acceptance; whitespace-only completion rejected; repeat/stale transitions prevented through Provider entry points; reliable back route; actual hearing/ruling displayed | Shared status operation is still unrestricted and cannot atomically guard concurrent changes; dispute resolution does not update booking/payment records | Supported fulfillment verified |
-| EarningsPage | Paid records, completed/pending/held totals, gross, fee, net, payment history | Paid active/disputed jobs no longer count as completed earnings; numeric arithmetic and stored fee/payout values; fabricated wallet-release labels removed; loading/error/empty states | Shared cash/refund/payment records and Admin payout-release claims remain inaccurate | Stored-record calculations verified |
-| ReviewsPage | Stored customer reviews, provider ownership, rating, average, dates, empty state | Page-specific invented reviews removed; reads actual booking reviews; average explicitly describes stored reviews; false public-reply success removed | Customer submission does not persist; no public-reply write/read contract; public service aggregates are separate fixture values | Partial integration |
-| ProviderLayout | Navigation, nested active state, profile label, notifications, mobile layout | Fixed invalid `justify` style; nested routes highlight the right item; verification label uses actual profile; notification button labelled and refreshes; Provider layout works at 390 px | Live shared profile/session and notification synchronization require context changes | Verified |
-| NotificationDrawer | Filtering, saved read states, refresh, links, Escape, focus, dismissal | Current-user filtering, keyboard-operable links, dialog name/focus trap, focus restoration, scroll cleanup, error handling; payment wording clarified | Repository has no mark-read operation; upstream hearing/ruling notifications are not created | Supported drawer behavior verified |
+| ProviderDashboard | Counts, recent/upcoming jobs, verification, earnings, navigation | Data-derived counts and completed paid net earnings; pending versus accepted requests; correct timestamp sorting; live updates | Mock data scope only | Verified |
+| ProviderOnboardingPage | Profile editing, validation, persistence, verification submission and Admin feedback | Canonical saved profile replaces disconnected demo state; required business/area/skills; explicit document filename requirement; real review queue and feedback | Document filenames are demo records, without actual upload or identity verification | Verified |
+| ListingManagerPage | Create/edit, drafts, publish/pause/archive, preview, category/price/duration/image/slots | Real persistence; edits preserve slots and status; approved-provider publication gate; hidden listings excluded from customer discovery and checkout; unrated new listings; save errors retain inputs | External image hosting was not tested | Verified |
+| AvailabilitySchedulerPage | Weekly days/hours, blackouts, lead time, buffers, service slots, daily navigation and bookings | Actual schedule persistence and customer enforcement; cross-service conflicts; India timezone; year/leap-day navigation; drafts survive refreshes | Scheduling uses Asia/Kolkata; native date picker internals were not separately automated | Verified |
+| JobInboxPage | Provider ownership, filters, accept/decline/propose, live incoming jobs | Valid status transitions; confirmations; decline reason/refund; proposals preserve the original reservation and require customer consent | Mock repository scope only | Verified |
+| JobDetailPage | Ownership, acceptance/start/completion, completion notes, timelines, payments, disputes | Stale/repeated/invalid actions rejected in the repository; cash collection explicitly recorded at completion; correct dispute relationship, response, evidence records, hearing link, and ruling outcome | Hearing links are supplied by the user; video conferencing is external | Verified |
+| EarningsPage | Completed, pending and held amounts, fees, gross payments, refunds and history | Actual paid records and stored net amounts; cash excluded before collection; refunds reverse commission; no fabricated wallet-release claims; Admin agreement | No actual payment transfer or wallet exists | Verified |
+| ReviewsPage | Stored reviews, averages, replies/editing, empty state | Customer reviews and Provider replies persist; public ratings and replies derive from the same reviews | Mock persistence only | Verified |
+| ProviderLayout | All assigned routes, active navigation, role switching, themes and mobile layout | Correct nested navigation; canonical profile retained; safe SuperUser entry; readable responsive layout | Chromium tested at desktop and 390 px widths | Verified |
+| NotificationDrawer | User scope, single/all read, refresh, links, dismissal, keyboard and focus | Real persisted read state; relevant booking/dispute notifications; live updates; Escape works after a focused button becomes disabled; focus and scroll restored | In-app notifications only | Verified |
 
-## B. Calendar and scheduling verification
+## B. Calendar and scheduling
 
-The intended weekly layout was preserved. No calendar library was added. Weekly day chips, working hours, and blackout dates display the actual provider profile and are explicitly read-only because there is no supported save operation.
+The existing weekly scheduler and daily booking view are retained. No calendar library or separate Provider booking store was added.
 
-The functional connection is `service.availableSlots` → `saveService` → `getAvailableSlots` → customer slot picker/checkout. The Provider preview uses the same availability operation as the customer. It does not maintain a separate booking or availability store.
+The connection is `provider.weeklyAvailability` plus `service.availableSlots` → shared `availableSlots` → Customer picker and booking creation. The Provider preview calls that same operation. Creation and proposal acceptance recheck availability at the time of writing.
 
-Verified in actual browser workflows:
+Verified:
 
-- Today's local date; selecting and clearing a date; Previous Day, Next Day, and Today.
-- Year boundary: 1 January → 31 December → 1 January.
-- Leap-year boundary: 28 February 2028 → 29 February → 1 March.
-- Correct weekday/month/year formatting in Asia/Kolkata, America/Los_Angeles, and Pacific/Kiritimati.
-- Slot addition/removal; duplicate prevention; full duration between slots; empty/invalid/overnight range rejection; midnight/noon conversion in repository/logic tests.
-- Saved slots survive reload and reach the customer picker. Unsaved slot edits survive a focus-triggered data refresh.
-- Existing bookings retain their original schedule when future service slots change and remain visible on their dates.
-- An identical service/date/slot disappears after booking; a duplicate booking is rejected by the repository; cancellation releases that exact slot.
-- Provider bookings update in an already-open tab after customer checkout. A stale Provider modal cannot revive a customer-cancelled job.
-
-**Limits:** Weekly workdays, hours, blackouts, lead times, buffers, past dates, and overlaps between different services for the same provider are not enforced by the shared repository. Same-service slot configuration is validated, but provider-wide booking conflict prevention is incomplete. Stored times contain no explicit timezone. Existing proposed/disputed statuses can be displayed; a complete proposal/consent/reschedule workflow cannot be tested because it is absent. The native date picker's internal monthly navigation was not separately automated.
+- Working days, daily hours, full service duration, blackout dates, lead time and buffers save and survive reload.
+- Past dates, invalid dates, closed weekdays, out-of-hours appointments and overnight slots are blocked.
+- Duplicate and overlapping appointments are blocked across every service owned by one provider.
+- Two actual Customer checkout tabs competing for the same slot create one booking. A browser lock serializes the final availability check and write.
+- Cancelled bookings release their appointments. A time proposal keeps the original reservation; customer acceptance rechecks conflicts before moving it.
+- Existing bookings keep their confirmed schedule after future availability changes.
+- Previous Day, Next Day, Today, selection, year boundaries and leap days work. India dates stay correct even when the browser timezone is Los Angeles or Kiritimati.
+- Unsaved weekly, profile and slot edits survive focus-triggered refreshes. An already-open Provider inbox updates after checkout in another tab.
 
 ## C. Cross-role integration
 
 | Workflow | Result | Issues | Files responsible |
 | --- | --- | --- | --- |
-| Customer checkout → Provider request → accept → start → complete → Customer/Admin views → earnings | Passed for supported lifecycle; identical IDs, schedules, timelines, amounts, commission, and payouts observed | Shared `active` status covers both request and accepted work; other entry points lack transition guards | `src/data/mockRepository.js`; Provider guards implemented in `providerUtils.js` |
-| Request → Provider decline → Customer cancelled status → slot release | Passed, including rejection reason and stale-action protection | Payment remains `Paid`; no refund is recorded | `src/data/mockRepository.js`; `src/features/customer/BookingDetailPage.jsx` |
-| Provider create/edit/state changes → Admin listing view → customer discovery | Creation, editing, persistence, Admin visibility, and published discovery passed | Admin moderation is local state; paused/archived listings remain discoverable/bookable | `src/features/admin/ListingModerationPage.jsx`; `src/data/mockRepository.js`; public service pages |
-| Provider availability → customer slots → booking → Provider schedule | Passed for saved daily service slots and exact-slot blocking | Weekly scheduling and cross-service overlaps fail shared enforcement | `src/data/mockRepository.js`; shared provider profile/context |
-| Customer review → Provider review view → reply | Existing stored reviews pass; new submission/reply integration blocked | Customer review only updates component state; reply persistence absent | `src/features/customer/BookingDetailPage.jsx`; `src/data/mockRepository.js` |
-| Completed payments → Provider earnings → Admin ledger | Per-booking amounts and 5% commissions agree with stored records | Paid pending/held/cancelled amounts are not released earnings; shared refunds/cash states are inaccurate | `src/data/mockRepository.js`; `src/features/admin/AdminRevenuePage.jsx` |
-| Customer dispute → Admin assignment → Arbitrator hearing/ruling → Provider details | Shared dispute, assignment, hearing, and ruling persistence passed; Provider reads the saved hearing/ruling | Customer hardcodes case service/provider/amount; ruling does not resolve booking/payment or dispatch notifications | Customer dispute page; shared repository; Arbitrator hearing/ruling pages |
-| Changes while another role's page stays open | Provider cross-tab refresh passed | Other role pages generally fetch on mount only; shared notifications lack live synchronization | Customer/Admin/Arbitrator readers; `src/app/context/AppContext.jsx` |
+| Profile → Admin decision → Provider feedback/publication | Persisted business details and verification agree across roles | Demo document record only | `mockRepository.js`, `AppContext.jsx`, `ProviderOnboardingPage.jsx`, `ProviderModerationPage.jsx` |
+| Listing → Admin visibility/moderation → Customer discovery | Draft/private preview and publish/pause/archive rules enforced; decisions persist | None in tested flow | `mockRepository.js`, `ListingManagerPage.jsx`, `ListingModerationPage.jsx`, public service pages |
+| Availability → checkout → Provider schedule | Weekly rules and conflicts enforced by one shared rule function | India timezone contract | `scheduling.js`, `mockRepository.js`, `AvailabilitySchedulerPage.jsx`, `ServiceDetailPage.jsx` |
+| Booking → accept/decline/propose → start/complete | Shared IDs, schedule, acceptance, timeline and payment states; customer consent persists | None in tested flow | Repository, Provider job pages, `BookingDetailPage.jsx`, `BookingWizard.jsx` |
+| Completed job → review → Provider reply/public rating | Real review and public reply persistence; no fabricated rating for unreviewed listings | None in tested flow | Repository, `ReviewsPage.jsx`, Customer booking and public service detail pages |
+| Payments/refunds → Provider earnings → Admin ledger | Completed net earnings, retained fees and refunds agree; cash remains pending until recorded | Mock ledger; no transfer | `bookingRules.js`, repository, `EarningsPage.jsx`, Admin booking/revenue pages |
+| Support → refund or arbitration → Provider job | Correct booking metadata and payment change; escalation creates an actual linked case | Redo is a request requiring an agreed appointment | Repository, Customer support, Admin ticket resolution, Provider job detail |
+| Dispute → response → assignment → hearing → ruling | Actual booking/case relationship, Provider statement, hearing link, notifications and refund; final ruling restores/resolves booking status | Filename records only; no actual uploads | Repository, Customer dispute, Admin assignment, Arbitrator case/hearing/ruling and Provider response/detail |
+| Changes in another tab → current page | Shared readers and notifications refresh; stale async responses are discarded | Uses browser storage on the same origin | `repositoryEvents.js`, `useRepositoryQuery.js`, `AppContext.jsx`, affected role readers |
 
-## D. Code quality improvements and exact modified files
+## D. Code quality and modified files
 
-- `src/features/provider/ProviderDashboard.jsx`: data-derived metrics, correctly sorted recent/upcoming lists, real quick actions; removed unused service fetching and hardcoded statistics.
-- `src/features/provider/ProviderOnboardingPage.jsx`: removed fake editable state/submission and displays the existing shared profile.
-- `src/features/provider/ListingManagerPage.jsx`: one create/edit form, actual repository mutations, controlled fields and validation; no slot reset or status/rating overwrite on ordinary edits.
-- `src/features/provider/AvailabilitySchedulerPage.jsx`: supported slot management and daily booking preview; removed disconnected weekly-save handler.
-- `src/features/provider/JobInboxPage.jsx`: concise filtering and status-aware actions, authoritative updates.
-- `src/features/provider/JobDetailPage.jsx`: ownership/status checks, straightforward fulfillment form, actual dispute details.
-- `src/features/provider/EarningsPage.jsx`: clear completed/pending/held totals; removed false wallet credit claims.
-- `src/features/provider/ReviewsPage.jsx`: actual booking reviews; removed duplicate local dataset and fake reply state.
-- `src/features/provider/JobRequestActions.jsx`: shared inbox/detail confirmations and rejection validation.
-- `src/features/provider/SlotEditor.jsx`: shared listing/scheduler slot controls.
-- `src/features/provider/providerUtils.js`: shared financial/date/slot presentation and Provider transition checks; no separate persistence or booking engine.
-- `src/features/provider/useProviderQuery.js`: one small reader hook for loading/errors, stale-request cleanup, retry, focus and cross-tab refresh. No new state-management architecture.
-- `src/app/layouts/ProviderLayout.jsx`: navigation, verification, notification accessibility, and scoped responsive classes.
-- `src/features/notifications/NotificationDrawer.jsx`: accessible navigation, focus management, refresh/errors, cleanup, and truthful read-state display.
-- `src/index.css`: additions scoped under `.provider-workspace`; existing global styles retained.
-- `src/features/provider/provider.test.mjs`: repeatable Node/Vite regression tests using disposable in-memory storage.
-- `src/features/provider/PROVIDER_AUDIT.md`: this report.
+The pages hold only form inputs, filters, dialogs, busy/error state and the data they display. Repository mutations enforce rules once. Small components share the inbox/detail job actions, listing/schedule slot editor, and dispute response form. No state library or dependency was added.
 
-Unused imports, duplicate defaults, redundant data fetching, obvious comments, invented values, and fake handlers were removed. No dependencies were added. `src/App.css` and `src/design-system/tokens.css` did not need changes.
+| Responsibility | Exact files |
+| --- | --- |
+| Provider pages | `src/features/provider/ProviderDashboard.jsx`, `ProviderOnboardingPage.jsx`, `ListingManagerPage.jsx`, `AvailabilitySchedulerPage.jsx`, `JobInboxPage.jsx`, `JobDetailPage.jsx`, `EarningsPage.jsx`, `ReviewsPage.jsx` |
+| Reused Provider controls | `src/features/provider/JobRequestActions.jsx`, `SlotEditor.jsx`, `ProviderDisputeResponse.jsx`, `providerUtils.js` |
+| Shared persistence and rules | `src/data/mockRepository.js`, `bookingRules.js`, `scheduling.js`, `repositoryEvents.js`, `useRepositoryQuery.js`, `src/utils/date.js` |
+| Shared state/layout | `src/app/context/AppContext.jsx`, `src/app/layouts/ProviderLayout.jsx`, `src/features/notifications/NotificationDrawer.jsx` |
+| Forms/dialogs/status styles | `src/design-system/primitives/Button.jsx`, `ConfirmDialog.jsx`, `Modal.jsx`, `TextField.jsx`, `Select.jsx`, `StatusBadge.jsx`, `src/design-system/tokens.css`, `src/index.css` |
+| Customer dependencies | `src/features/customer/BookingWizard.jsx`, `BookingDetailPage.jsx`, `BookingsListPage.jsx`, `CustomerDashboard.jsx`, `SupportTicketPage.jsx`, `DisputeFilingPage.jsx` |
+| Admin dependencies | `src/features/admin/ProviderModerationPage.jsx`, `ListingModerationPage.jsx`, `BookingInspectorPage.jsx`, `AdminRevenuePage.jsx`, `AdminDashboard.jsx`, `TicketResolutionPage.jsx`, `DisputeAssignmentPage.jsx` |
+| Arbitrator dependencies | `src/features/arbitrator/ArbitratorDashboard.jsx`, `DisputeCaseDetailPage.jsx`, `HearingSchedulerPage.jsx`, `RulingIssuancePage.jsx` |
+| Marketplace reads | `src/features/public/ServiceDetailPage.jsx`, `ServiceSearchPage.jsx`, `LandingPage.jsx` |
+| Routing | `src/app/routes/AppRoutes.jsx`: loads the homepage separately so it does not inflate the Provider entry bundle |
+| Tests/report | `src/features/provider/provider.test.mjs`, `provider.e2e.mjs`, `provider.edges.e2e.mjs`, `PROVIDER_AUDIT.md` |
 
-## E. Problems outside Provider ownership
+`src/features/provider/useProviderQuery.js` was removed after moving its useful reader logic to the shared `useRepositoryQuery.js`. Duplicate financial/date/slot logic, unused imports, redundant preflight reads, invented evidence defaults, fake success handlers and obvious comments were removed. Provider CSS is scoped to its workspace. Shared status text uses theme tokens. `App.css` did not need changes.
 
-| Dependency | Exact cause / evidence | Recommended fix |
-| --- | --- | --- |
-| Provider profile and weekly persistence | Repository exports no provider/profile/availability save operation. `AppContext.jsx` loads profiles from `DEMO_USERS`. `ProviderModerationPage.jsx:13` owns a separate local list and `:53` updates only that list. Provider/Admin names and verification states can disagree. | Add shared provider read/save/moderation operations; connect context and Admin to that source; persist weekly schedule on the canonical provider record. |
-| Weekly rules and provider-wide conflicts | `mockRepository.js:100` and `:166` inspect only service slot labels, exact dates, and same-service bookings. Isolated runtime probes returned Sunday, blackout, and past-date slots and allowed overlapping 09:00 AC / 09:30 electrical jobs for the same provider. | Apply the same provider schedule and duration-overlap validation in availability reads and booking creation. Define a scheduling timezone and reject past/out-of-hours/blackout bookings at the shared operation. |
-| Time proposals/customer consent | `updateBookingStatus` only changes status/timeline; no proposal date/slot object, customer acceptance/decline operation, or customer response UI exists. | Persist the proposal separately from the confirmed schedule; add customer consent actions and shared conflict validation before updating the actual schedule. |
-| Listing visibility/moderation | `ListingModerationPage.jsx:20` only calls `setServices`. `getServices`, `getServiceById`, and `createBooking` do not enforce publication status. A paused listing remained searchable and accepted checkout in an isolated repository probe. | Persist Admin decisions through repository operations; restrict public reads and new booking creation to permitted published listings while keeping provider/admin access to all states. |
-| Draft creation and unrated listings | `saveService` at `mockRepository.js:130` unconditionally sets new records to `published`, rating `5.0`, review count `0`, regardless of a requested draft status. | Honor supported creation states; represent no reviews as unrated and render that accurately in public views. Do not claim an approval queue before its shared state exists. |
-| Customer review and provider reply persistence | `BookingDetailPage.jsx:43` writes review fields only with `setBooking`; browser submission confirmed storage stayed unchanged. No review/reply operation exists. Public rating/count values come from services and do not derive from stored booking reviews. | Persist customer reviews and provider replies through a canonical review operation, enforce booking ownership/completion, and update shared rating/count displays from that source. |
-| Cash/refunds/earnings | `createBooking` at `mockRepository.js:195` always records `Paid`, including Cash After Service. Cancellation changes only status; `getRevenueStats` still includes cancelled paid records. `resolveTicket` at `:317` stores a refund outcome string without changing payments. Admin labels estimated net totals as released payouts. | Persist actual mock payment/refund states and commission reversals; distinguish expected net amounts from completed earnings and recorded payouts in Admin. |
-| Shared transition enforcement | `mockRepository.js:277` accepts any status and appends every repeated transition. Runtime probes allowed cancelled → completed and duplicate completed updates. Provider guards read before writing but cannot make this shared operation atomic. | Validate allowed transitions and expected current state inside the shared mutation; use canonical acceptance metadata/status instead of requiring all roles to infer acceptance from text. |
-| Incorrect dispute/ticket booking metadata | `DisputeFilingPage.jsx:27` hardcodes washing-machine service, provider, and ₹649 even when filing for another booking. `SupportTicketPage.jsx:33` also uses generic service/provider labels. | Load the selected booking, validate its ownership, and derive service, provider, and amounts from that record. |
-| Dispute links, final outcomes, and notifications | `createDispute` marks the booking disputed but omits `disputeId`/flags. `scheduleHearing` at `mockRepository.js:380` and `issueRuling` at `:396` only persist the dispute. Browser/probe tests confirmed a ruled case leaves the booking disputed and does not change payment or notify parties, although Arbitrator pages claim it does. | Persist the booking/case relationship, apply the agreed booking/payment outcome, and create actual party notifications before reporting completion/dispatch. |
-| Notification read/live state | Only `getNotifications` exists. `AppContext.jsx:65` loads on user change or explicit reload, without mutation subscriptions or stale-response protection. | Add shared mark-read operations and refresh notifications on meaningful data changes; ignore responses for old users. |
-| Other-role live state | Customer/Admin/Arbitrator readers generally load once in `useEffect`; public slots reload on service/date changes only. Source reviewed; automatic refresh of these already-open views was not fixed or comprehensively browser-tested. | Add a shared data-change subscription or focus/storage refresh with cleanup and stale-request protection to the responsible readers. |
-| Shared form/modal accessibility | `TextField` and `Select` display `required` but do not forward it to native controls; `Modal` has no accessible title association or focus trap. Provider manually validates submissions and the owned notification drawer has proper focus handling. | Fix native required/label forwarding and dialog naming/focus behavior in the shared primitives. |
+## E. Former teammate dependencies
+
+All previously documented dependencies needed by the Provider demonstration have been implemented: canonical profiles/moderation, weekly scheduling/conflicts, proposals/customer consent, visibility, reviews/replies, cash/refunds, transition enforcement, correct support/dispute metadata, ruling outcomes/notifications, read state/live readers, and shared form/dialog accessibility.
+
+No teammate ownership mapping is needed. The other role changes support Provider workflows; this was not a full audit of every Customer, Admin, Arbitrator or public feature.
 
 ## F. Final verification
 
-| Check | Executed result |
+| Check actually executed | Result |
 | --- | --- |
-| Original baseline `npm run build` | Passed before implementation |
-| Final `npm run build` | Passed; Vite 8.2.1 production bundle |
-| `node --test src/features/provider/provider.test.mjs` | 18 tests passed, 0 failed |
-| Development-browser route smoke | All eight Provider pages plus create-listing route loaded without runtime errors |
-| Production Chromium workflows | 33 checks passed, including actual customer checkout, Provider lifecycle, listing management, Customer/Admin views, dispute assignment/hearing/ruling reads, mobile layout, dark theme, and absence of runtime errors/React warnings |
-| Additional production browser edge checks | 8 checks passed: empty states, read failure/retry, save failure, invalid image URL and Enter submission, two additional timezones, live provider tab update, stale-modal rejection |
-| Final recent-bookings browser check | Passed on the final production dashboard; correct chronological seed order |
-| Shared repository limitation probes | 12 documented limitations reproduced in isolated in-memory storage |
-| `git diff --check` and ownership inspection | Passed; changes confined to assigned files |
+| `node --test src/features/provider/provider.test.mjs` | 29 passed, 0 failed |
+| Production Chromium presentation suite | 24 checks passed, no runtime errors or console warnings |
+| Development Chromium edge suite, React Strict Mode | 11 checks passed, no runtime errors or console warnings |
+| `npm run build` | Passed with Vite 8.2.1; no chunk-size warning |
+| `git diff --check` | Passed |
+| Package and seed inspection | Package files and `src/data/mockData.js` unchanged |
 
-Browser harnesses used the already-bundled Playwright runtime, without package changes. Scripts from this session are `/private/tmp/fdfed-provider-e2e.mjs`, `/private/tmp/fdfed-provider-edge-tests.mjs`, `/private/tmp/fdfed-provider-recent-test.mjs`, and `/private/tmp/fdfed-repository-probes.mjs`; the repeatable repository/logic suite is kept in the Provider folder.
+Tests use fresh, disposable Chromium contexts or in-memory localStorage. No existing user browser data was reset. Images were intercepted with harmless SVG responses; the edge suite also stubs external font CSS. External image and font hosting availability were excluded. Browser scripts use the existing bundled Playwright runtime without changing package dependencies.
 
-External Unsplash images were replaced with harmless image responses in automated browser tests; image hosting availability was not tested. Chromium was tested at desktop and 390 px mobile sizes; Safari/Firefox and every intermediate screen size were not tested. Native file uploads, document verification, financial transfers/refunds, weekly availability persistence, review replies, notification read mutations, and customer-approved rescheduling cannot be verified end to end because their shared implementation is missing. No claim is made that those workflows are complete.
+To repeat:
+
+```sh
+node --test src/features/provider/provider.test.mjs
+npm run build
+npm run preview -- --host 127.0.0.1 --port 5186 --strictPort
+```
+
+In another terminal, set `PLAYWRIGHT_MODULE` to your installed or bundled Playwright module and run `node src/features/provider/provider.e2e.mjs`. The edge suite uses the development server at port 5187: `npm run dev -- --host 127.0.0.1 --port 5187 --strictPort`, then `node src/features/provider/provider.edges.e2e.mjs`. `TEST_BASE_URL` overrides either default URL. Test summaries and screenshots are written to `/private/tmp`.
+
+Limits: this remains a frontend demo with localStorage persistence and demo role identities. KYC, evidence uploads, video meetings, notifications outside the app, authentication security and real payments/refunds require real services. Safari/Firefox and other team members' unrelated pages were not comprehensively tested.
+
+## G. Presentation and viva guide
+
+1. Sign in as Provider (`rohan@gmail.com`, `123456Ab@`). Show the dashboard and explain how counts and completed earnings come from bookings.
+2. Edit the profile, save and reload. To demonstrate verification, enter a demo filename, submit, switch to Admin using SuperUser, enter feedback and approve, then return to Provider.
+3. Create a listing with complete details and valid slots. Show its private draft preview, publish it, then demonstrate pause and republish.
+4. Save weekly hours, a buffer and a blackout. Choose a future working day for the demonstration; seed bookings are historical and past dates are intentionally unavailable.
+5. As Customer (`aarav@gmail.com`, same password), discover the listing and book a slot. Return to Provider and show the new request and notification.
+6. Propose another available time. As Customer, accept it. Return to Provider, start work, enter completion notes and complete the job.
+7. Show completed net earnings and the same fee/net values in Admin. Demonstrate a second declined request to show refund and slot release, or cash payment to show pending versus recorded collection.
+8. As Customer, submit a review. As Provider, reply. Show the reply on the Customer booking and public service page.
+9. File a dispute for the completed booking. As Provider, save a response and optional filename record. As Admin, assign the case; as Arbitrator (`kabir@gmail.com`, same password), enter a future hearing and meeting URL, then a ruling. Return to Provider to show notifications and the resulting earnings/refund.
+10. Open notifications, navigate to a job, mark all read and press Escape. Show the same workflow in a narrow viewport or dark theme.
+
+The code path to explain is **page event → repository operation → localStorage save → data-change event → subscribed page refresh**. `scheduling.js` is pure date/time and overlap logic; `bookingRules.js` defines paid/accepted states and refund arithmetic; `mockRepository.js` validates and saves; `useRepositoryQuery.js` handles loading, errors, retry and stale-request cleanup; `AppContext.jsx` holds the current demo role/profile, theme, notifications and toast. React state handles temporary edits while saved records remain in the repository.

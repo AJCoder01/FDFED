@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Award, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Award } from 'lucide-react';
 import { issueRuling } from '../../data/mockRepository';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -14,25 +14,26 @@ export function RulingIssuancePage() {
   const { showToast } = useApp();
 
   const [verdict, setVerdict] = useState('In Favor of Customer');
-  const [awardAmount, setAwardAmount] = useState('2500');
-  const [rulingReason, setRulingReason] = useState('Evidence confirms technician failed to secure drain pipe clamp causing water damage.');
+  const [awardAmount, setAwardAmount] = useState('0');
+  const [rulingReason, setRulingReason] = useState('');
+  const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     if (!rulingReason) {
       showToast('Please enter the ruling rationale.', 'warning');
       return;
     }
 
-    await issueRuling(caseIdParam, {
-      verdict: verdict,
-      awardAmount: Number(awardAmount),
-      reason: rulingReason
-    });
-
-    setIssued(true);
-    showToast(`Ruling issued for Case #${caseIdParam}! Notifications sent to Customer & Provider.`, 'success');
+    setBusy(true);
+    try {
+      await issueRuling(caseIdParam, { verdict, awardAmount: Number(awardAmount), reason: rulingReason });
+      setIssued(true);
+      showToast(`Ruling issued for Case #${caseIdParam}. Notifications sent to Customer & Provider.`, 'success');
+    } catch (error) { showToast(error.message, 'warning'); }
+    finally { setBusy(false); }
   };
 
   if (issued) {
@@ -44,7 +45,7 @@ export function RulingIssuancePage() {
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)' }}>Binding Ruling & Award Issued</h1>
           <p style={{ fontSize: '14px', color: 'var(--color-muted)' }}>
-            Case ID <strong style={{ color: 'var(--color-primary)' }}>#{caseIdParam}</strong> is now officially closed.
+            Case ID <strong style={{ color: 'var(--color-primary)' }}>#{caseIdParam}</strong> has a recorded ruling.
           </p>
 
           <div style={{ backgroundColor: 'var(--color-page-bg)', padding: '16px', borderRadius: 'var(--radius-control)', width: '100%', textAlign: 'left', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -104,7 +105,7 @@ export function RulingIssuancePage() {
           required
         />
 
-        <Button type="submit" variant="primary" size="lg" icon={Award}>
+        <Button type="submit" disabled={busy} variant="primary" size="lg" icon={Award}>
           Publish Final Ruling & Dispatch Notifications
         </Button>
       </form>

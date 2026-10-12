@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, CheckCircle2, Clock, Plus, ArrowRight, Shield } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { getBookings } from '../../data/mockRepository';
+import { collectedAmount } from '../../data/bookingRules';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
@@ -10,24 +13,15 @@ import { Button } from '../../design-system/primitives/Button';
 export function CustomerDashboard() {
   const { currentUser } = useApp();
   const navigate = useNavigate();
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => getBookings('customer', currentUser.id), [currentUser.id]);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const bookings = data || [];
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      if (currentUser) {
-        const list = await getBookings('customer', currentUser.id);
-        setBookings(list);
-      }
-      setLoading(false);
-    }
-    loadData();
-  }, [currentUser]);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
 
-  const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'in_progress');
+  const activeBookings = bookings.filter(b => ['active', 'in_progress', 'reschedule_proposed'].includes(b.status));
   const completedBookings = bookings.filter(b => b.status === 'completed');
-  const totalSpent = bookings.reduce((sum, b) => sum + (b.amount || 0), 0);
+  const totalSpent = bookings.reduce((sum, b) => sum + collectedAmount(b), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -99,8 +93,8 @@ export function CustomerDashboard() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--color-muted)', display: 'block' }}>Paid Amount</span>
-                    <strong style={{ fontSize: '16px', color: 'var(--color-ink)' }}>₹{bk.amount}</strong>
+                    <span style={{ fontSize: '11px', color: 'var(--color-muted)', display: 'block' }}>Paid After Refunds</span>
+                    <strong style={{ fontSize: '16px', color: 'var(--color-ink)' }}>₹{collectedAmount(bk)}</strong>
                   </div>
                   <Button variant="secondary" size="sm" onClick={() => navigate(`/customer/bookings/${bk.id}`)}>
                     View Timeline

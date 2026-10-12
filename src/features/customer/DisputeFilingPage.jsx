@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Scale, AlertTriangle, Upload, CheckCircle2 } from 'lucide-react';
+import { Scale, AlertTriangle } from 'lucide-react';
 import { createDispute } from '../../data/mockRepository';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -9,38 +9,40 @@ import { Button } from '../../design-system/primitives/Button';
 export function DisputeFilingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const bookingIdParam = searchParams.get('bookingId') || 'BK-87102';
+  const bookingIdParam = searchParams.get('bookingId') || '';
   const { currentUser, showToast } = useApp();
 
-  const [claimAmount, setClaimAmount] = useState('3500');
+  const [claimAmount, setClaimAmount] = useState('');
+  const [busy, setBusy] = useState(false);
   const [statement, setStatement] = useState('');
-  const [evidenceName, setEvidenceName] = useState('floor_damage_photo.jpg');
+  const [evidenceName, setEvidenceName] = useState('');
   const [submittedDispute, setSubmittedDispute] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     if (!statement) {
       showToast('Please enter your statement explaining the dispute.', 'warning');
       return;
     }
 
-    const created = await createDispute({
-      bookingId: bookingIdParam,
-      serviceTitle: 'Washing Machine Repair & Drum Sanitization',
-      customerId: currentUser.id,
-      customerName: currentUser.name,
-      providerId: 'user-prov-1',
-      providerName: 'Apex Fix Services & Repairs',
-      amountInDispute: 649,
-      claimAmount: Number(claimAmount),
-      customerStatement: statement,
-      evidences: [
-        { id: `ev-${Date.now()}`, uploader: `${currentUser.name} (Customer)`, title: evidenceName, filename: evidenceName, uploadedAt: new Date().toLocaleString('en-GB') }
-      ]
-    });
+    setBusy(true);
+    try {
+      const created = await createDispute({
+        bookingId: bookingIdParam,
+        customerId: currentUser.id,
+        claimAmount: Number(claimAmount),
+        customerStatement: statement,
+        evidences: evidenceName.trim() ? [{
+          id: `ev-${Date.now()}`, uploader: `${currentUser.name} (Customer)`,
+          title: evidenceName.trim(), filename: evidenceName.trim(), uploadedAt: new Date().toISOString()
+        }] : []
+      });
 
-    setSubmittedDispute(created);
-    showToast(`Dispute Case #${created.id} filed! An Arbitrator will be assigned.`, 'success');
+      setSubmittedDispute(created);
+      showToast(`Dispute Case #${created.id} filed. An Arbitrator will be assigned.`, 'success');
+    } catch (error) { showToast(error.message, 'warning'); }
+    finally { setBusy(false); }
   };
 
   if (submittedDispute) {
@@ -73,6 +75,8 @@ export function DisputeFilingPage() {
     );
   }
 
+  if (!bookingIdParam) return <div className="card"><p>Choose a booking before filing a dispute.</p><Button onClick={() => navigate('/customer/bookings')}>View My Bookings</Button></div>;
+
   return (
     <div className="app-container" style={{ padding: '32px 16px', maxWidth: '700px', margin: '0 auto' }}>
       <div className="page-header">
@@ -95,6 +99,7 @@ export function DisputeFilingPage() {
         <TextField
           label="Claim Amount / Compensation Requested (INR ₹)"
           type="number"
+          min="0"
           value={claimAmount}
           onChange={(e) => setClaimAmount(e.target.value)}
           required
@@ -110,20 +115,14 @@ export function DisputeFilingPage() {
           required
         />
 
-        <div>
-          <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-ink)', display: 'block', marginBottom: '6px' }}>
-            Attach Evidence Record (Photo / PDF / Invoice)
-          </label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <TextField
-              value={evidenceName}
-              onChange={(e) => setEvidenceName(e.target.value)}
-              placeholder="Filename..."
-            />
-          </div>
-        </div>
+        <TextField
+          label="Evidence Filename (Demo Record)"
+          value={evidenceName}
+          onChange={event => setEvidenceName(event.target.value)}
+          helperText="Optional filename record; no file is uploaded."
+        />
 
-        <Button type="submit" variant="danger" size="lg" fullWidth style={{ marginTop: '8px' }}>
+        <Button type="submit" disabled={busy} variant="danger" size="lg" fullWidth style={{ marginTop: '8px' }}>
           Submit Dispute to Arbitration
         </Button>
       </form>

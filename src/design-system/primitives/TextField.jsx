@@ -1,4 +1,4 @@
-import React from 'react';
+import { useId } from 'react';
 
 export function TextField({
   label,
@@ -8,6 +8,8 @@ export function TextField({
   placeholder,
   type = 'text',
   min,
+  max,
+  step,
   error,
   helperText,
   required = false,
@@ -15,6 +17,8 @@ export function TextField({
   multiline = false,
   rows = 3
 }) {
+  const fieldId = useId();
+  const id = name || fieldId;
   const containerStyle = {
     display: 'flex',
     flexDirection: 'column',
@@ -52,31 +56,37 @@ export function TextField({
   return (
     <div style={containerStyle}>
       {label && (
-        <label htmlFor={name} style={labelStyle}>
-          {label} {required && <span style={{ color: 'var(--color-danger)' }}>*</span>}
+        <label htmlFor={id} style={labelStyle}>
+          {label} {required && <span aria-hidden="true" style={{ color: 'var(--color-danger)' }}>*</span>}
         </label>
       )}
 
       {multiline ? (
         <textarea
-          id={name}
+          id={id}
           name={name}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
           rows={rows}
+          required={required}
+          aria-invalid={Boolean(error)}
           disabled={disabled}
           style={{ ...inputBaseStyle, resize: 'vertical' }}
         />
       ) : (
         <input
-          id={name}
+          id={id}
           name={name}
           type={type}
           min={min}
+          max={max}
+          step={step}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
+          required={required}
+          aria-invalid={Boolean(error)}
           disabled={disabled}
           style={inputBaseStyle}
         />

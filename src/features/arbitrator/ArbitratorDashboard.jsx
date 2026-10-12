@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useApp } from '../../app/context/AppContext';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Scale, FileText, Calendar, Award, Eye, ArrowRight } from 'lucide-react';
+import { FileText, Calendar, Award, Eye } from 'lucide-react';
 import { getDisputes } from '../../data/mockRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
@@ -8,18 +11,12 @@ import { Button } from '../../design-system/primitives/Button';
 
 export function ArbitratorDashboard() {
   const navigate = useNavigate();
-  const [disputes, setDisputes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { currentUser } = useApp();
+  const load = useCallback(async () => (await getDisputes()).filter(dispute => dispute.arbitratorId === currentUser.id), [currentUser.id]);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const disputes = data || [];
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const list = await getDisputes();
-      setDisputes(list);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
 
   const activeCases = disputes.filter(d => d.status === 'assigned' || d.status === 'hearing_scheduled');
   const ruledCases = disputes.filter(d => d.status === 'ruled' || d.status === 'closed');
@@ -49,7 +46,7 @@ export function ArbitratorDashboard() {
           </div>
           <div>
             <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>SCHEDULED HEARINGS</span>
-            <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)' }}>1</div>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)' }}>{disputes.filter(dispute => dispute.status === 'hearing_scheduled').length}</div>
           </div>
         </div>
 

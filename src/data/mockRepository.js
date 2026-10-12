@@ -1,418 +1,527 @@
-import { 
-  INITIAL_CATEGORIES, 
-  INITIAL_SERVICES, 
-  INITIAL_BOOKINGS, 
-  INITIAL_TICKETS, 
-  INITIAL_DISPUTES, 
-  INITIAL_NOTIFICATIONS,
-  DEMO_USERS
-} from './mockData';
+import { INITIAL_CATEGORIES, INITIAL_SERVICES, INITIAL_BOOKINGS, INITIAL_TICKETS, INITIAL_DISPUTES, INITIAL_NOTIFICATIONS, DEMO_USERS } from './mockData';
+import { availableSlots, DEFAULT_SCHEDULE, validateSchedule, validateSlots, validDate, localClock, slotMinutes } from './scheduling';
+import { isAccepted, isPending, isPaid, platformFee, netPayout, collectedAmount, refundPayment } from './bookingRules';
+import { DATA_CHANGED } from './repositoryEvents';
 
-const STORAGE_KEYS = {
-  SERVICES: 'servicehub_services',
-  BOOKINGS: 'servicehub_bookings',
-  TICKETS: 'servicehub_tickets',
-  DISPUTES: 'servicehub_disputes',
-  NOTIFICATIONS: 'servicehub_notifications',
-  CATEGORIES: 'servicehub_categories'
+const seeds = {
+  services: INITIAL_SERVICES, bookings: INITIAL_BOOKINGS, tickets: INITIAL_TICKETS,
+  disputes: INITIAL_DISPUTES, notifications: INITIAL_NOTIFICATIONS, categories: INITIAL_CATEGORIES
 };
+const key = name => `servicehub_${name}`;
+const read = name => JSON.parse(localStorage.getItem(key(name)));
+const stamp = () => new Date().toISOString();
+const id = prefix => `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+const delay = () => new Promise(resolve => setTimeout(resolve, 150));
 
-// Helper to initialize localStorage with default seeds if empty
 function initializeStorage() {
-  if (!localStorage.getItem(STORAGE_KEYS.SERVICES)) {
-    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(INITIAL_SERVICES));
+  for (const [name, value] of Object.entries(seeds)) {
+    if (!localStorage.getItem(key(name))) localStorage.setItem(key(name), JSON.stringify(value));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.BOOKINGS)) {
-    localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(INITIAL_BOOKINGS));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.TICKETS)) {
-    localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(INITIAL_TICKETS));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.DISPUTES)) {
-    localStorage.setItem(STORAGE_KEYS.DISPUTES, JSON.stringify(INITIAL_DISPUTES));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(INITIAL_NOTIFICATIONS));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.CATEGORIES)) {
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(INITIAL_CATEGORIES));
-  }
+  if (!localStorage.getItem(key('providers'))) localStorage.setItem(key('providers'), JSON.stringify(initialProviders(read('services'), read('bookings'))));
 }
 
-// Simulated Latency Helper (300ms)
-function delay(ms = 300) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Reset Demo Data Utility
-export async function resetDemoData() {
-  localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(INITIAL_SERVICES));
-  localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(INITIAL_BOOKINGS));
-  localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(INITIAL_TICKETS));
-  localStorage.setItem(STORAGE_KEYS.DISPUTES, JSON.stringify(INITIAL_DISPUTES));
-  localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(INITIAL_NOTIFICATIONS));
-  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(INITIAL_CATEGORIES));
-  await delay(200);
-  return { success: true, message: 'All demo data has been reset to baseline seeds!' };
-}
-
-// CATEGORIES
-export async function getCategories() {
-  initializeStorage();
-  await delay();
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES));
-}
-
-// SERVICES
-export async function getServices(filters = {}) {
-  initializeStorage();
-  await delay();
-  let list = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES));
-
-  if (filters.category) {
-    list = list.filter(s => s.categoryId === filters.category || s.categoryName === filters.category);
-  }
-  if (filters.search) {
-    const q = filters.search.toLowerCase();
-    list = list.filter(s => s.title.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
-  }
-  if (filters.maxPrice) {
-    list = list.filter(s => s.price <= Number(filters.maxPrice));
-  }
-  if (filters.sort === 'price_low') {
-    list.sort((a, b) => a.price - b.price);
-  } else if (filters.sort === 'price_high') {
-    list.sort((a, b) => b.price - a.price);
-  } else if (filters.sort === 'rating') {
-    list.sort((a, b) => b.rating - a.rating);
-  }
-
-  return list;
-}
-
-export async function getServiceById(id) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES));
-  return list.find(s => s.id === id) || null;
-}
-
-export async function getAvailableSlots(serviceId, date) {
-  initializeStorage();
-  await delay();
-  const services = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES));
-  const service = services.find(item => item.id === serviceId);
-  if (!service) return [];
-
-  const bookings = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
-  const bookedSlots = new Set(
-    bookings
-      .filter(booking =>
-        booking.serviceId === serviceId &&
-        booking.scheduledDate === date &&
-        booking.status !== 'cancelled'
-      )
-      .map(booking => booking.scheduledSlot)
-  );
-
-  return (service.availableSlots || []).filter(slot => !bookedSlots.has(slot));
-}
-
-export async function saveService(serviceData) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES));
-  
-  if (serviceData.id) {
-    const idx = list.findIndex(s => s.id === serviceData.id);
-    if (idx !== -1) list[idx] = { ...list[idx], ...serviceData };
-  } else {
-    const newService = {
-      ...serviceData,
-      id: `srv-${Date.now()}`,
-      rating: 5.0,
-      reviewCount: 0,
-      status: 'published'
-    };
-    list.unshift(newService);
-  }
-
-  localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(list));
-  return { success: true };
-}
-
-// BOOKINGS
-export async function getBookings(role, userId) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
-
-  if (role === 'customer') {
-    return list.filter(b => b.customerId === userId);
-  }
-  if (role === 'provider') {
-    return list.filter(b => b.providerId === userId);
-  }
-  return list; // Admin / Arbitrator get all
-}
-
-export async function getBookingById(id) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
-  return list.find(b => b.id === id) || null;
-}
-
-export async function createBooking(bookingData) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
-  const services = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES));
-  const service = services.find(item => item.id === bookingData.serviceId);
-
-  if (!service || !service.availableSlots?.includes(bookingData.scheduledSlot)) {
-    throw new Error('This service does not offer the selected time slot.');
-  }
-
-  const slotIsTaken = list.some(booking =>
-    booking.serviceId === bookingData.serviceId &&
-    booking.scheduledDate === bookingData.scheduledDate &&
-    booking.scheduledSlot === bookingData.scheduledSlot &&
-    booking.status !== 'cancelled'
-  );
-  if (slotIsTaken) {
-    throw new Error('That slot has just been booked. Please choose another available time.');
-  }
-  
-  const amount = Number(bookingData.amount || 0);
-  const platformFee = Math.round(amount * 0.05); // 5% platform fee
-  const netPayout = amount - platformFee;        // 95% net provider payout
-
-  const newBooking = {
-    ...bookingData,
-    id: `BK-${Math.floor(10000 + Math.random() * 90000)}`,
-    status: 'active',
-    paymentStatus: 'Paid',
-    platformFee,
-    netPayout,
-    createdAt: new Date().toLocaleString('en-GB'),
-    timeline: [
-      { time: new Date().toLocaleString('en-GB'), title: 'Booking Confirmed', desc: `Mock payment of ₹${amount} received via ${bookingData.paymentMethod || 'UPI'}.` },
-      { time: new Date().toLocaleString('en-GB'), title: 'Assigned to Provider', desc: `${bookingData.providerName} received the booking.` }
-    ]
-  };
-
-  list.unshift(newBooking);
-  localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(list));
-
-  // Automatically dispatch Payment Notifications for Provider & Platform Admin
-  const notifs = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) || [];
-  
-  // 1. Notification to Provider (Receives payment notice with 5% platform fee deduction details)
-  notifs.unshift({
-    id: `notif-${Date.now()}-prov`,
-    userId: bookingData.providerId || 'user-prov-1',
-    title: `Payment Notification - #${newBooking.id}`,
-    message: `Customer ${bookingData.customerName || 'Aarav Sharma'} paid ₹${amount} for "${bookingData.serviceTitle}". Net credited to wallet after 5% platform fee (₹${platformFee}) is ₹${netPayout}.`,
-    targetLink: `/provider/jobs/${newBooking.id}`,
-    read: false,
-    createdAt: new Date().toLocaleString('en-GB')
-  });
-
-  // 2. Notification to Admin (Revenue Alert)
-  notifs.unshift({
-    id: `notif-${Date.now()}-admin`,
-    userId: 'user-admin-1',
-    title: `New Revenue Earned - #${newBooking.id}`,
-    message: `Booking #${newBooking.id} completed payment of ₹${amount}. Platform 5% commission earned: ₹${platformFee}.`,
-    targetLink: '/admin/revenue',
-    read: false,
-    createdAt: new Date().toLocaleString('en-GB')
-  });
-
-  localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
-
-  return newBooking;
-}
-
-// REVENUE & FINANCIAL STATS (5% Platform Fee Model)
-export async function getRevenueStats() {
-  initializeStorage();
-  await delay();
-  const bookings = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS)) || [];
-
-  const paidBookings = bookings.filter(b => b.paymentStatus === 'Paid' || b.paymentStatus === 'Completed');
-  const gmv = paidBookings.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-  const totalRevenue = paidBookings.reduce((sum, b) => {
-    const fee = b.platformFee !== undefined ? b.platformFee : Math.round((Number(b.amount) || 0) * 0.05);
-    return sum + fee;
-  }, 0);
-  const totalNetPayouts = gmv - totalRevenue;
-  const transactionCount = paidBookings.length;
-  const avgFeePerBooking = transactionCount > 0 ? Math.round(totalRevenue / transactionCount) : 0;
-
-  // Breakdown by Category
-  const categoryMap = {};
-  paidBookings.forEach(b => {
-    const cat = b.categoryName || 'General';
-    const amt = Number(b.amount) || 0;
-    const fee = b.platformFee !== undefined ? b.platformFee : Math.round(amt * 0.05);
-    if (!categoryMap[cat]) categoryMap[cat] = { category: cat, gmv: 0, revenue: 0, count: 0 };
-    categoryMap[cat].gmv += amt;
-    categoryMap[cat].revenue += fee;
-    categoryMap[cat].count += 1;
-  });
-
-  return {
-    gmv,
-    totalRevenue,
-    totalNetPayouts,
-    transactionCount,
-    avgFeePerBooking,
-    categoryBreakdown: Object.values(categoryMap),
-    recentTransactions: bookings
-  };
-}
-
-export async function updateBookingStatus(id, newStatus, note = '') {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
-  const booking = list.find(b => b.id === id);
-
-  if (booking) {
-    booking.status = newStatus;
-    booking.timeline.push({
-      time: new Date().toLocaleString('en-GB'),
-      title: `Status: ${newStatus.replace('_', ' ').toUpperCase()}`,
-      desc: note || `Updated booking state to ${newStatus}`
+function initialProviders(services, bookings) {
+  const profiles = [{ ...DEMO_USERS.provider, weeklyAvailability: { ...DEFAULT_SCHEDULE, ...DEMO_USERS.provider.weeklyAvailability } }];
+  for (const service of services) {
+    if (profiles.some(profile => profile.id === service.providerId)) continue;
+    const booking = bookings.find(job => job.providerId === service.providerId);
+    profiles.push({
+      id: service.providerId, role: 'provider', name: service.providerName, businessName: service.providerName,
+      phone: booking?.providerPhone || '', email: '', serviceArea: '', verificationStatus: 'approved',
+      skills: services.filter(item => item.providerId === service.providerId).map(item => item.categoryName),
+      weeklyAvailability: { ...DEFAULT_SCHEDULE }
     });
-    localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(list));
   }
-  return booking;
+  return profiles;
 }
 
-// SUPPORT TICKETS
-export async function getTickets() {
-  initializeStorage();
-  await delay();
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.TICKETS));
+function save(changes) {
+  const previous = Object.fromEntries(Object.keys(changes).map(name => [name, localStorage.getItem(key(name))]));
+  try {
+    for (const [name, value] of Object.entries(changes)) localStorage.setItem(key(name), JSON.stringify(value));
+  } catch (error) {
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === null) localStorage.removeItem(key(name));
+      else localStorage.setItem(key(name), value);
+    }
+    throw error;
+  }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(DATA_CHANGED));
 }
 
-export async function createTicket(ticketData) {
+async function change(callback) {
   initializeStorage();
   await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.TICKETS));
-  const newTicket = {
-    ...ticketData,
-    id: `TCK-${Math.floor(100 + Math.random() * 900)}`,
-    status: 'open',
-    createdAt: new Date().toLocaleString('en-GB')
+  // A single browser lock keeps bookings and proposals consistent across tabs.
+  if (typeof window !== 'undefined' && navigator.locks) return navigator.locks.request('servicehub-data', async () => callback());
+  return callback();
+}
+async function load(name) {
+  initializeStorage();
+  await delay();
+  return read(name);
+}
+function requireRecord(list, recordId, label) {
+  const record = list.find(item => item.id === recordId);
+  if (!record) throw new Error(`${label} not found.`);
+  return record;
+}
+function checkOwner(record, actor, field) {
+  if (actor.userId && actor.role !== 'admin' && record[field] !== actor.userId) throw new Error('This record does not belong to your account.');
+}
+function event(job, title, desc) {
+  job.timeline = [...(job.timeline || []), { time: stamp(), title, desc }];
+}
+function notify(list, targets, title, message) {
+  for (const [userId, targetLink] of targets) {
+    list.unshift({ id: id('notif'), userId, targetLink, title, message, read: false, createdAt: stamp() });
+  }
+}
+const parties = job => [[job.providerId, `/provider/jobs/${job.id}`], [job.customerId, `/customer/bookings/${job.id}`]];
+function ratings(service, bookings) {
+  const reviews = bookings.filter(job => job.serviceId === service.id && job.reviewSubmitted);
+  return { ...service, reviewCount: reviews.length, rating: reviews.length ? reviews.reduce((sum, job) => sum + Number(job.reviewRating), 0) / reviews.length : null };
+}
+function visible(service, providers) {
+  return service.status === 'published' && providers.some(profile => profile.id === service.providerId && profile.verificationStatus === 'approved');
+}
+
+export async function resetDemoData() {
+  return change(() => {
+    save({ ...seeds, providers: initialProviders(INITIAL_SERVICES, INITIAL_BOOKINGS) });
+    return { success: true, message: 'Demo data reset.' };
+  });
+}
+export const getCategories = () => load('categories');
+export const getProviders = () => load('providers');
+export async function getProviderById(providerId) {
+  return (await getProviders()).find(profile => profile.id === providerId) || null;
+}
+export async function saveProvider(providerId, values, submit = false) {
+  return change(() => {
+    const profiles = read('providers');
+    const profile = requireRecord(profiles, providerId, 'Provider');
+    const businessName = values.businessName?.trim();
+    const serviceArea = values.serviceArea?.trim();
+    if (!businessName || !serviceArea || !values.skills?.length) throw new Error('Enter a business name, coverage area, and at least one skill.');
+    if (submit && !values.documentName?.trim()) throw new Error('Enter a document filename before submitting for verification.');
+    Object.assign(profile, {
+      businessName, serviceArea, skills: [...new Set(values.skills)],
+      documentName: values.documentName?.trim() || '',
+      verificationStatus: submit ? 'submitted' : profile.verificationStatus
+    });
+    if (submit) profile.verificationFeedback = 'Submitted for Admin review.';
+    const services = read('services').map(service => service.providerId === providerId ? { ...service, providerName: businessName } : service);
+    const notifications = read('notifications');
+    if (submit) notify(notifications, [['user-admin-1', '/admin/providers']], 'Provider Verification Submitted', `${businessName} submitted a verification profile.`);
+    save({ providers: profiles, services, notifications });
+    return profile;
+  });
+}
+export async function moderateProvider(providerId, status, reason) {
+  return change(() => {
+    if (!['approved', 'rejected', 'changes_requested', 'suspended'].includes(status) || !reason.trim()) throw new Error('Choose a valid decision and enter an audit reason.');
+    const profiles = read('providers');
+    const profile = requireRecord(profiles, providerId, 'Provider');
+    profile.verificationStatus = status;
+    profile.verificationFeedback = reason.trim();
+    const notifications = read('notifications');
+    notify(notifications, [[providerId, '/provider/profile']], 'Verification Updated', `${status.replaceAll('_', ' ')}: ${reason.trim()}`);
+    save({ providers: profiles, notifications });
+    return profile;
+  });
+}
+export async function saveAvailability(providerId, schedule) {
+  return change(() => {
+    const error = validateSchedule(schedule);
+    if (error) throw new Error(error);
+    const profiles = read('providers');
+    const profile = requireRecord(profiles, providerId, 'Provider');
+    profile.weeklyAvailability = { ...DEFAULT_SCHEDULE, ...schedule, days: [...new Set(schedule.days)], blackoutDates: [...new Set(schedule.blackoutDates)].sort() };
+    save({ providers: profiles });
+    return profile;
+  });
+}
+
+export async function getServices(filters = {}) {
+  let services = await load('services');
+  const providers = read('providers');
+  if (filters.role === 'provider') services = services.filter(service => service.providerId === filters.userId);
+  else if (filters.role !== 'admin') services = services.filter(service => visible(service, providers));
+  if (filters.category) services = services.filter(service => service.categoryId === filters.category || service.categoryName === filters.category);
+  if (filters.search) services = services.filter(service => `${service.title} ${service.description}`.toLowerCase().includes(filters.search.toLowerCase()));
+  if (filters.maxPrice) services = services.filter(service => service.price <= Number(filters.maxPrice));
+  const bookings = read('bookings');
+  services = services.map(service => ratings(service, bookings));
+  if (filters.sort === 'price_low') services.sort((a, b) => a.price - b.price);
+  if (filters.sort === 'price_high') services.sort((a, b) => b.price - a.price);
+  if (filters.sort === 'rating') services.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  return services;
+}
+export async function getServiceById(serviceId, actor = {}) {
+  const services = await load('services');
+  const service = services.find(item => item.id === serviceId);
+  if (!service) return null;
+  const own = actor.role === 'provider' && actor.userId === service.providerId;
+  if (!own && actor.role !== 'admin' && !visible(service, read('providers'))) return null;
+  return { ...ratings(service, read('bookings')), providerVerificationStatus: read('providers').find(profile => profile.id === service.providerId)?.verificationStatus };
+}
+export async function saveService(values, actor = {}) {
+  return change(() => {
+    const services = read('services');
+    const existing = values.id ? requireRecord(services, values.id, 'Listing') : null;
+    const service = { rating: null, reviewCount: 0, status: 'published', ...existing, ...values };
+    checkOwner(service, actor, 'providerId');
+    const provider = requireRecord(read('providers'), service.providerId, 'Provider');
+    if (!['draft', 'published', 'paused', 'archived'].includes(service.status)) throw new Error('Invalid listing status.');
+    if (service.status === 'published' && provider.verificationStatus !== 'approved') throw new Error('An approved provider profile is required to publish.');
+    if (!service.title?.trim() || !service.description?.trim() || !service.policy?.trim() || !read('categories').some(category => category.id === service.categoryId)) throw new Error('Enter a title, category, description, and cancellation policy.');
+    if (!Number.isFinite(Number(service.price)) || Number(service.price) <= 0) throw new Error('Enter a positive service price.');
+    const duration = Number.parseInt(service.duration, 10);
+    const error = validateSlots(service.availableSlots || [], duration);
+    if (error && service.status !== 'draft') throw new Error(error);
+    if (!Number.isInteger(duration) || duration <= 0 || duration > 1440) throw new Error('Enter a valid duration.');
+    Object.assign(service, { id: existing?.id || id('srv'), title: service.title.trim(), description: service.description.trim(), price: Number(service.price), providerName: provider.businessName });
+    if (existing) services[services.indexOf(existing)] = service;
+    else services.unshift(service);
+    save({ services });
+    return { success: true, service };
+  });
+}
+export async function getAvailableSlots(serviceId, date, excludeId) {
+  const services = await load('services');
+  const service = services.find(item => item.id === serviceId);
+  const provider = read('providers').find(profile => profile.id === service?.providerId);
+  return availableSlots(service, provider, date, read('bookings'), services, excludeId);
+}
+
+export async function getBookings(role, userId) {
+  const bookings = await load('bookings');
+  if (role === 'customer') return bookings.filter(job => job.customerId === userId);
+  if (role === 'provider') return bookings.filter(job => job.providerId === userId);
+  return bookings;
+}
+export async function getBookingById(bookingId) {
+  return (await load('bookings')).find(job => job.id === bookingId) || null;
+}
+export async function createBooking(values) {
+  return change(() => {
+    const bookings = read('bookings');
+    const services = read('services');
+    const service = requireRecord(services, values.serviceId, 'Service');
+    const provider = requireRecord(read('providers'), service.providerId, 'Provider');
+    if (!availableSlots(service, provider, values.scheduledDate, bookings, services).includes(values.scheduledSlot)) throw new Error('This time is unavailable. Choose another available slot.');
+    if (!values.customerId || !values.customerName?.trim() || !values.address?.trim()) throw new Error('Enter the customer details and service address.');
+    if (values.amount !== undefined && Number(values.amount) !== Number(service.price)) throw new Error('The service price changed. Review the listing before booking.');
+    const amount = Number(service.price);
+    const cash = values.paymentMethod === 'Cash After Service';
+    const job = {
+      ...values, id: id('BK'), serviceTitle: service.title, categoryName: service.categoryName,
+      providerId: provider.id, providerName: provider.businessName, providerPhone: provider.phone,
+      duration: service.duration, amount, platformFee: Math.round(amount * 0.05),
+      netPayout: amount - Math.round(amount * 0.05), paymentStatus: cash ? 'Pending' : 'Paid',
+      status: 'active', createdAt: stamp(), acceptedAt: null, refundedAmount: 0, timeline: []
+    };
+    event(job, 'Booking Requested', cash ? 'Cash payment is due after service.' : `Mock payment of ₹${amount} recorded.`);
+    event(job, 'Assigned to Provider', `${provider.businessName} received the request.`);
+    bookings.unshift(job);
+    const notifications = read('notifications');
+    notify(notifications, [[provider.id, `/provider/jobs/${job.id}`], ['user-admin-1', '/admin/bookings']], 'New Job Request', `${job.customerName} booked ${job.serviceTitle} for ${job.scheduledDate} at ${job.scheduledSlot}. Payment: ${job.paymentStatus}.`);
+    save({ bookings, notifications });
+    return job;
+  });
+}
+export async function updateBookingStatus(bookingId, status, note = '', actor = {}) {
+  return change(() => {
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, bookingId, 'Booking');
+    if (actor.role === 'provider') checkOwner(job, actor, 'providerId');
+    if (actor.role === 'customer') {
+      checkOwner(job, actor, 'customerId');
+      if (status !== 'cancelled') throw new Error('Customers can only cancel through this action.');
+    }
+    if (actor.role === 'provider' && status === 'cancelled' && !isPending(job)) throw new Error('Only pending requests can be declined.');
+    if (actor.expectedStatus && job.status !== actor.expectedStatus) throw new Error('This booking has changed. Refresh before acting.');
+    const allowed = {
+      active: job.status === 'active' && !isAccepted(job),
+      in_progress: job.status === 'active' && isAccepted(job),
+      completed: job.status === 'in_progress',
+      cancelled: ['active', 'in_progress', 'reschedule_proposed'].includes(job.status)
+    };
+    if (!allowed[status]) throw new Error('This booking has changed or the action is not allowed.');
+    if (status === 'completed' && !note.trim()) throw new Error('Enter completion notes.');
+    if (status === 'active') job.acceptedAt = stamp();
+    if (status === 'completed' && job.paymentStatus === 'Pending') { job.paymentStatus = 'Paid'; event(job, 'Cash Payment Recorded', 'Mock cash payment recorded on completion.'); }
+    if (status === 'cancelled') {
+      refundPayment(job, Number(job.amount));
+      if (job.paymentStatus === 'Pending') job.paymentStatus = 'Cancelled';
+      job.timeProposal = null;
+    }
+    job.status = status;
+    event(job, status === 'active' ? 'Booking Accepted' : `Status: ${status.replaceAll('_', ' ')}`, note || `Booking ${status.replaceAll('_', ' ')}.`);
+    const notifications = read('notifications');
+    notify(notifications, parties(job), `Booking ${status === 'active' ? 'Accepted' : status.replaceAll('_', ' ')}`, `${job.serviceTitle}: ${note || status}.`);
+    save({ bookings, notifications });
+    return job;
+  });
+}
+export async function proposeBookingTime(bookingId, date, slot, providerId) {
+  return change(() => {
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, bookingId, 'Booking');
+    checkOwner(job, { userId: providerId }, 'providerId');
+    if (job.status !== 'active') throw new Error('Only active bookings can be rescheduled.');
+    if (date === job.scheduledDate && slot === job.scheduledSlot) throw new Error('Choose a different date or time.');
+    const services = read('services');
+    const service = requireRecord(services, job.serviceId, 'Service');
+    const provider = requireRecord(read('providers'), providerId, 'Provider');
+    if (!availableSlots(service, provider, date, bookings, services, job.id).includes(slot)) throw new Error('The proposed time is unavailable.');
+    job.timeProposal = { date, slot, createdAt: stamp() };
+    job.status = 'reschedule_proposed';
+    event(job, 'Alternative Time Proposed', `${date} at ${slot}. The original schedule remains reserved until the customer agrees.`);
+    const notifications = read('notifications');
+    notify(notifications, [[job.customerId, `/customer/bookings/${job.id}`]], 'Please Review a Time Proposal', `${job.providerName} proposed ${date} at ${slot} for ${job.serviceTitle}.`);
+    save({ bookings, notifications });
+    return job;
+  });
+}
+export async function respondToTimeProposal(bookingId, accept, customerId) {
+  return change(() => {
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, bookingId, 'Booking');
+    checkOwner(job, { userId: customerId }, 'customerId');
+    if (job.status !== 'reschedule_proposed' || !job.timeProposal) throw new Error('This proposal is no longer available.');
+    if (accept) {
+      const services = read('services');
+      const service = requireRecord(services, job.serviceId, 'Service');
+      const provider = requireRecord(read('providers'), job.providerId, 'Provider');
+      if (!availableSlots(service, provider, job.timeProposal.date, bookings, services, job.id).includes(job.timeProposal.slot)) throw new Error('This time was booked elsewhere. Decline the proposal or ask for a new time.');
+      job.scheduledDate = job.timeProposal.date;
+      job.scheduledSlot = job.timeProposal.slot;
+      job.acceptedAt = stamp();
+    }
+    job.status = 'active';
+    job.timeProposal = null;
+    event(job, accept ? 'Reschedule Confirmed' : 'Time Proposal Declined', accept ? `Customer agreed to ${job.scheduledDate} at ${job.scheduledSlot}.` : 'The original schedule remains unchanged.');
+    const notifications = read('notifications');
+    notify(notifications, parties(job), accept ? 'Reschedule Confirmed' : 'Time Proposal Declined', `${job.serviceTitle}: ${job.scheduledDate} at ${job.scheduledSlot}.`);
+    save({ bookings, notifications });
+    return job;
+  });
+}
+export async function submitReview(bookingId, rating, comment, customerId) {
+  return change(() => {
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, bookingId, 'Booking');
+    checkOwner(job, { userId: customerId }, 'customerId');
+    if (job.status !== 'completed' || job.reviewSubmitted) throw new Error('Only completed, unreviewed bookings can be reviewed.');
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5 || !comment.trim()) throw new Error('Choose a rating from 1 to 5 and enter a review.');
+    Object.assign(job, { reviewSubmitted: true, reviewRating: rating, reviewComment: comment.trim(), reviewDate: stamp() });
+    const notifications = read('notifications');
+    notify(notifications, [[job.providerId, '/provider/reviews']], 'New Customer Review', `${job.customerName} rated ${job.serviceTitle} ${rating}/5.`);
+    save({ bookings, notifications });
+    return job;
+  });
+}
+export async function replyToReview(bookingId, reply, providerId) {
+  return change(() => {
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, bookingId, 'Review');
+    checkOwner(job, { userId: providerId }, 'providerId');
+    if (!job.reviewSubmitted || !reply.trim()) throw new Error('Enter a reply to an existing review.');
+    job.reviewReply = reply.trim();
+    const notifications = read('notifications');
+    notify(notifications, [[job.customerId, `/customer/bookings/${job.id}`]], 'Provider Replied to Your Review', job.reviewReply);
+    save({ bookings, notifications });
+    return job;
+  });
+}
+export async function getRevenueStats() {
+  const bookings = await load('bookings');
+  const transactions = bookings.filter(job => isPaid(job) || job.paymentStatus === 'Refunded');
+  const categoryMap = {};
+  for (const job of transactions) {
+    const category = job.categoryName || 'General';
+    categoryMap[category] ||= { category, gmv: 0, revenue: 0, count: 0 };
+    categoryMap[category].gmv += Number(job.amount);
+    categoryMap[category].revenue += job.paymentStatus === 'Refunded' ? 0 : platformFee(job);
+    categoryMap[category].count += 1;
+  }
+  const gmv = transactions.reduce((sum, job) => sum + Number(job.amount), 0);
+  const totalRevenue = bookings.filter(isPaid).reduce((sum, job) => sum + platformFee(job), 0);
+  return {
+    gmv, totalRevenue, totalRefunds: transactions.reduce((sum, job) => sum + Number(job.refundedAmount || 0), 0),
+    netCollected: bookings.reduce((sum, job) => sum + collectedAmount(job), 0),
+    totalNetPayouts: bookings.filter(job => job.status === 'completed' && isPaid(job)).reduce((sum, job) => sum + netPayout(job), 0),
+    transactionCount: transactions.length, avgFeePerBooking: transactions.length ? Math.round(totalRevenue / transactions.length) : 0,
+    categoryBreakdown: Object.values(categoryMap), recentTransactions: bookings
   };
-  list.unshift(newTicket);
-  localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(list));
-  return newTicket;
 }
 
-export async function resolveTicket(id, outcome) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.TICKETS));
-  const ticket = list.find(t => t.id === id);
-  if (ticket) {
+export async function getTickets(role, userId) {
+  const tickets = await load('tickets');
+  if (role === 'customer') return tickets.filter(ticket => ticket.customerId === userId);
+  if (role === 'provider') return tickets.filter(ticket => ticket.providerId === userId);
+  return tickets;
+}
+export async function createTicket(values) {
+  return change(() => {
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, values.bookingId, 'Booking');
+    checkOwner(job, { userId: values.customerId }, 'customerId');
+    if (!values.description?.trim()) throw new Error('Describe the service issue.');
+    const tickets = read('tickets');
+    const ticket = {
+      ...values, id: id('TCK'), status: 'open', createdAt: stamp(),
+      serviceTitle: job.serviceTitle, customerName: job.customerName, providerName: job.providerName,
+      providerId: job.providerId, description: values.description.trim()
+    };
+    tickets.unshift(ticket);
+    job.hasTicket = true;
+    const notifications = read('notifications');
+    notify(notifications, [['user-admin-1', '/admin/tickets'], [job.providerId, `/provider/jobs/${job.id}`]], 'Support Ticket Opened', `${job.serviceTitle}: ${ticket.description}`);
+    save({ tickets, bookings, notifications });
+    return ticket;
+  });
+}
+export async function resolveTicket(ticketId, outcome) {
+  return change(() => {
+    const tickets = read('tickets');
+    const ticket = requireRecord(tickets, ticketId, 'Ticket');
+    if (ticket.status === 'resolved') throw new Error('This ticket is already resolved.');
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, ticket.bookingId, 'Booking');
+    if (!['Full Mock Refund Issued', 'Partial Refund (50%)', 'Redo Service Requested', 'Formal Warning Issued to Provider', 'Escalated to Arbitration'].includes(outcome)) throw new Error('Choose a supported resolution.');
+    const disputes = read('disputes');
+    if (outcome === 'Escalated to Arbitration') openDispute(job, { customerId: job.customerId, customerStatement: ticket.description, claimAmount: Number(job.amount), evidences: [] }, disputes);
+    if (outcome === 'Full Mock Refund Issued') refundPayment(job, Number(job.amount));
+    if (outcome === 'Partial Refund (50%)') refundPayment(job, Math.round(Number(job.amount) * 0.5));
     ticket.status = 'resolved';
     ticket.resolutionOutcome = outcome;
-    localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(list));
-  }
-  return ticket;
+    job.hasTicket = tickets.some(item => item.bookingId === job.id && item.status !== 'resolved');
+    event(job, 'Support Ticket Resolved', outcome);
+    const notifications = read('notifications');
+    notify(notifications, parties(job), 'Support Ticket Resolved', `${job.serviceTitle}: ${outcome}.`);
+    save({ tickets, bookings, notifications, disputes });
+    return ticket;
+  });
 }
-
-// DISPUTES
-export async function getDisputes() {
-  initializeStorage();
-  await delay();
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.DISPUTES));
+export const getDisputes = () => load('disputes');
+export async function getDisputeById(disputeId) {
+  return (await load('disputes')).find(dispute => dispute.id === disputeId) || null;
 }
-
-export async function getDisputeById(id) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.DISPUTES));
-  return list.find(d => d.id === id) || null;
-}
-
-export async function createDispute(disputeData) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.DISPUTES));
-  const newDispute = {
-    ...disputeData,
-    id: `DISP-${Math.floor(100 + Math.random() * 900)}`,
-    status: 'pending_assignment',
-    createdAt: new Date().toLocaleString('en-GB'),
-    evidences: disputeData.evidences || [],
-    hearingSchedule: null,
-    ruling: null
+function openDispute(job, values, disputes) {
+  if (!['completed', 'in_progress'].includes(job.status)) throw new Error('A dispute can be filed for work in progress or a completed job.');
+  if (!values.customerStatement?.trim() || !Number.isFinite(Number(values.claimAmount)) || Number(values.claimAmount) < 0) throw new Error('Enter a statement and a valid claim amount.');
+  if (disputes.some(dispute => dispute.bookingId === job.id && dispute.status !== 'ruled')) throw new Error('This booking already has an open dispute.');
+  const dispute = {
+    ...values, id: id('DISP'), bookingId: job.id, status: 'pending_assignment', createdAt: stamp(),
+    serviceTitle: job.serviceTitle, providerId: job.providerId, providerName: job.providerName,
+    customerName: job.customerName, amountInDispute: Number(job.amount), claimAmount: Number(values.claimAmount),
+    customerStatement: values.customerStatement.trim(), evidences: values.evidences || [], hearingSchedule: null, ruling: null
   };
-  list.unshift(newDispute);
-  localStorage.setItem(STORAGE_KEYS.DISPUTES, JSON.stringify(list));
-
-  // Also update booking status to disputed
-  await updateBookingStatus(disputeData.bookingId, 'disputed', 'Customer filed a formal dispute.');
-
-  return newDispute;
+  disputes.unshift(dispute);
+  job.statusBeforeDispute = job.status;
+  job.status = 'disputed';
+  job.hasDispute = true;
+  job.disputeId = dispute.id;
+  event(job, 'Dispute Filed', dispute.customerStatement);
+  return dispute;
 }
-
+export async function createDispute(values) {
+  return change(() => {
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, values.bookingId, 'Booking');
+    checkOwner(job, { userId: values.customerId }, 'customerId');
+    const disputes = read('disputes');
+    const dispute = openDispute(job, values, disputes);
+    const notifications = read('notifications');
+    notify(notifications, [[job.providerId, `/provider/jobs/${job.id}`], ['user-admin-1', '/admin/disputes']], 'Dispute Filed', `${job.serviceTitle}: case ${dispute.id}.`);
+    save({ disputes, bookings, notifications });
+    return dispute;
+  });
+}
 export async function assignDispute(disputeId, arbitrator) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.DISPUTES));
-  const dispute = list.find(d => d.id === disputeId);
-  if (dispute) {
-    dispute.status = 'assigned';
-    dispute.arbitratorId = arbitrator.id;
-    dispute.arbitratorName = arbitrator.name;
-    localStorage.setItem(STORAGE_KEYS.DISPUTES, JSON.stringify(list));
-  }
-  return dispute;
+  return change(() => {
+    const disputes = read('disputes');
+    const dispute = requireRecord(disputes, disputeId, 'Dispute');
+    if (dispute.status === 'ruled') throw new Error('A ruled case cannot be reassigned.');
+    Object.assign(dispute, { status: 'assigned', arbitratorId: arbitrator.id, arbitratorName: arbitrator.name });
+    const job = requireRecord(read('bookings'), dispute.bookingId, 'Booking');
+    const notifications = read('notifications');
+    notify(notifications, [...parties(job), [arbitrator.id, `/arbitrator/cases/${dispute.id}`]], 'Arbitrator Assigned', `${arbitrator.name} will review case ${dispute.id}.`);
+    save({ disputes, notifications });
+    return dispute;
+  });
 }
-
-export async function scheduleHearing(disputeId, hearingData) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.DISPUTES));
-  const dispute = list.find(d => d.id === disputeId);
-  if (dispute) {
-    dispute.status = 'hearing_scheduled';
-    dispute.hearingSchedule = {
-      ...hearingData,
-      status: 'scheduled'
-    };
-    localStorage.setItem(STORAGE_KEYS.DISPUTES, JSON.stringify(list));
-  }
-  return dispute;
+export async function saveDisputeResponse(disputeId, providerId, statement, filename = '') {
+  return change(() => {
+    const disputes = read('disputes');
+    const dispute = requireRecord(disputes, disputeId, 'Dispute');
+    checkOwner(dispute, { userId: providerId }, 'providerId');
+    if (dispute.status === 'ruled' || !statement.trim()) throw new Error('Enter a response for an open dispute.');
+    dispute.providerStatement = statement.trim();
+    if (filename.trim()) dispute.evidences.push({ id: id('ev'), uploader: `${dispute.providerName} (Provider)`, title: filename.trim(), filename: filename.trim(), uploadedAt: stamp() });
+    const notifications = read('notifications');
+    notify(notifications, [[dispute.arbitratorId || 'user-admin-1', dispute.arbitratorId ? `/arbitrator/cases/${dispute.id}` : '/admin/disputes']], 'Provider Dispute Response', `Provider response added to ${dispute.id}.`);
+    save({ disputes, notifications });
+    return dispute;
+  });
 }
-
-export async function issueRuling(disputeId, rulingData) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.DISPUTES));
-  const dispute = list.find(d => d.id === disputeId);
-  if (dispute) {
+export async function scheduleHearing(disputeId, values) {
+  return change(() => {
+    const disputes = read('disputes');
+    const dispute = requireRecord(disputes, disputeId, 'Dispute');
+    if (!dispute.arbitratorId || dispute.status === 'ruled') throw new Error('Assign an arbitrator before scheduling an open case.');
+    if (!validDate(values.scheduledDate) || values.scheduledDate < localClock().date) throw new Error('Choose today or a future hearing date.');
+    if (!Number.isFinite(slotMinutes(values.scheduledTime)) || (values.scheduledDate === localClock().date && slotMinutes(values.scheduledTime) <= localClock().minutes)) throw new Error('Choose a valid future hearing time.');
+    if (!/^https?:\/\//i.test(values.meetUrl)) throw new Error('Enter an HTTP or HTTPS meeting URL.');
+    Object.assign(dispute, { status: 'hearing_scheduled', hearingSchedule: { ...values, status: 'scheduled' } });
+    const job = requireRecord(read('bookings'), dispute.bookingId, 'Booking');
+    const notifications = read('notifications');
+    notify(notifications, parties(job), 'Dispute Hearing Scheduled', `Case ${dispute.id}: ${values.scheduledDate} at ${values.scheduledTime}.`);
+    save({ disputes, notifications });
+    return dispute;
+  });
+}
+export async function issueRuling(disputeId, values) {
+  return change(() => {
+    const disputes = read('disputes');
+    const dispute = requireRecord(disputes, disputeId, 'Dispute');
+    if (!dispute.arbitratorId || dispute.status === 'ruled') throw new Error('Only an assigned, open case can receive a ruling.');
+    if (!['In Favor of Customer', 'In Favor of Provider', 'Mutual Settlement / Split'].includes(values.verdict) || !values.reason.trim() || !Number.isFinite(Number(values.awardAmount)) || Number(values.awardAmount) < 0) throw new Error('Enter a valid verdict, award, and rationale.');
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, dispute.bookingId, 'Booking');
+    if (job.status !== 'disputed') throw new Error('This booking no longer has an open dispute.');
     dispute.status = 'ruled';
-    dispute.ruling = {
-      ...rulingData,
-      issuedAt: new Date().toLocaleString('en-GB')
-    };
-    localStorage.setItem(STORAGE_KEYS.DISPUTES, JSON.stringify(list));
-  }
-  return dispute;
+    dispute.ruling = { ...values, awardAmount: Number(values.awardAmount), issuedAt: stamp() };
+    job.hasDispute = false;
+    job.status = job.statusBeforeDispute || 'completed';
+    if (values.verdict !== 'In Favor of Provider') {
+      refundPayment(job, Number(values.awardAmount));
+      if (job.paymentStatus === 'Refunded') job.status = 'cancelled';
+    }
+    event(job, 'Dispute Resolved', `${values.verdict}. Award: ₹${values.awardAmount}. ${values.reason.trim()}`);
+    const notifications = read('notifications');
+    notify(notifications, [...parties(job), ['user-admin-1', '/admin/disputes']], 'Dispute Ruling Issued', `Case ${dispute.id}: ${values.verdict}. Award: ₹${values.awardAmount}.`);
+    save({ disputes, bookings, notifications });
+    return dispute;
+  });
 }
-
-// NOTIFICATIONS
 export async function getNotifications(userId) {
-  initializeStorage();
-  await delay();
-  const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS));
-  return list.filter(n => n.userId === userId || !n.userId);
+  return (await load('notifications')).filter(notification => notification.userId === userId || !notification.userId);
+}
+export async function markNotificationsRead(userId, notificationId) {
+  return change(() => {
+    const notifications = read('notifications');
+    for (const notification of notifications) {
+      if ((!notification.userId || notification.userId === userId) && (!notificationId || notification.id === notificationId)) notification.read = true;
+    }
+    save({ notifications });
+    return notifications.filter(notification => notification.userId === userId || !notification.userId);
+  });
+}
+export async function getServiceReviews(serviceId) {
+  return (await load('bookings')).filter(job => job.serviceId === serviceId && job.reviewSubmitted)
+    .map(job => ({ id: job.id, customerName: job.customerName, rating: job.reviewRating, comment: job.reviewComment, reply: job.reviewReply, date: job.reviewDate || job.scheduledDate }));
 }

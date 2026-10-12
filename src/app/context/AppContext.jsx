@@ -1,114 +1,86 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { DEMO_USERS } from '../../data/mockData';
-import { getNotifications, resetDemoData as repoResetDemoData } from '../../data/mockRepository';
+import { getNotifications, getProviderById, resetDemoData } from '../../data/mockRepository';
+import { subscribeToRepository } from '../../data/repositoryEvents';
 
 const AppContext = createContext();
-const ROLE_STORAGE_KEY = 'servicehub_demo_role';
-const THEME_STORAGE_KEY = 'servicehub_theme';
-const VALID_ROLES = ['guest', 'customer', 'provider', 'admin', 'arbitrator'];
+const ROLE_KEY = 'servicehub_demo_role';
+const THEME_KEY = 'servicehub_theme';
+const roles = ['guest', 'customer', 'provider', 'admin', 'arbitrator'];
+const initialRole = () => roles.includes(localStorage.getItem(ROLE_KEY)) ? localStorage.getItem(ROLE_KEY) : 'guest';
 
 export function AppProvider({ children }) {
-  const [currentRole, setCurrentRole] = useState(() => {
-    const storedRole = localStorage.getItem(ROLE_STORAGE_KEY);
-    return VALID_ROLES.includes(storedRole) ? storedRole : 'guest';
-  }); // guest, customer, provider, admin, arbitrator
-  const [currentUser, setCurrentUser] = useState(() => {
-    const storedRole = localStorage.getItem(ROLE_STORAGE_KEY);
-    return VALID_ROLES.includes(storedRole) && storedRole !== 'guest'
-      ? DEMO_USERS[storedRole]
-      : null;
-  });
-  const [isSuperUser, setIsSuperUser] = useState(() => localStorage.getItem(ROLE_STORAGE_KEY) === 'admin');
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light');
+  const [currentRole, setCurrentRole] = useState(initialRole);
+  const [currentUser, setCurrentUser] = useState(() => DEMO_USERS[initialRole()] || null);
+  const [isSuperUser, setIsSuperUser] = useState(() => initialRole() === 'admin');
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light');
   const [notifications, setNotifications] = useState([]);
-  const [savedIntent, setSavedIntent] = useState(null); // stores { serviceId, slot, address } for post-auth return
+  const [savedIntent, setSavedIntent] = useState(null);
   const [toast, setToast] = useState({ message: null, type: 'info' });
+  const userId = useRef(currentUser?.id);
+  userId.current = currentUser?.id;
+  const showToast = useCallback((message, type = 'success') => setToast({ message, type }), []);
+  const clearToast = useCallback(() => setToast({ message: null, type: 'info' }), []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(currentTheme => currentTheme === 'light' ? 'dark' : 'light');
-  };
-
-  // Update currentUser when role changes
-  const switchRole = (newRole, preserveSuperUser = false) => {
-    localStorage.setItem(ROLE_STORAGE_KEY, newRole);
-
-    if (newRole === 'admin') setIsSuperUser(true);
-    else if (!preserveSuperUser) setIsSuperUser(false);
-
-    setCurrentRole(newRole);
-    if (newRole === 'guest') {
-      setCurrentUser(null);
-    } else if (newRole === 'customer') {
-      setCurrentUser(DEMO_USERS.customer);
-    } else if (newRole === 'provider') {
-      setCurrentUser(DEMO_USERS.provider);
-    } else if (newRole === 'admin') {
-      setCurrentUser(DEMO_USERS.admin);
-    } else if (newRole === 'arbitrator') {
-      setCurrentUser(DEMO_USERS.arbitrator);
-    }
-  };
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
-
-  const clearToast = () => {
-    setToast({ message: null, type: 'info' });
-  };
-
-  const loadNotifications = async () => {
-    if (currentUser) {
-      const list = await getNotifications(currentUser.id);
-      setNotifications(list);
-    } else {
-      setNotifications([]);
-    }
-  };
-
   useEffect(() => {
-    loadNotifications();
-  }, [currentUser]);
+    let active = true;
+    let request = 0;
+    const reload = async () => {
+      const latest = ++request;
+      const user = DEMO_USERS[currentRole];
+      if (!user) { setCurrentUser(null); setNotifications([]); return; }
+      try {
+        const [profile, list] = await Promise.all([
+          currentRole === 'provider' ? getProviderById(user.id) : Promise.resolve(user),
+          getNotifications(user.id)
+        ]);
+        if (active && latest === request) { setCurrentUser(profile); setNotifications(list); }
+      } catch (error) {
+        if (active) showToast(error.message, 'error');
+      }
+    };
+    reload();
+    const unsubscribe = subscribeToRepository(reload);
+    return () => { active = false; unsubscribe(); };
+  }, [currentRole, showToast]);
 
-  const handleResetDemoData = async () => {
-    const res = await repoResetDemoData();
-    switchRole('guest');
-    await loadNotifications();
-    showToast(res.message, 'success');
+  const switchRole = (role, preserveSuperUser = false) => {
+    if (!roles.includes(role)) return;
+    localStorage.setItem(ROLE_KEY, role);
+    setIsSuperUser(value => role === 'admin' || (preserveSuperUser && value));
+    if (role === currentRole) return;
+    setCurrentRole(role);
+    setCurrentUser(DEMO_USERS[role] || null);
+    setNotifications([]);
   };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const reloadNotifications = useCallback(async () => {
+    const id = currentUser?.id;
+    const list = id ? await getNotifications(id) : [];
+    if (userId.current === id) setNotifications(list);
+  }, [currentUser?.id]);
+  const handleResetDemoData = async () => {
+    try {
+      const result = await resetDemoData();
+      switchRole('guest');
+      setSavedIntent(null);
+      showToast(result.message);
+    } catch (error) { showToast(error.message, 'error'); }
+  };
 
   return (
-    <AppContext.Provider
-      value={{
-        currentRole,
-        theme,
-        toggleTheme,
-        isSuperUser,
-        currentUser,
-        switchRole,
-        notifications,
-        unreadCount,
-        savedIntent,
-        setSavedIntent,
-        showToast,
-        toast,
-        clearToast,
-        handleResetDemoData,
-        reloadNotifications: loadNotifications
-      }}
-    >
+    <AppContext.Provider value={{
+      currentRole, currentUser, isSuperUser, switchRole, theme,
+      toggleTheme: () => setTheme(value => value === 'light' ? 'dark' : 'light'),
+      notifications, unreadCount: notifications.filter(notification => !notification.read).length,
+      reloadNotifications, savedIntent, setSavedIntent, showToast, toast, clearToast, handleResetDemoData
+    }}>
       {children}
     </AppContext.Provider>
   );
 }
-
-export function useApp() {
-  return useContext(AppContext);
-}
+export const useApp = () => useContext(AppContext);

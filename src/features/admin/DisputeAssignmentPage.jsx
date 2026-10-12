@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Gavel, UserCheck } from 'lucide-react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useState } from 'react';
+import { UserCheck } from 'lucide-react';
 import { getDisputes, assignDispute } from '../../data/mockRepository';
 import { DEMO_USERS } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
@@ -9,22 +11,18 @@ import { Button } from '../../design-system/primitives/Button';
 
 export function DisputeAssignmentPage() {
   const { showToast } = useApp();
-  const [disputes, setDisputes] = useState([]);
+  const { data: disputes, loading, error, refresh } = useRepositoryQuery(getDisputes);
+  const [busy, setBusy] = useState(false);
 
-  const loadData = async () => {
-    const list = await getDisputes();
-    setDisputes(list);
+  const handleAssign = async id => {
+    if (busy) return;
+    setBusy(true);
+    try { await assignDispute(id, DEMO_USERS.arbitrator); showToast('Arbitrator assignment saved.'); }
+    catch (error) { showToast(error.message, 'warning'); }
+    finally { setBusy(false); }
   };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleAssign = async (disputeId) => {
-    await assignDispute(disputeId, DEMO_USERS.arbitrator);
-    await loadData();
-    showToast(`Dispute Case #${disputeId} assigned to Arbitrator ${DEMO_USERS.arbitrator.name}!`, 'success');
-  };
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <p>Loading cases…</p>;
 
   const columns = [
     { header: 'Case ID', accessor: 'id', render: (row) => <strong>#{row.id}</strong> },
@@ -38,7 +36,7 @@ export function DisputeAssignmentPage() {
       header: 'Action',
       accessor: 'id',
       render: (row) => (
-        <Button variant="primary" size="sm" icon={UserCheck} onClick={() => handleAssign(row.id)}>
+        <Button disabled={busy || row.status === 'ruled'} variant="primary" size="sm" icon={UserCheck} onClick={() => handleAssign(row.id)}>
           Assign Arbitrator
         </Button>
       )

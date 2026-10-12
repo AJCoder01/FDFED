@@ -1,4 +1,5 @@
-import React from 'react';
+import { lazy, Suspense } from 'react';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layouts
@@ -10,7 +11,7 @@ import { ArbitratorLayout } from '../layouts/ArbitratorLayout';
 import { AuthGuard } from './AuthGuard';
 
 // Public Pages
-import { LandingPage } from '../../features/public/LandingPage';
+const LandingPage = lazy(() => import('../../features/public/LandingPage').then(module => ({ default: module.LandingPage })));
 import { ServiceSearchPage } from '../../features/public/ServiceSearchPage';
 import { ServiceDetailPage } from '../../features/public/ServiceDetailPage';
 import { PostAJobPage } from '../../features/public/PostAJobPage';
@@ -59,7 +60,7 @@ export function AppRoutes() {
     <Routes>
       {/* Public Routes */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<Suspense fallback={<Skeleton height="400px" />}><LandingPage /></Suspense>} />
         <Route path="/services" element={<ServiceSearchPage />} />
         <Route path="/services/:serviceId" element={<ServiceDetailPage />} />
         <Route path="/post-a-job" element={<PostAJobPage />} />

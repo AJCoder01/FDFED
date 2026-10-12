@@ -1,33 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Shield, Star, Wrench, Sparkles, Zap, Tv, Wind, ArrowRight, CheckCircle2, Lock, Users, Award, Bot, MessageSquare } from 'lucide-react';
+import { Search, Shield, Star, Wrench, Sparkles, Zap, Tv, Wind, ArrowRight, Bot, MessageSquare } from 'lucide-react';
 import { getCategories, getServices } from '../../data/mockRepository';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 
 export function LandingPage() {
-  const [categories, setCategories] = useState([]);
-  const [popularServices, setPopularServices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    const [categories, services] = await Promise.all([getCategories(), getServices()]);
+    return { categories, services };
+  }, []);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const categories = data?.categories || [];
+  const popularServices = data?.services.slice(0, 4) || [];
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const cats = await getCategories();
-      const srvs = await getServices();
-      setCategories(cats);
-      setPopularServices(srvs.slice(0, 4));
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    let query = `/services?`;
     const params = [];
     if (searchQuery.trim()) params.push(`search=${encodeURIComponent(searchQuery.trim())}`);
     if (selectedCategory) params.push(`category=${encodeURIComponent(selectedCategory)}`);
@@ -212,7 +207,7 @@ export function LandingPage() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#0F172A', fontWeight: '700' }}>
                       <Star size={15} fill="#F59E0B" color="#F59E0B" />
-                      <span>{srv.rating}</span>
+                      <span>{srv.reviewCount ? Number(srv.rating).toFixed(1) : 'No reviews yet'}</span>
                       <span style={{ color: 'var(--color-muted)', fontWeight: '500' }}>({srv.reviewCount} reviews)</span>
                     </div>
 
