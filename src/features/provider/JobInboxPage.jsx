@@ -8,7 +8,7 @@ import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
 import { Select } from '../../design-system/primitives/Select';
 import { JobRequestActions } from './JobRequestActions';
-import { useProviderQuery } from './useProviderQuery';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { formatDate, isAccepted, isPending } from './providerUtils';
 
 export function JobInboxPage() {
@@ -16,7 +16,7 @@ export function JobInboxPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, setData: setJobs, loading, error, refresh } = useProviderQuery(load);
+  const { data: jobs, setData: setJobs, loading, error, refresh } = useRepositoryQuery(load);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="200px" borderRadius="12px" />;

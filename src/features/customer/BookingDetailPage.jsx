@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, Star, Shield, HelpCircle, Scale } from 'lucide-react';
-import { getBookingById, updateBookingStatus } from '../../data/mockRepository';
+import { ArrowLeft, Star, HelpCircle, Scale } from 'lucide-react';
+import { getBookingById, updateBookingStatus, submitReview, respondToTimeProposal } from '../../data/mockRepository';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
@@ -13,10 +15,14 @@ import { TextField } from '../../design-system/primitives/TextField';
 export function BookingDetailPage() {
   const { bookingId } = useParams();
   const navigate = useNavigate();
-  const { showToast } = useApp();
+  const { currentUser, showToast } = useApp();
 
-  const [booking, setBooking] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    const job = await getBookingById(bookingId);
+    return job?.customerId === currentUser.id ? job : null;
+  }, [bookingId, currentUser.id]);
+  const { data: booking, setData: setBooking, loading, error, refresh } = useRepositoryQuery(load);
+  const [busy, setBusy] = useState(false);
 
   // Modals
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -24,37 +30,32 @@ export function BookingDetailPage() {
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const data = await getBookingById(bookingId);
-      setBooking(data);
-      setLoading(false);
-    }
-    loadData();
-  }, [bookingId]);
-
   const handleCancelConfirm = async () => {
-    const updated = await updateBookingStatus(booking.id, 'cancelled', 'Cancelled by Customer. 100% mock refund issued to original payment method.');
-    setBooking({ ...updated });
-    showToast('Booking cancelled. 100% mock refund issued.', 'info');
+    const updated = await updateBookingStatus(booking.id, 'cancelled', 'Cancelled by customer.', { role: 'customer', userId: currentUser.id });
+    setBooking(updated);
+    showToast(updated.paymentStatus === 'Refunded' ? 'Booking cancelled and mock payment refunded.' : 'Booking cancelled.', 'info');
+  };
+  const handleReviewSubmit = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setBooking(await submitReview(booking.id, rating, reviewText, currentUser.id));
+      setReviewModalOpen(false);
+      showToast('Your review has been saved.');
+    } catch (error) { showToast(error.message, 'warning'); }
+    finally { setBusy(false); }
+  };
+  const respond = async accept => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setBooking(await respondToTimeProposal(booking.id, accept, currentUser.id));
+      showToast(accept ? 'New appointment confirmed.' : 'Proposal declined. Original appointment retained.');
+    } catch (error) { showToast(error.message, 'warning'); }
+    finally { setBusy(false); }
   };
 
-  const handleReviewSubmit = () => {
-    if (!reviewText) {
-      showToast('Please enter a review comment.', 'warning');
-      return;
-    }
-    setBooking({
-      ...booking,
-      reviewSubmitted: true,
-      reviewRating: rating,
-      reviewComment: reviewText
-    });
-    setReviewModalOpen(false);
-    showToast('Thank you! Your review has been published.', 'success');
-  };
-
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="400px" borderRadius="12px" />;
   if (!booking) return <div>Booking not found</div>;
 
@@ -76,7 +77,7 @@ export function BookingDetailPage() {
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {(booking.status === 'active' || booking.status === 'in_progress') && (
+          {(['active', 'in_progress', 'reschedule_proposed'].includes(booking.status)) && (
             <Button variant="danger" size="sm" onClick={() => setCancelModalOpen(true)}>
               Cancel Booking
             </Button>
@@ -92,11 +93,18 @@ export function BookingDetailPage() {
             Need Help / Report Issue
           </Button>
 
-          <Button variant="outline" size="sm" icon={Scale} onClick={() => navigate(`/customer/dispute/new?bookingId=${booking.id}`)}>
+          <Button disabled={!['completed', 'in_progress'].includes(booking.status) || booking.hasDispute} variant="outline" size="sm" icon={Scale} onClick={() => navigate(`/customer/dispute/new?bookingId=${booking.id}`)}>
             File Formal Dispute
           </Button>
         </div>
       </div>
+
+      {booking.status === 'reschedule_proposed' && booking.timeProposal && <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2>Provider Time Proposal</h2>
+        <p>Original appointment: {booking.scheduledDate} at {booking.scheduledSlot}</p>
+        <p>Proposed appointment: {booking.timeProposal.date} at {booking.timeProposal.slot}</p>
+        <div style={{ display: 'flex', gap: '8px' }}><Button disabled={busy} onClick={() => respond(true)}>Accept Proposed Time</Button><Button variant="secondary" disabled={busy} onClick={() => respond(false)}>Keep Original Time</Button></div>
+      </section>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }} className="grid-cols-2">
         {/* Left: Timeline & Details */}
@@ -125,6 +133,7 @@ export function BookingDetailPage() {
                 ))}
               </div>
               <p style={{ fontSize: '13px', color: 'var(--color-ink)' }}>"{booking.reviewComment}"</p>
+              {booking.reviewReply && <p><strong>Provider Reply:</strong> {booking.reviewReply}</p>}
             </div>
           )}
         </div>
@@ -144,6 +153,7 @@ export function BookingDetailPage() {
               <span>Total Paid:</span>
               <span>₹{booking.amount}</span>
             </div>
+            <p>Payment Status: {booking.paymentStatus} · Refunded: ₹{booking.refundedAmount || 0}</p>
             <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>Payment Method: {booking.paymentMethod}</span>
           </div>
         </div>
@@ -155,7 +165,7 @@ export function BookingDetailPage() {
         onClose={() => setCancelModalOpen(false)}
         onConfirm={handleCancelConfirm}
         title="Confirm Booking Cancellation"
-        message={`Are you sure you want to cancel booking #${booking.id}? Free cancellation applies. A 100% mock refund of ₹${booking.amount} will be processed instantly.`}
+        message={`Cancel booking #${booking.id}? Any recorded payment will be refunded in this demo.`}
         confirmLabel="Yes, Cancel Booking"
         variant="danger"
       />
@@ -168,7 +178,7 @@ export function BookingDetailPage() {
         footer={(
           <>
             <Button variant="secondary" onClick={() => setReviewModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleReviewSubmit}>Submit Review</Button>
+            <Button variant="primary" disabled={busy} onClick={handleReviewSubmit}>{busy ? 'Saving…' : 'Submit Review'}</Button>
           </>
         )}
       >
@@ -179,6 +189,9 @@ export function BookingDetailPage() {
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
                   key={star}
+                  type="button"
+                  aria-label={`Rate ${star} out of 5`}
+                  aria-pressed={rating === star}
                   onClick={() => setRating(star)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px' }}
                 >
@@ -190,6 +203,7 @@ export function BookingDetailPage() {
           <TextField
             label="Your Review Comment"
             value={reviewText}
+            disabled={busy}
             onChange={(e) => setReviewText(e.target.value)}
             placeholder="How was the service quality, punctuality, and behavior?"
             multiline

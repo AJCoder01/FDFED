@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Shield, CreditCard, ArrowRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { createBooking } from '../../data/mockRepository';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -12,15 +12,7 @@ export function BookingWizard() {
   const navigate = useNavigate();
   const { currentUser, savedIntent, setSavedIntent, showToast } = useApp();
 
-  const bookingData = location.state?.intent || savedIntent || {
-    serviceId: 'srv-1',
-    serviceTitle: 'Split AC Servicing & Deep Foam Clean',
-    price: 799,
-    slot: '11:30 AM',
-    date: '2026-08-20',
-    providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs'
-  };
+  const bookingData = location.state?.intent || savedIntent;
 
   const [step, setStep] = useState(1);
   const [address, setAddress] = useState(currentUser?.addresses?.[0]?.addressLine || 'Flat 402, Green Glen Layout, Bellandur, Bengaluru');
@@ -65,6 +57,8 @@ export function BookingWizard() {
     }
   };
 
+  if (!bookingData && !confirmedBooking) return <div className="app-container card" style={{ marginTop: '24px' }}><p>Choose a service and an available time before checking out.</p><Button onClick={() => navigate('/services')}>Find Services</Button></div>;
+
   if (confirmedBooking) {
     return (
       <div className="app-container" style={{ padding: '48px 16px', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
@@ -82,7 +76,8 @@ export function BookingWizard() {
             <div><strong>Scheduled Slot:</strong> {confirmedBooking.scheduledDate} ({confirmedBooking.scheduledSlot})</div>
             <div><strong>Address:</strong> {confirmedBooking.address}</div>
             <div><strong>Provider:</strong> {confirmedBooking.providerName}</div>
-            <div><strong>Total Paid:</strong> ₹{confirmedBooking.amount} ({confirmedBooking.paymentMethod})</div>
+            <div><strong>Payment Status:</strong> {confirmedBooking.paymentStatus}</div>
+            <div><strong>Booking Amount:</strong> ₹{confirmedBooking.amount} ({confirmedBooking.paymentMethod})</div>
           </div>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
@@ -204,7 +199,7 @@ export function BookingWizard() {
               ← Back
             </Button>
             <Button variant="primary" style={{ flex: 1 }} size="lg" disabled={loading} onClick={handleConfirmOrder}>
-              {loading ? 'Processing...' : `Confirm & Pay ₹${bookingData.price}`}
+              {loading ? 'Processing...' : paymentMethod === 'Cash After Service' ? 'Confirm Booking (Pay After Service)' : `Confirm & Pay ₹${bookingData.price}`}
             </Button>
           </div>
         </div>

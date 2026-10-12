@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { getBookings } from '../../data/mockRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -12,21 +14,12 @@ export function BookingsListPage() {
   const { currentUser } = useApp();
   const navigate = useNavigate();
 
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => getBookings('customer', currentUser.id), [currentUser.id]);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const bookings = data || [];
   const [activeTab, setActiveTab] = useState('all');
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      if (currentUser) {
-        const list = await getBookings('customer', currentUser.id);
-        setBookings(list);
-      }
-      setLoading(false);
-    }
-    loadData();
-  }, [currentUser]);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
 
   const filteredBookings = bookings.filter(b => {
     if (activeTab === 'active') return b.status === 'active' || b.status === 'in_progress';

@@ -1,18 +1,43 @@
-import React, { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 
 export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '500px' }) {
+  const panel = useRef(null);
+  const titleId = useId();
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+    if (!isOpen) return;
+    const handleKey = event => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        closeRef.current();
+      }
+      if (event.key !== 'Tab') return;
+      const controls = panel.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]');
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      const outside = document.activeElement === panel.current || !panel.current.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || outside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || outside)) {
+        event.preventDefault();
+        first.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
+    window.addEventListener('keydown', handleKey);
+    const previousFocus = document.activeElement;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    panel.current.focus();
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = overflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [isOpen]);
   if (!isOpen) return null;
 
   const overlayStyle = {
@@ -71,11 +96,11 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '50
   };
 
   return (
-    <div style={overlayStyle} onClick={onClose} role="dialog" aria-modal="true">
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+    <div style={overlayStyle} onClick={onClose}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
-          <h3 style={titleStyle}>{title}</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <h3 id={titleId} style={titleStyle}>{title}</h3>
+          <Button variant="ghost" size="sm" aria-label="Close dialog" onClick={onClose}>
             <X size={18} />
           </Button>
         </div>

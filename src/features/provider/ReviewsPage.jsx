@@ -1,17 +1,34 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Star } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/mockRepository';
+import { getBookings, replyToReview } from '../../data/mockRepository';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
-import { useProviderQuery } from './useProviderQuery';
+import { TextField } from '../../design-system/primitives/TextField';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { formatDate } from './providerUtils';
 
 export function ReviewsPage() {
-  const { currentUser } = useApp();
+  const { currentUser, showToast } = useApp();
+  const [replyId, setReplyId] = useState(null);
+  const [reply, setReply] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [replyError, setReplyError] = useState('');
   const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, loading, error, refresh } = useProviderQuery(load);
+  const { data: jobs, setData: setJobs, loading, error, refresh } = useRepositoryQuery(load);
+
+  const sendReply = async event => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true); setReplyError('');
+    try {
+      const updated = await replyToReview(replyId, reply, currentUser.id);
+      setJobs(list => list.map(job => job.id === updated.id ? updated : job));
+      setReplyId(null); setReply(''); showToast('Public reply saved.');
+    } catch (error) { setReplyError(error.message); }
+    finally { setBusy(false); }
+  };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="200px" borderRadius="12px" />;
@@ -23,9 +40,9 @@ export function ReviewsPage() {
     <div className="provider-page">
       <div className="page-header">
         <h1 className="page-title">Customer Reviews & Ratings</h1>
-        <p className="page-subtitle">{reviews.length} stored booking review{reviews.length === 1 ? '' : 's'}{average && ` · Average ${average} / 5`}</p>
+        <p className="page-subtitle">{reviews.length} customer review{reviews.length === 1 ? '' : 's'}{average && ` · Average ${average} / 5`}</p>
       </div>
-      <p className="provider-hint">Public replies are currently unavailable. Only reviews saved to booking records appear here.</p>
+
       {reviews.length === 0 && <div className="card">No customer reviews have been saved yet.</div>}
       {reviews.map(job => (
         <div key={job.id} className="card provider-stack">
@@ -37,7 +54,12 @@ export function ReviewsPage() {
             {[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} fill={star <= Number(job.reviewRating) ? '#F59E0B' : 'none'} color="#F59E0B" />)}
           </div>
           <p>{job.reviewComment}</p>
-          <Button variant="outline" size="sm" disabled>Reply to Review</Button>
+          {job.reviewReply && <div className="provider-record"><strong>Your Reply</strong><p>{job.reviewReply}</p></div>}
+          {replyId === job.id ? <form className="provider-stack" onSubmit={sendReply}>
+            <TextField name="review-reply" label="Your Reply" value={reply} onChange={event => setReply(event.target.value)} multiline required disabled={busy} />
+            {replyError && <p role="alert" className="provider-error">{replyError}</p>}
+            <div className="provider-row"><Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Post Reply'}</Button><Button variant="secondary" disabled={busy} onClick={() => setReplyId(null)}>Cancel</Button></div>
+          </form> : <Button variant="outline" size="sm" disabled={busy} onClick={() => { setReplyId(job.id); setReply(job.reviewReply || ''); setReplyError(''); }}>{job.reviewReply ? 'Edit Reply' : 'Reply to Review'}</Button>}
         </div>
       ))}
     </div>

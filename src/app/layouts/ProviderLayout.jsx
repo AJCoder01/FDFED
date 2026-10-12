@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Shield, LayoutDashboard, Wrench, Calendar, Briefcase, DollarSign, Star, User, Bell, RotateCcw, ChevronRight, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -11,6 +11,10 @@ export function ProviderLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
+
+  useEffect(() => {
+    if (isSuperUser && currentRole !== 'provider') switchRole('provider', true);
+  }, [currentRole, isSuperUser, switchRole]);
 
   const navItems = [
     { label: 'Overview', path: '/provider', icon: LayoutDashboard },
@@ -155,7 +159,7 @@ export function ProviderLayout() {
           </header>
 
           <main className="provider-main" style={{ flex: 1, padding: '32px' }}>
-            <Outlet key={currentUser?.id} />
+            {currentRole === 'provider' && currentUser && <Outlet key={currentUser.id} />}
           </main>
         </div>
       </div>

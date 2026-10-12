@@ -1,44 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, CheckSquare, Eye, Headphones, Gavel, ArrowRight, ShieldAlert, DollarSign, TrendingUp } from 'lucide-react';
+import { Eye, Headphones, Gavel, DollarSign, TrendingUp } from 'lucide-react';
 import { getBookings, getTickets, getDisputes, getServices, getRevenueStats } from '../../data/mockRepository';
-import { StatusBadge } from '../../design-system/primitives/StatusBadge';
+
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    bookingsCount: 0,
-    ticketsCount: 0,
-    disputesCount: 0,
-    servicesCount: 0,
-    platformRevenue: 0,
-    gmv: 0
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const bks = await getBookings('admin');
-      const tks = await getTickets();
-      const dsps = await getDisputes();
-      const srvs = await getServices();
-      const revData = await getRevenueStats();
-
-      setStats({
-        bookingsCount: bks.length,
-        ticketsCount: tks.filter(t => t.status === 'open').length,
-        disputesCount: dsps.filter(d => d.status === 'pending_assignment').length,
-        servicesCount: srvs.length,
-        platformRevenue: revData.totalRevenue,
-        gmv: revData.gmv
-      });
-      setLoading(false);
-    }
-    loadData();
+  const load = useCallback(async () => {
+    const [bookings, tickets, disputes, services, revenue] = await Promise.all([getBookings('admin'), getTickets(), getDisputes(), getServices({ role: 'admin' }), getRevenueStats()]);
+    return { bookingsCount: bookings.length, ticketsCount: tickets.filter(ticket => ticket.status === 'open').length,
+      disputesCount: disputes.filter(dispute => dispute.status === 'pending_assignment').length,
+      servicesCount: services.length, platformRevenue: revenue.totalRevenue, gmv: revenue.gmv };
   }, []);
+  const { data: stats, loading, error, refresh } = useRepositoryQuery(load);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="400px" />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

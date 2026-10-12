@@ -1,54 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { HelpCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { getTickets, createTicket } from '../../data/mockRepository';
+
+import { getBookings, getTickets, createTicket } from '../../data/mockRepository';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
 
 export function SupportTicketPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const bookingIdParam = searchParams.get('bookingId') || 'BK-89021';
+  const bookingIdParam = searchParams.get('bookingId') || '';
   const { currentUser, showToast } = useApp();
 
-  const [tickets, setTickets] = useState([]);
+  const load = useCallback(async () => {
+    const [tickets, bookings] = await Promise.all([getTickets('customer', currentUser.id), getBookings('customer', currentUser.id)]);
+    return { tickets, bookings };
+  }, [currentUser.id]);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const [bookingId, setBookingId] = useState(bookingIdParam);
+  useEffect(() => { setBookingId(bookingIdParam); }, [bookingIdParam]);
   const [issueType, setIssueType] = useState('Service Quality Issue');
   const [severity, setSeverity] = useState('Medium');
+  const [busy, setBusy] = useState(false);
   const [description, setDescription] = useState('');
-
-  useEffect(() => {
-    async function loadTickets() {
-      const list = await getTickets();
-      setTickets(list);
-    }
-    loadTickets();
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     if (!description) {
       showToast('Please enter a description of the issue.', 'warning');
       return;
     }
 
-    const created = await createTicket({
-      bookingId: bookingIdParam,
-      serviceTitle: 'Home Service',
-      customerId: currentUser.id,
-      customerName: currentUser.name,
-      providerName: 'Assigned Provider',
-      issueType: issueType,
-      severity: severity,
-      description: description
-    });
-
-    setTickets([created, ...tickets]);
-    setDescription('');
-    showToast(`Support Ticket #${created.id} opened successfully!`, 'success');
+    setBusy(true);
+    try {
+      const created = await createTicket({ bookingId, customerId: currentUser.id, issueType, severity, description });
+      setDescription('');
+      showToast(`Support Ticket #${created.id} opened.`, 'success');
+    } catch (error) { showToast(error.message, 'warning'); }
+    finally { setBusy(false); }
   };
+
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="300px" />;
+  const { tickets, bookings } = data;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -62,10 +62,13 @@ export function SupportTicketPage() {
         <form onSubmit={handleSubmit} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Open a Support Ticket</h2>
           
-          <TextField
+          <Select
             label="Associated Booking ID"
-            value={bookingIdParam}
-            disabled
+            value={bookingId}
+            onChange={event => setBookingId(event.target.value)}
+            options={bookings.map(job => ({ value: job.id, label: `#${job.id} — ${job.serviceTitle}` }))}
+            required
+            disabled={busy}
           />
 
           <Select
@@ -101,7 +104,7 @@ export function SupportTicketPage() {
             required
           />
 
-          <Button type="submit" variant="primary" fullWidth size="lg">
+          <Button type="submit" disabled={busy || !bookingId} variant="primary" fullWidth size="lg">
             Submit Support Ticket
           </Button>
         </form>

@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { getBookings } from '../../data/mockRepository';
+import { netPayout, platformFee } from '../../data/bookingRules';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 
 export function BookingInspectorPage() {
-  const [bookings, setBookings] = useState([]);
-
-  useEffect(() => {
-    async function loadData() {
-      const list = await getBookings('admin');
-      setBookings(list);
-    }
-    loadData();
-  }, []);
+  const load = useCallback(() => getBookings('admin'), []);
+  const { data: bookings, loading, error, refresh } = useRepositoryQuery(load);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="300px" />;
 
   const columns = [
     { header: 'Booking ID', accessor: 'id', render: (row) => <strong>#{row.id}</strong> },
@@ -25,18 +24,18 @@ export function BookingInspectorPage() {
       header: '5% Platform Fee', 
       accessor: 'platformFee', 
       render: (row) => {
-        const fee = row.platformFee !== undefined ? row.platformFee : Math.round(row.amount * 0.05);
-        return <span style={{ color: '#059669', fontWeight: '700' }}>+₹{fee}</span>;
+        return <span style={{ color: '#059669', fontWeight: '700' }}>+₹{platformFee(row)}</span>;
       }
     },
     { 
       header: 'Provider Payout', 
       accessor: 'netPayout', 
       render: (row) => {
-        const fee = row.platformFee !== undefined ? row.platformFee : Math.round(row.amount * 0.05);
-        return <span style={{ color: 'var(--color-muted)' }}>₹{row.amount - fee}</span>;
+        return <span style={{ color: 'var(--color-muted)' }}>₹{netPayout(row)}</span>;
       }
     },
+    { header: 'Refunded', render: row => `₹${row.refundedAmount || 0}` },
+    { header: 'Payment', accessor: 'paymentStatus' },
     { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> }
   ];
 

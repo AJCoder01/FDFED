@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { subscribeToRepository } from './repositoryEvents';
 
-export function useProviderQuery(load) {
+export function useRepositoryQuery(load) {
   const [result, setResult] = useState({ load: null, data: null, error: '' });
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion(value => value + 1), []);
@@ -12,22 +13,12 @@ export function useProviderQuery(load) {
         setResult({ load, data: result, error: '' });
       }
     }).catch(error => {
-      if (current) setResult(value => ({ ...value, load, error: error.message || 'Unable to load provider data.' }));
+      if (current) setResult(value => ({ load, data: value.load === load ? value.data : null, error: error.message || 'Unable to load data.' }));
     });
     return () => { current = false; };
   }, [load, version]);
 
-  useEffect(() => {
-    const onStorage = event => {
-      if (!event.key || event.key.startsWith('servicehub_')) refresh();
-    };
-    window.addEventListener('focus', refresh);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener('focus', refresh);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, [refresh]);
+  useEffect(() => subscribeToRepository(refresh), [refresh]);
 
   const setData = update => setResult(value => value.load === load
     ? { ...value, data: typeof update === 'function' ? update(value.data) : update }

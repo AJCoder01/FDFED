@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, Filter, Star, X, ArrowUpDown, Shield } from 'lucide-react';
+import { Search, Filter, Star, X, Shield } from 'lucide-react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { getServices, getCategories } from '../../data/mockRepository';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { EmptyState } from '../../design-system/primitives/EmptyState';
@@ -16,28 +18,15 @@ export function ServiceSearchPage() {
   const currentSort = searchParams.get('sort') || 'rating';
   const currentMaxPrice = searchParams.get('maxPrice') || '';
 
-  const [services, setServices] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState(currentSearch);
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      const cats = await getCategories();
-      setCategories(cats);
-
-      const srvs = await getServices({
-        search: currentSearch,
-        category: currentCategory,
-        sort: currentSort,
-        maxPrice: currentMaxPrice
-      });
-      setServices(srvs);
-      setLoading(false);
-    }
-    fetchData();
+  const load = useCallback(async () => {
+    const [services, categories] = await Promise.all([getServices({ search: currentSearch, category: currentCategory, sort: currentSort, maxPrice: currentMaxPrice }), getCategories()]);
+    return { services, categories };
   }, [currentSearch, currentCategory, currentSort, currentMaxPrice]);
+  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const services = data?.services || [];
+  const categories = data?.categories || [];
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
 
   const updateFilters = (key, value) => {
     const params = new URLSearchParams(searchParams);
@@ -187,7 +176,7 @@ export function ServiceSearchPage() {
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginTop: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--color-ink)', fontWeight: '700' }}>
-                      <Star size={14} fill="#F59E0B" color="#F59E0B" /> {srv.rating}
+                      <Star size={14} fill="#F59E0B" color="#F59E0B" /> {srv.reviewCount ? Number(srv.rating).toFixed(1) : 'No reviews yet'}
                     </div>
                     <span style={{ color: 'var(--color-muted)', fontSize: '12px' }}>({srv.reviewCount} reviews)</span>
                   </div>

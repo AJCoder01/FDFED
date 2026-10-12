@@ -1,4 +1,4 @@
-import React from 'react';
+import { useId } from 'react';
 
 export function Select({
   label,
@@ -12,6 +12,8 @@ export function Select({
   disabled = false,
   placeholder = 'Select option...'
 }) {
+  const fieldId = useId();
+  const id = name || fieldId;
   const containerStyle = {
     display: 'flex',
     flexDirection: 'column',
@@ -49,20 +51,22 @@ export function Select({
   return (
     <div style={containerStyle}>
       {label && (
-        <label htmlFor={name} style={labelStyle}>
-          {label} {required && <span style={{ color: 'var(--color-danger)' }}>*</span>}
+        <label htmlFor={id} style={labelStyle}>
+          {label} {required && <span aria-hidden="true" style={{ color: 'var(--color-danger)' }}>*</span>}
         </label>
       )}
 
       <select
-        id={name}
+        id={id}
         name={name}
         value={value}
         onChange={onChange}
+        required={required}
+        aria-invalid={Boolean(error)}
         disabled={disabled}
         style={selectStyle}
       >
-        <option value="" disabled>{placeholder}</option>
+        {!options.some(option => option.value === '') && <option value="" disabled>{placeholder}</option>}
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}

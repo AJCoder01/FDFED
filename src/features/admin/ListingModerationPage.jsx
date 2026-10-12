@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { getServices } from '../../data/mockRepository';
+import { useCallback, useState } from 'react';
+import { getServices, saveService } from '../../data/mockRepository';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -7,21 +10,21 @@ import { Button } from '../../design-system/primitives/Button';
 
 export function ListingModerationPage() {
   const { showToast } = useApp();
-  const [services, setServices] = useState([]);
-
-  useEffect(() => {
-    async function loadData() {
-      const list = await getServices();
-      setServices(list);
-    }
-    loadData();
-  }, []);
-
-  const handleToggleStatus = (srvId, currentStatus) => {
-    const nextStatus = currentStatus === 'published' ? 'paused' : 'published';
-    setServices(services.map(s => s.id === srvId ? { ...s, status: nextStatus } : s));
-    showToast(`Listing status updated to ${nextStatus.toUpperCase()}`, 'success');
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => getServices({ role: 'admin' }), []);
+  const { data: services, loading, error, refresh } = useRepositoryQuery(load);
+  const handleToggleStatus = async (id, currentStatus) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const status = currentStatus === 'published' ? 'paused' : 'published';
+      await saveService({ id, status }, { role: 'admin' });
+      showToast(`Listing ${status}.`);
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { setBusy(false); }
   };
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="300px" />;
 
   const columns = [
     { header: 'Title', accessor: 'title', render: (row) => <strong>{row.title}</strong> },
@@ -33,7 +36,7 @@ export function ListingModerationPage() {
       header: 'Moderate',
       accessor: 'id',
       render: (row) => (
-        <Button variant={row.status === 'published' ? 'danger' : 'success'} size="sm" onClick={() => handleToggleStatus(row.id, row.status)}>
+        <Button disabled={busy} variant={row.status === 'published' ? 'danger' : 'success'} size="sm" onClick={() => handleToggleStatus(row.id, row.status)}>
           {row.status === 'published' ? 'Pause Listing' : 'Approve & Publish'}
         </Button>
       )

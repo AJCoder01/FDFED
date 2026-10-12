@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Download, Calendar, Award, Scale } from 'lucide-react';
+import { ArrowLeft, Calendar, Award } from 'lucide-react';
 import { getDisputeById } from '../../data/mockRepository';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -10,25 +12,15 @@ import { Button } from '../../design-system/primitives/Button';
 export function DisputeCaseDetailPage() {
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const { showToast } = useApp();
+  const { currentUser, showToast } = useApp();
 
-  const [dispute, setDispute] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    const dispute = await getDisputeById(caseId);
+    return dispute?.arbitratorId === currentUser.id ? dispute : null;
+  }, [caseId, currentUser.id]);
+  const { data: dispute, loading, error, refresh } = useRepositoryQuery(load);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const data = await getDisputeById(caseId);
-      setDispute(data);
-      setLoading(false);
-    }
-    loadData();
-  }, [caseId]);
-
-  const handleDownloadEvidence = (filename) => {
-    showToast(`Simulated download for evidence document: ${filename}`, 'info');
-  };
-
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="400px" borderRadius="12px" />;
   if (!dispute) return <div>Dispute case record not found.</div>;
 
@@ -48,10 +40,10 @@ export function DisputeCaseDetailPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Button variant="outline" icon={Calendar} onClick={() => navigate(`/arbitrator/hearings?caseId=${dispute.id}`)}>
+          <Button disabled={dispute.status === 'ruled'} variant="outline" icon={Calendar} onClick={() => navigate(`/arbitrator/hearings?caseId=${dispute.id}`)}>
             Schedule Virtual Hearing
           </Button>
-          <Button variant="primary" icon={Award} onClick={() => navigate(`/arbitrator/rulings?caseId=${dispute.id}`)}>
+          <Button disabled={dispute.status === 'ruled'} variant="primary" icon={Award} onClick={() => navigate(`/arbitrator/rulings?caseId=${dispute.id}`)}>
             Issue Binding Ruling / Award
           </Button>
         </div>
@@ -88,9 +80,7 @@ export function DisputeCaseDetailPage() {
                     <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{ev.title}</div>
                     <div style={{ fontSize: '11px', color: 'var(--color-muted)', marginTop: '2px' }}>Uploaded by: {ev.uploader} on {ev.uploadedAt}</div>
                   </div>
-                  <Button variant="secondary" size="sm" icon={Download} onClick={() => handleDownloadEvidence(ev.filename)}>
-                    View Document
-                  </Button>
+                  <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Demo filename record</span>
                 </div>
               ))}
             </div>
