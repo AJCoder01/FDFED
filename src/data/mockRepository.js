@@ -97,6 +97,27 @@ export async function getServiceById(id) {
   return list.find(s => s.id === id) || null;
 }
 
+export async function getAvailableSlots(serviceId, date) {
+  initializeStorage();
+  await delay();
+  const services = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES));
+  const service = services.find(item => item.id === serviceId);
+  if (!service) return [];
+
+  const bookings = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
+  const bookedSlots = new Set(
+    bookings
+      .filter(booking =>
+        booking.serviceId === serviceId &&
+        booking.scheduledDate === date &&
+        booking.status !== 'cancelled'
+      )
+      .map(booking => booking.scheduledSlot)
+  );
+
+  return (service.availableSlots || []).filter(slot => !bookedSlots.has(slot));
+}
+
 export async function saveService(serviceData) {
   initializeStorage();
   await delay();
@@ -146,6 +167,22 @@ export async function createBooking(bookingData) {
   initializeStorage();
   await delay();
   const list = JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS));
+  const services = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES));
+  const service = services.find(item => item.id === bookingData.serviceId);
+
+  if (!service || !service.availableSlots?.includes(bookingData.scheduledSlot)) {
+    throw new Error('This service does not offer the selected time slot.');
+  }
+
+  const slotIsTaken = list.some(booking =>
+    booking.serviceId === bookingData.serviceId &&
+    booking.scheduledDate === bookingData.scheduledDate &&
+    booking.scheduledSlot === bookingData.scheduledSlot &&
+    booking.status !== 'cancelled'
+  );
+  if (slotIsTaken) {
+    throw new Error('That slot has just been booked. Please choose another available time.');
+  }
   
   const amount = Number(bookingData.amount || 0);
   const platformFee = Math.round(amount * 0.05); // 5% platform fee

@@ -88,7 +88,7 @@ export function LoginPage() {
         {!hasSelectedCredentialRole ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {roleChoices.map(({ role, label, description, icon: Icon }) => (
-              <button key={role} type="button" onClick={() => chooseRole(role)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '14px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: '#FFFFFF', color: 'var(--color-ink)', cursor: 'pointer', textAlign: 'left' }}>
+              <button key={role} type="button" onClick={() => chooseRole(role)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '14px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-ink)', cursor: 'pointer', textAlign: 'left' }}>
                 <Icon size={20} color="var(--color-primary)" />
                 <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
                   <strong style={{ fontSize: '14px' }}>{label}</strong>

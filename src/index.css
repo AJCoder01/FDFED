@@ -17,6 +17,28 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme='dark'] body {
+  color-scheme: dark;
+}
+
+:root[data-theme='dark'] header,
+:root[data-theme='dark'] aside {
+  background-color: var(--color-surface) !important;
+}
+
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] select,
+:root[data-theme='dark'] textarea {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  border-color: var(--color-border);
+}
+
+:root[data-theme='dark'] input::placeholder,
+:root[data-theme='dark'] textarea::placeholder {
+  color: var(--color-muted);
+}
+
 a {
   color: var(--color-primary);
   text-decoration: none;
@@ -164,4 +186,3 @@ button, input, select, textarea {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
-

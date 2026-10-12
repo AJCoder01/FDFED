@@ -70,7 +70,7 @@ export function ServiceSearchPage() {
       {/* Filter Bar Controls */}
       <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <form onSubmit={handleSearchFormSubmit} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '240px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-control)', padding: '0 12px', backgroundColor: '#FFF' }}>
+          <div style={{ flex: 1, minWidth: '240px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-control)', padding: '0 12px', backgroundColor: 'var(--color-surface)' }}>
             <Search size={18} color="var(--color-muted)" />
             <input
               type="text"

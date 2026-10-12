@@ -31,27 +31,38 @@ export function BookingWizard() {
 
   const handleConfirmOrder = async () => {
     setLoading(true);
-    const newBooking = await createBooking({
-      serviceId: bookingData.serviceId,
-      serviceTitle: bookingData.serviceTitle,
-      categoryName: 'Home Services',
-      customerId: currentUser.id,
-      customerName: currentUser.name,
-      customerPhone: currentUser.phone,
-      address: address,
-      providerId: bookingData.providerId,
-      providerName: bookingData.providerName,
-      scheduledDate: bookingData.date,
-      scheduledSlot: bookingData.slot,
-      amount: bookingData.price,
-      paymentMethod: paymentMethod,
-      notes: notes
-    });
+    try {
+      const newBooking = await createBooking({
+        serviceId: bookingData.serviceId,
+        serviceTitle: bookingData.serviceTitle,
+        categoryName: 'Home Services',
+        customerId: currentUser.id,
+        customerName: currentUser.name,
+        customerPhone: currentUser.phone,
+        address: address,
+        providerId: bookingData.providerId,
+        providerName: bookingData.providerName,
+        scheduledDate: bookingData.date,
+        scheduledSlot: bookingData.slot,
+        amount: bookingData.price,
+        paymentMethod: paymentMethod,
+        notes: notes
+      });
 
-    setSavedIntent(null);
-    setConfirmedBooking(newBooking);
-    setLoading(false);
-    showToast(`Booking #${newBooking.id} created successfully!`, 'success');
+      setSavedIntent(null);
+      setConfirmedBooking(newBooking);
+      showToast(`Booking #${newBooking.id} created successfully!`, 'success');
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Unable to create the booking. Please try again.';
+      showToast(message, 'warning');
+      navigate(`/services/${bookingData.serviceId}`, {
+        state: { selectedDate: bookingData.date }
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (confirmedBooking) {

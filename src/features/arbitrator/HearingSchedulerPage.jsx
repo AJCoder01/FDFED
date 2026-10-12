@@ -75,7 +75,7 @@ export function HearingSchedulerPage() {
 
           <div style={{ backgroundColor: 'var(--color-page-bg)', padding: '16px', borderRadius: 'var(--radius-control)', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <strong style={{ color: 'var(--color-ink)' }}>Scheduled Hearings Today:</strong>
-            <div style={{ padding: '8px', backgroundColor: '#FFF', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+            <div style={{ padding: '8px', backgroundColor: 'var(--color-surface)', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
               <strong>11:00 AM - Case #DISP-101:</strong> Aarav Sharma vs Apex Fix Services (Flooring Damage Claim)
             </div>
           </div>

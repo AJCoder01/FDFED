@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Star, Shield, Clock, CheckCircle2, XCircle, Calendar, ArrowLeft } from 'lucide-react';
-import { getServiceById } from '../../data/mockRepository';
+import { getAvailableSlots, getServiceById } from '../../data/mockRepository';
 import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
@@ -11,28 +11,57 @@ import { getTodayDateInputValue } from '../../utils/date';
 export function ServiceDetailPage() {
   const { serviceId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentRole, setSavedIntent, showToast } = useApp();
 
   const [service, setService] = useState(null);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState('');
-  const [selectedDate, setSelectedDate] = useState(getTodayDateInputValue);
+  const [selectedDate, setSelectedDate] = useState(
+    location.state?.selectedDate || getTodayDateInputValue()
+  );
 
   useEffect(() => {
     async function loadDetail() {
       setLoading(true);
       const data = await getServiceById(serviceId);
       setService(data);
-      if (data && data.availableSlots && data.availableSlots.length > 0) {
-        setSelectedSlot(data.availableSlots[0]);
-      }
       setLoading(false);
     }
     loadDetail();
   }, [serviceId]);
 
+  useEffect(() => {
+    if (!service || service.id !== serviceId) return undefined;
+    if (!selectedDate) {
+      setAvailableSlots([]);
+      setSelectedSlot('');
+      setSlotsLoading(false);
+      return undefined;
+    }
+
+    let isCurrentRequest = true;
+    setSlotsLoading(true);
+    setAvailableSlots([]);
+    async function loadAvailableSlots() {
+      const slots = await getAvailableSlots(service.id, selectedDate);
+      if (isCurrentRequest) {
+        setAvailableSlots(slots);
+        setSelectedSlot(currentSlot => slots.includes(currentSlot) ? currentSlot : (slots[0] || ''));
+        setSlotsLoading(false);
+      }
+    }
+    loadAvailableSlots();
+
+    return () => {
+      isCurrentRequest = false;
+    };
+  }, [service, serviceId, selectedDate]);
+
   const handleBookingStart = () => {
-    if (!selectedSlot) {
+    if (!selectedDate || !selectedSlot || !availableSlots.includes(selectedSlot)) {
       showToast('Please select an available time slot.', 'warning');
       return;
     }
@@ -186,9 +215,11 @@ export function ServiceDetailPage() {
                 2. Select Available Slot:
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {service.availableSlots?.map((slot) => (
+                {availableSlots.map((slot) => (
                   <button
                     key={slot}
+                    type="button"
+                    aria-pressed={selectedSlot === slot}
                     onClick={() => setSelectedSlot(slot)}
                     style={{
                       padding: '8px',
@@ -205,6 +236,15 @@ export function ServiceDetailPage() {
                   </button>
                 ))}
               </div>
+              {slotsLoading ? (
+                <p role="status" style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '8px' }}>
+                  Checking available time slots...
+                </p>
+              ) : availableSlots.length === 0 && (
+                <p role="status" style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '8px' }}>
+                  No time slots are available on this date. Choose another date.
+                </p>
+              )}
             </div>
 
             <Button variant="primary" size="lg" fullWidth onClick={handleBookingStart}>

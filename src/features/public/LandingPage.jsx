@@ -69,7 +69,7 @@ export function LandingPage() {
           </p>
 
           {/* Integrated Search Bar Box */}
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', maxWidth: '760px', margin: '0 auto', padding: '8px', borderRadius: '16px', backgroundColor: '#FFFFFF', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', maxWidth: '760px', margin: '0 auto', padding: '8px', borderRadius: '16px', backgroundColor: 'var(--color-surface)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 2, paddingLeft: '14px', minWidth: '220px' }}>
               <Search size={20} color="#64748B" />
               <input
@@ -77,7 +77,7 @@ export function LandingPage() {
                 placeholder="What service do you need? (e.g. AC Repair, Cleaning...)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', border: 'none', outline: 'none', fontSize: '15px', color: '#0F172A', fontWeight: '500' }}
+                style={{ width: '100%', border: 'none', outline: 'none', fontSize: '15px', color: 'var(--color-ink)', fontWeight: '500' }}
               />
             </div>
             
@@ -86,7 +86,7 @@ export function LandingPage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              style={{ border: 'none', outline: 'none', fontSize: '14px', color: '#334155', fontWeight: '600', backgroundColor: 'transparent', cursor: 'pointer', padding: '0 12px', minWidth: '150px' }}
+              style={{ border: 'none', outline: 'none', fontSize: '14px', color: 'var(--color-ink-secondary)', fontWeight: '600', backgroundColor: 'transparent', cursor: 'pointer', padding: '0 12px', minWidth: '150px' }}
             >
               <option value="">All Categories</option>
               {categories.map((c) => (
@@ -239,7 +239,7 @@ export function LandingPage() {
 
       {/* 5. ESCROW PAYMENT PROTECTION (Matching UI Reference 1 & 2 & 3) */}
       <section className="app-container">
-        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-panel)', padding: '40px', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-panel)', padding: '40px', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 36px auto' }}>
             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Escrow Guarantee</span>
             <h2 className="section-title" style={{ marginTop: '4px' }}>Secure Payments with Escrow Protection</h2>
@@ -327,4 +327,3 @@ export function LandingPage() {
     </div>
   );
 }
-

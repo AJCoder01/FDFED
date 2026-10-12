@@ -3,17 +3,40 @@ import { DEMO_USERS } from '../../data/mockData';
 import { getNotifications, resetDemoData as repoResetDemoData } from '../../data/mockRepository';
 
 const AppContext = createContext();
+const ROLE_STORAGE_KEY = 'servicehub_demo_role';
+const THEME_STORAGE_KEY = 'servicehub_theme';
+const VALID_ROLES = ['guest', 'customer', 'provider', 'admin', 'arbitrator'];
 
 export function AppProvider({ children }) {
-  const [currentRole, setCurrentRole] = useState('guest'); // guest, customer, provider, admin, arbitrator
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isSuperUser, setIsSuperUser] = useState(false);
+  const [currentRole, setCurrentRole] = useState(() => {
+    const storedRole = localStorage.getItem(ROLE_STORAGE_KEY);
+    return VALID_ROLES.includes(storedRole) ? storedRole : 'guest';
+  }); // guest, customer, provider, admin, arbitrator
+  const [currentUser, setCurrentUser] = useState(() => {
+    const storedRole = localStorage.getItem(ROLE_STORAGE_KEY);
+    return VALID_ROLES.includes(storedRole) && storedRole !== 'guest'
+      ? DEMO_USERS[storedRole]
+      : null;
+  });
+  const [isSuperUser, setIsSuperUser] = useState(() => localStorage.getItem(ROLE_STORAGE_KEY) === 'admin');
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light');
   const [notifications, setNotifications] = useState([]);
   const [savedIntent, setSavedIntent] = useState(null); // stores { serviceId, slot, address } for post-auth return
   const [toast, setToast] = useState({ message: null, type: 'info' });
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(currentTheme => currentTheme === 'light' ? 'dark' : 'light');
+  };
+
   // Update currentUser when role changes
   const switchRole = (newRole, preserveSuperUser = false) => {
+    localStorage.setItem(ROLE_STORAGE_KEY, newRole);
+
     if (newRole === 'admin') setIsSuperUser(true);
     else if (!preserveSuperUser) setIsSuperUser(false);
 
@@ -65,6 +88,8 @@ export function AppProvider({ children }) {
     <AppContext.Provider
       value={{
         currentRole,
+        theme,
+        toggleTheme,
         isSuperUser,
         currentUser,
         switchRole,

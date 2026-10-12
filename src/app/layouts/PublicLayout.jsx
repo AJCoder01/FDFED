@@ -4,6 +4,7 @@ import { Shield, Search, User, Bell, RotateCcw, Menu, X, HelpCircle, Briefcase, 
 import { useApp } from '../context/AppContext';
 import { Button } from '../../design-system/primitives/Button';
 import { Toast } from '../../design-system/primitives/Toast';
+import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 
 export function PublicLayout() {
   const { currentRole, isSuperUser, switchRole, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
@@ -61,7 +62,7 @@ export function PublicLayout() {
       )}
 
       {/* Main Navbar */}
-      <header style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-xs)' }}>
+      <header style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-xs)' }}>
         <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '72px' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
@@ -88,6 +89,7 @@ export function PublicLayout() {
 
           {/* Right Action Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <ThemeToggle />
             {currentRole === 'guest' ? (
               <>
                 <Link to="/login">
