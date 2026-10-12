@@ -1,87 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { DollarSign, CheckCircle2, ArrowUpRight, TrendingUp, ShieldCheck } from 'lucide-react';
+import { useCallback } from 'react';
 import { useApp } from '../../app/context/AppContext';
 import { getBookings } from '../../data/mockRepository';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { useProviderQuery } from './useProviderQuery';
+import { isPaid, money, netPayout, platformFee } from './providerUtils';
 
 export function EarningsPage() {
   const { currentUser } = useApp();
-  const [completedJobs, setCompletedJobs] = useState([]);
+  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
+  const { data: jobs, loading, error, refresh } = useProviderQuery(load);
 
-  useEffect(() => {
-    async function loadData() {
-      if (currentUser) {
-        const list = await getBookings('provider', currentUser.id);
-        setCompletedJobs(list.filter(j => j.status === 'completed' || j.paymentStatus === 'Paid'));
-      }
-    }
-    loadData();
-  }, [currentUser]);
-
-  const grossEarnings = completedJobs.reduce((sum, j) => sum + (j.amount || 0), 0);
-  const totalPlatformFees = completedJobs.reduce((sum, j) => {
-    const fee = j.platformFee !== undefined ? j.platformFee : Math.round((j.amount || 0) * 0.05);
-    return sum + fee;
-  }, 0);
-  const netEarnings = grossEarnings - totalPlatformFees;
-
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="300px" borderRadius="12px" />;
+  const paid = jobs.filter(isPaid);
+  const completed = paid.filter(job => job.status === 'completed');
+  const pending = paid.filter(job => ['active', 'in_progress', 'reschedule_proposed'].includes(job.status));
+  const held = paid.filter(job => !['completed', 'active', 'in_progress', 'reschedule_proposed'].includes(job.status));
+  const sumPayout = list => list.reduce((sum, job) => sum + netPayout(job), 0);
+  const stats = [
+    ['COMPLETED NET EARNINGS', sumPayout(completed)],
+    ['PENDING NET EARNINGS', sumPayout(pending)],
+    ['HELD / CANCELLED PAYMENTS', sumPayout(held)],
+    ['GROSS CUSTOMER PAYMENTS', paid.reduce((sum, job) => sum + Number(job.amount), 0)],
+    ['PLATFORM FEES ON PAID BOOKINGS', paid.reduce((sum, job) => sum + platformFee(job), 0)]
+  ];
   const columns = [
-    { header: 'Job ID', accessor: 'id', render: (row) => <strong>#{row.id}</strong> },
-    { header: 'Service Title', accessor: 'serviceTitle' },
+    { header: 'Job ID', accessor: 'id', render: row => <strong>#{row.id}</strong> },
+    { header: 'Service', accessor: 'serviceTitle' },
     { header: 'Customer', accessor: 'customerName' },
     { header: 'Date', accessor: 'scheduledDate' },
-    { header: 'Gross Price', accessor: 'amount', render: (row) => <span>₹{row.amount}</span> },
-    { 
-      header: '5% ServiceHub Fee', 
-      accessor: 'platformFee', 
-      render: (row) => {
-        const fee = row.platformFee !== undefined ? row.platformFee : Math.round(row.amount * 0.05);
-        return <span style={{ color: '#DC2626', fontSize: '12px', fontWeight: '600' }}>-₹{fee}</span>;
-      }
-    },
-    { 
-      header: 'Net Credited Payout', 
-      accessor: 'netPayout', 
-      render: (row) => {
-        const fee = row.platformFee !== undefined ? row.platformFee : Math.round(row.amount * 0.05);
-        const payout = row.netPayout !== undefined ? row.netPayout : (row.amount - fee);
-        return <strong style={{ color: 'var(--color-success)', fontSize: '14px' }}>₹{payout}</strong>;
-      }
-    },
-    { header: 'Payout Status', accessor: 'paymentStatus', render: () => <StatusBadge status="completed" label="Released to Wallet" /> }
+    { header: 'Gross Price', render: row => money(row.amount) },
+    { header: 'Platform Fee (5%)', render: row => money(platformFee(row)) },
+    { header: 'Net Amount', render: row => money(netPayout(row)) },
+    { header: 'Job Status', render: row => <StatusBadge status={row.status} /> },
+    { header: 'Payment Status', accessor: 'paymentStatus' }
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="provider-page">
       <div className="page-header">
-        <h1 className="page-title">Provider Earnings & Wallet Payouts</h1>
-        <p className="page-subtitle">Itemized revenue ledger for completed service bookings after 5% platform fee deduction</p>
+        <h1 className="page-title">Provider Earnings & Payments</h1>
+        <p className="page-subtitle">Booking amounts after the 5% platform fee. Wallet transfers and refunds are not recorded.</p>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-        <div className="card" style={{ borderLeft: '4px solid #10B981' }}>
-          <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>NET CREDITED EARNINGS</span>
-          <div style={{ fontSize: '30px', fontWeight: '800', color: 'var(--color-success)', marginTop: '4px' }}>₹{netEarnings.toLocaleString()}</div>
-          <span style={{ fontSize: '12px', color: 'var(--color-success)', fontWeight: '600' }}>95% payout credited to wallet</span>
-        </div>
-
-        <div className="card" style={{ borderLeft: '4px solid #2563EB' }}>
-          <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>GROSS SERVICE REVENUE</span>
-          <div style={{ fontSize: '30px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '4px' }}>₹{grossEarnings.toLocaleString()}</div>
-          <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600' }}>Total customer payments</span>
-        </div>
-
-        <div className="card" style={{ borderLeft: '4px solid #EF4444' }}>
-          <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>5% PLATFORM COMMISSIONS</span>
-          <div style={{ fontSize: '30px', fontWeight: '800', color: '#DC2626', marginTop: '4px' }}>-₹{totalPlatformFees.toLocaleString()}</div>
-          <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600' }}>Platform marketplace fee</span>
-        </div>
+      <div className="provider-stats">
+        {stats.map(([label, value]) => <div className="card" key={label}><span className="provider-hint">{label}</span><div className="provider-stat-value">{money(value)}</div></div>)}
       </div>
-
-      <div className="card">
-        <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)', marginBottom: '16px' }}>Completed Payout History</h2>
-        <DataTable columns={columns} data={completedJobs} keyField="id" emptyMessage="No completed payouts yet." />
+      <div className="card provider-stack">
+        <h2>Booking Payment History</h2>
+        <p className="provider-hint">Completed paid jobs count as earned. Active jobs are pending; disputed and cancelled payments are shown separately. Stored commission and net amounts match the Admin ledger.</p>
+        <DataTable columns={columns} data={jobs} keyField="id" emptyMessage="No booking payments yet." />
       </div>
     </div>
   );

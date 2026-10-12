@@ -1,139 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Check, X, Clock } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings, updateBookingStatus } from '../../data/mockRepository';
+import { getBookings } from '../../data/mockRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
-import { Modal } from '../../design-system/primitives/Modal';
-import { TextField } from '../../design-system/primitives/TextField';
+import { Select } from '../../design-system/primitives/Select';
+import { JobRequestActions } from './JobRequestActions';
+import { useProviderQuery } from './useProviderQuery';
+import { formatDate, isAccepted, isPending } from './providerUtils';
 
 export function JobInboxPage() {
-  const { currentUser, showToast } = useApp();
+  const { currentUser } = useApp();
   const navigate = useNavigate();
+  const [filter, setFilter] = useState('all');
+  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
+  const { data: jobs, setData: setJobs, loading, error, refresh } = useProviderQuery(load);
 
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Propose time modal
-  const [proposeModalOpen, setProposeModalOpen] = useState(false);
-  const [selectedJobId, setSelectedJobId] = useState(null);
-  const [proposedTime, setProposedTime] = useState('04:30 PM');
-
-  const loadData = async () => {
-    setLoading(true);
-    if (currentUser) {
-      const list = await getBookings('provider', currentUser.id);
-      setJobs(list);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [currentUser]);
-
-  const handleAccept = async (jobId) => {
-    await updateBookingStatus(jobId, 'active', 'Provider accepted the booking request.');
-    await loadData();
-    showToast(`Job #${jobId} accepted!`, 'success');
-  };
-
-  const handleReject = async (jobId) => {
-    await updateBookingStatus(jobId, 'cancelled', 'Provider declined the request due to schedule conflict.');
-    await loadData();
-    showToast(`Job #${jobId} declined.`, 'info');
-  };
-
-  const handleProposeTime = async () => {
-    await updateBookingStatus(selectedJobId, 'reschedule_proposed', `Provider proposed new time: ${proposedTime}. Customer agreement required.`);
-    setProposeModalOpen(false);
-    await loadData();
-    showToast(`Proposed new time slot (${proposedTime}) sent to customer for agreement.`, 'success');
-  };
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="200px" borderRadius="12px" />;
+  const filtered = jobs.filter(job => filter === 'all' || (filter === 'pending' ? isPending(job) : job.status === filter));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="provider-page">
       <div className="page-header">
         <h1 className="page-title">Provider Job Inbox</h1>
-        <p className="page-subtitle">Accept, reject, or propose alternative times for customer service requests</p>
+        <p className="page-subtitle">Manage incoming requests and track accepted jobs</p>
       </div>
-
-      {loading ? (
-        <Skeleton height="200px" borderRadius="12px" />
-      ) : jobs.length === 0 ? (
-        <p style={{ color: 'var(--color-muted)' }}>No job requests in your inbox.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {jobs.map((job) => (
-            <div key={job.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                  <strong style={{ fontSize: '15px', color: 'var(--color-ink)' }}>#{job.id}</strong>
-                  <StatusBadge status={job.status} />
-                </div>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>{job.serviceTitle}</h3>
-                <div style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>
-                  Customer: <strong>{job.customerName}</strong> ({job.customerPhone}) | Address: {job.address}
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-primary)', marginTop: '4px' }}>
-                  Scheduled Slot: {job.scheduledDate} ({job.scheduledSlot})
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <Button variant="success" size="sm" icon={Check} onClick={() => handleAccept(job.id)}>
-                  Accept Job
-                </Button>
-                <Button variant="danger" size="sm" icon={X} onClick={() => handleReject(job.id)}>
-                  Decline
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={Clock}
-                  onClick={() => {
-                    setSelectedJobId(job.id);
-                    setProposeModalOpen(true);
-                  }}
-                >
-                  Propose Time
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>
-                  Workspace
-                </Button>
-              </div>
-            </div>
-          ))}
+      <Select name="job-filter" label="Filter Jobs" value={filter} onChange={event => setFilter(event.target.value)} options={[
+        { value: 'all', label: 'All Jobs' }, { value: 'pending', label: 'Pending Requests' },
+        { value: 'active', label: 'Active & Scheduled' }, { value: 'in_progress', label: 'In Progress' },
+        { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' },
+        { value: 'reschedule_proposed', label: 'Time Proposed' }, { value: 'disputed', label: 'Disputed' }
+      ]} />
+      {filtered.length === 0 && <p className="provider-hint">No jobs match this filter.</p>}
+      {filtered.map(job => (
+        <div key={job.id} className="card provider-row provider-between">
+          <div className="provider-stack">
+            <div className="provider-row"><strong>#{job.id}</strong><StatusBadge status={job.status} label={job.status === 'active' ? (isAccepted(job) ? 'Accepted' : 'Awaiting Acceptance') : undefined} /></div>
+            <h3>{job.serviceTitle}</h3>
+            <p className="provider-hint">Customer: {job.customerName} ({job.customerPhone}) | Address: {job.address}</p>
+            <strong>{formatDate(job.scheduledDate)} at {job.scheduledSlot}</strong>
+          </div>
+          <div className="provider-stack">
+            <JobRequestActions job={job} onUpdate={updated => setJobs(list => list.map(item => item.id === updated.id ? updated : item))} onRefresh={refresh} />
+            <Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>Workspace</Button>
+          </div>
         </div>
-      )}
-
-      {/* Propose Time Modal */}
-      <Modal
-        isOpen={proposeModalOpen}
-        onClose={() => setProposeModalOpen(false)}
-        title="Propose Alternative Time Slot"
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setProposeModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleProposeTime}>Send Proposal to Customer</Button>
-          </>
-        )}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
-            Proposing a new time slot requires final customer agreement and compliance before confirmation.
-          </p>
-          <TextField
-            label="Proposed Time Slot"
-            value={proposedTime}
-            onChange={(e) => setProposedTime(e.target.value)}
-            placeholder="e.g. 04:30 PM"
-            required
-          />
-        </div>
-      </Modal>
+      ))}
     </div>
   );
 }

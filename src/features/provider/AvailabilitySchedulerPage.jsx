@@ -1,93 +1,117 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, CheckCircle2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../app/context/AppContext';
+import { getAvailableSlots, getBookings, getServiceById, getServices, saveService } from '../../data/mockRepository';
+import { getTodayDateInputValue } from '../../utils/date';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
+import { Select } from '../../design-system/primitives/Select';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { StatusBadge } from '../../design-system/primitives/StatusBadge';
+import { SlotEditor } from './SlotEditor';
+import { useProviderQuery } from './useProviderQuery';
+import { formatDate, validateSlots } from './providerUtils';
 
 export function AvailabilitySchedulerPage() {
   const { currentUser, showToast } = useApp();
+  const navigate = useNavigate();
+  const [serviceId, setServiceId] = useState('');
+  const [slots, setSlots] = useState([]);
+  const [date, setDate] = useState(getTodayDateInputValue);
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const schedule = currentUser.weeklyAvailability;
+  const load = useCallback(async () => {
+    const [services, jobs] = await Promise.all([getServices(), getBookings('provider', currentUser.id)]);
+    return { services: services.filter(service => service.providerId === currentUser.id), jobs };
+  }, [currentUser.id]);
+  const { data, error, loading, refresh } = useProviderQuery(load);
+  const service = data?.services.find(service => service.id === serviceId);
+  const savedSlots = service?.availableSlots?.join('|') || '';
+  const loadSlots = useCallback(() => serviceId && date ? getAvailableSlots(serviceId, date) : Promise.resolve([]), [serviceId, date]);
+  const { data: available, error: slotError, refresh: refreshSlots } = useProviderQuery(loadSlots);
 
-  const [workingDays, setWorkingDays] = useState(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('19:00');
-  const [blackoutDate, setBlackoutDate] = useState('2026-08-25');
+  useEffect(() => {
+    if (data && !serviceId && data.services.length) setServiceId(data.services[0].id);
+  }, [data, serviceId]);
 
-  const toggleDay = (day) => {
-    if (workingDays.includes(day)) {
-      setWorkingDays(workingDays.filter(d => d !== day));
-    } else {
-      setWorkingDays([...workingDays, day]);
+  useEffect(() => {
+    setSlots(savedSlots ? savedSlots.split('|') : []);
+    setSaveError('');
+  }, [serviceId, savedSlots]);
+
+  const save = async event => {
+    event.preventDefault();
+    if (busy || !service) return;
+    const validation = validateSlots(slots, Number.parseInt(service.duration, 10));
+    if (validation) { setSaveError(validation); return; }
+    setBusy(true);
+    setSaveError('');
+    try {
+      const existing = await getServiceById(service.id);
+      if (!existing || existing.providerId !== currentUser.id) throw new Error('This listing is unavailable.');
+      const result = await saveService({ id: service.id, availableSlots: slots });
+      if (!result.success) throw new Error('The time slots could not be saved.');
+      refresh();
+      refreshSlots();
+      showToast('Service time slots saved. Existing bookings keep their scheduled times.');
+    } catch (error) {
+      setSaveError(error.message);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    showToast('Weekly availability & blackout schedule updated!', 'success');
+  const moveDate = offset => {
+    const next = new Date(`${date}T12:00:00`);
+    next.setDate(next.getDate() + offset);
+    setDate(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`);
   };
 
-  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  const jobs = data.jobs.filter(job => job.scheduledDate === date);
 
   return (
-    <div className="app-container" style={{ padding: '24px 0', maxWidth: '700px', margin: '0 auto' }}>
-      <div className="page-header">
-        <h1 className="page-title">Weekly Availability Scheduler</h1>
-        <p className="page-subtitle">Set your operating hours, weekly work days, and blackout dates</p>
-      </div>
-
-      <form onSubmit={handleSave} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <div>
-          <label style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)', display: 'block', marginBottom: '8px' }}>
-            Active Working Days:
-          </label>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {daysOfWeek.map((day) => (
-              <button
-                key={day}
-                type="button"
-                onClick={() => toggleDay(day)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-control)',
-                  border: `1px solid ${workingDays.includes(day) ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                  backgroundColor: workingDays.includes(day) ? 'var(--color-primary-light)' : 'var(--color-surface)',
-                  color: workingDays.includes(day) ? 'var(--color-primary)' : 'var(--color-ink)',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                {day}
-              </button>
-            ))}
-          </div>
+    <div className="provider-page provider-narrow">
+      <div className="page-header"><h1 className="page-title">Weekly Availability Scheduler</h1><p className="page-subtitle">Manage service time slots and inspect scheduled bookings</p></div>
+      <section className="card provider-stack">
+        <h2>Weekly Schedule</h2>
+        <div className="provider-row">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <button key={day} type="button" className="provider-slot" aria-pressed={Boolean(schedule?.days.includes(day))} disabled>{day}</button>)}
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }} className="grid-cols-2">
-          <TextField
-            label="Daily Start Time"
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-          />
-          <TextField
-            label="Daily End Time"
-            type="time"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-          />
+        <div className="grid-cols-2">
+          <TextField name="weekly-start" label="Daily Start Time" type="time" value={schedule?.startTime || ''} disabled />
+          <TextField name="weekly-end" label="Daily End Time" type="time" value={schedule?.endTime || ''} disabled />
         </div>
-
-        <TextField
-          label="Blackout / Vacation Date"
-          type="date"
-          value={blackoutDate}
-          onChange={(e) => setBlackoutDate(e.target.value)}
-          helperText="No customer bookings will be permitted on this date."
-        />
-
-        <Button type="submit" variant="primary" size="lg">
-          Save Schedule Settings
-        </Button>
-      </form>
+        <p className="provider-hint">Profile blackout dates: {schedule?.blackoutDates.length ? schedule.blackoutDates.map(formatDate).join(', ') : 'None recorded'}</p>
+        <p className="provider-hint">Weekly hours and blackout dates are display only. They cannot currently be changed or restrict customer bookings. Service time slots below can be saved and are used when customers book.</p>
+      </section>
+      {data.services.length === 0 ? <div className="card provider-stack"><p>Create a listing before configuring its time slots.</p><Button onClick={() => navigate('/provider/services/new')}>Create Listing</Button></div> : (
+        <form onSubmit={save} className="card provider-stack">
+          <h2>Bookable Service Time Slots</h2>
+          <Select name="schedule-service" label="Service Listing" value={serviceId} onChange={event => setServiceId(event.target.value)} disabled={busy} options={data.services.map(service => ({ value: service.id, label: service.title }))} />
+          <p className="provider-hint">These start times repeat every day. Allow the full service duration between slots. Times use your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).</p>
+          <SlotEditor slots={slots} onChange={setSlots} disabled={busy} />
+          {saveError && <p role="alert" className="provider-error">{saveError}</p>}
+          <Button type="submit" disabled={busy || !service || currentUser.verificationStatus !== 'approved'}>{busy ? 'Saving…' : 'Save Service Time Slots'}</Button>
+        </form>
+      )}
+      <section className="card provider-stack">
+        <h2>Daily Booking Schedule</h2>
+        <TextField name="schedule-date" label="Schedule Date" type="date" value={date} onChange={event => setDate(event.target.value)} />
+        <div className="provider-row">
+          <Button variant="secondary" size="sm" disabled={!date} onClick={() => moveDate(-1)}>Previous Day</Button>
+          <Button variant="outline" size="sm" onClick={() => setDate(getTodayDateInputValue())}>Today</Button>
+          <Button variant="secondary" size="sm" disabled={!date} onClick={() => moveDate(1)}>Next Day</Button>
+        </div>
+        {date && <strong>{formatDate(date)}</strong>}
+        {slotError ? <p role="alert" className="provider-error">{slotError}</p> : <p className="provider-hint">Saved customer slots for this service: {available === null ? 'Checking slots…' : available.length ? available.join(', ') : 'None available'}</p>}
+        <p className="provider-hint">Identical slots on the same service are blocked after booking. Overlapping jobs across different services are not yet blocked.</p>
+        {jobs.length === 0 && <p className="provider-hint">No provider bookings on this date.</p>}
+        {jobs.map(job => <div key={job.id} className="provider-record provider-stack"><div className="provider-row provider-between"><strong>{job.scheduledSlot} · {job.serviceTitle}</strong><StatusBadge status={job.status} /></div><span>{job.customerName}</span><Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>View Job #{job.id}</Button></div>)}
+      </section>
     </div>
   );
 }

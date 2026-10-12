@@ -1,135 +1,85 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, DollarSign, Star, Shield, Plus, CheckCircle2, Clock, Calendar } from 'lucide-react';
+import { Briefcase, DollarSign, Shield, Plus, CheckCircle2, Clock } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings, getServices } from '../../data/mockRepository';
+import { getBookings } from '../../data/mockRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
+import { useProviderQuery } from './useProviderQuery';
+import { bookingTime, formatDate, isPending, isPaid, money, netPayout, slotMinutes } from './providerUtils';
+import { getTodayDateInputValue } from '../../utils/date';
 
 export function ProviderDashboard() {
   const { currentUser } = useApp();
   const navigate = useNavigate();
+  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
+  const { data: jobs, loading, error, refresh } = useProviderQuery(load);
 
-  const [jobs, setJobs] = useState([]);
-  const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      if (currentUser) {
-        const jobList = await getBookings('provider', currentUser.id);
-        const srvList = await getServices();
-        setJobs(jobList);
-        setServices(srvList.filter(s => s.providerId === currentUser.id));
-      }
-      setLoading(false);
-    }
-    loadData();
-  }, [currentUser]);
-
-  const pendingJobs = jobs.filter(j => j.status === 'active' || j.status === 'in_progress');
-  const completedJobs = jobs.filter(j => j.status === 'completed');
-  const totalEarnings = completedJobs.reduce((sum, j) => sum + (j.amount || 0), 0);
+  const completed = jobs.filter(job => job.status === 'completed');
+  const earnings = completed.filter(isPaid).reduce((sum, job) => sum + netPayout(job), 0);
+  const recent = [...jobs].sort((a, b) => bookingTime(b.createdAt) - bookingTime(a.createdAt));
+  const today = getTodayDateInputValue();
+  const upcoming = jobs.filter(job => ['active', 'in_progress', 'reschedule_proposed'].includes(job.status) && job.scheduledDate >= today)
+    .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate) || slotMinutes(a.scheduledSlot) - slotMinutes(b.scheduledSlot));
+  const stats = [
+    { label: 'TOTAL JOBS', value: jobs.length, icon: Briefcase, color: 'primary' },
+    { label: 'PENDING REQUESTS', value: jobs.filter(isPending).length, icon: Clock, color: 'warning' },
+    { label: 'COMPLETED JOBS', value: completed.length, icon: CheckCircle2, color: 'success' },
+    { label: 'COMPLETED NET EARNINGS', value: money(earnings), icon: DollarSign, color: 'success' }
+  ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Verification Status Banner */}
-      <div className="card" style={{ backgroundColor: 'var(--color-success-bg)', border: '1px solid #A5D6A7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--color-success)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Shield size={20} />
-          </div>
+    <div className="provider-page">
+      <div className="card provider-row provider-between">
+        <div className="provider-row">
+          <Shield size={24} color="var(--color-primary)" />
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>Verification Status: APPROVED</div>
-            <div style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Your identity, skills, and business documents are fully verified.</div>
+            <strong>Verification Status: {currentUser.verificationStatus?.replaceAll('_', ' ').toUpperCase() || 'UNAVAILABLE'}</strong>
+            <p className="provider-hint">{currentUser.businessName}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => navigate('/provider/profile')}>
-          View Profile & Skills
-        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate('/provider/profile')}>View Profile & Skills</Button>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid-cols-4">
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Briefcase size={22} />
+        {stats.map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="card provider-row">
+            <div className="provider-stat-icon" style={{ color: `var(--color-${color})`, background: `var(--color-${color === 'primary' ? 'primary-light' : `${color}-bg`})` }}><Icon size={22} /></div>
+            <div><span className="provider-hint">{label}</span><div className="provider-stat-value">{value}</div></div>
           </div>
-          <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>PENDING JOBS</span>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{pendingJobs.length}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>COMPLETED</span>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{completedJobs.length}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <DollarSign size={22} />
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>TOTAL EARNINGS</span>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>₹{totalEarnings}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--color-info-bg)', color: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Star size={22} />
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>RATING</span>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>4.8 ★</div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Quick Actions & Recent Jobs */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-ink)' }}>Recent Job Inbox</h2>
-          <Button variant="primary" size="sm" icon={Plus} onClick={() => navigate('/provider/services/new')}>
-            Create New Listing
-          </Button>
-        </div>
+      <div className="provider-row">
+        <Button icon={Plus} disabled={currentUser.verificationStatus !== 'approved'} onClick={() => navigate('/provider/services/new')}>Create New Listing</Button>
+        <Button variant="outline" onClick={() => navigate('/provider/availability')}>Manage Availability</Button>
+        <Button variant="secondary" onClick={() => navigate('/provider/jobs')}>View Job Inbox</Button>
+      </div>
 
-        {loading ? (
-          <Skeleton height="140px" borderRadius="12px" />
-        ) : jobs.length === 0 ? (
-          <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>No jobs assigned yet.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {jobs.slice(0, 3).map((job) => (
-              <div key={job.id} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-control)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <strong style={{ fontSize: '14px', color: 'var(--color-ink)' }}>#{job.id}</strong>
-                    <StatusBadge status={job.status} />
-                  </div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>{job.serviceTitle}</h3>
-                  <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px' }}>
-                    Customer: {job.customerName} ({job.customerPhone}) | Scheduled: {job.scheduledDate} ({job.scheduledSlot})
-                  </div>
-                </div>
-
-                <Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>
-                  Open Job Workspace
-                </Button>
+      {[
+        { title: 'Upcoming Jobs', list: upcoming.slice(0, 3), empty: 'No upcoming jobs scheduled.' },
+        { title: 'Recent Job Inbox', list: recent.slice(0, 3), empty: 'No jobs assigned yet.' }
+      ].map(({ title, list, empty }) => (
+        <section key={title} className="card provider-stack">
+          <h2>{title}</h2>
+          {list.length === 0 && <p className="provider-hint">{empty}</p>}
+          {list.map(job => (
+            <div key={job.id} className="provider-record provider-row provider-between">
+              <div>
+                <div className="provider-row"><strong>#{job.id}</strong><StatusBadge status={job.status} /></div>
+                <h3>{job.serviceTitle}</h3>
+                <p className="provider-hint">Customer: {job.customerName} | {formatDate(job.scheduledDate)} at {job.scheduledSlot}</p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>Open Job Workspace</Button>
+            </div>
+          ))}
+        </section>
+      ))}
     </div>
   );
 }
