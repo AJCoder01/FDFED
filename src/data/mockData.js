@@ -17,8 +17,8 @@ export const DEMO_USERS = {
     phone: '+91 98765 43210',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
     addresses: [
-      { id: 'addr-1', label: 'Home', addressLine: 'Flat 402, Green Glen Layout, Bellandur', city: 'Bengaluru', pincode: '560103' },
-      { id: 'addr-2', label: 'Office', addressLine: '9th Floor, Prestage Tech Park, Marathahalli', city: 'Bengaluru', pincode: '560103' }
+      { id: 'addr-1', label: 'Home', addressLine: 'Flat 402, Green Glen Layout, Bellandur', city: 'Bengaluru', pincode: '560103', isDefault: true },
+      { id: 'addr-2', label: 'Work', addressLine: '9th Floor, Prestage Tech Park, Marathahalli', city: 'Bengaluru', pincode: '560103' }
     ]
   },
   provider: {

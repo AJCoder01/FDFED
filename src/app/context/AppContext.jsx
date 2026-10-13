@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { DEMO_USERS } from '../../data/mockData';
-import { getNotifications, getProviderById, resetDemoData } from '../../data/mockRepository';
+import { getCustomerById, getNotifications, getProviderById, resetDemoData } from '../../data/mockRepository';
 import { subscribeToRepository } from '../../data/repositoryEvents';
 
 const AppContext = createContext();
@@ -36,7 +36,7 @@ export function AppProvider({ children }) {
       if (!user) { setCurrentUser(null); setNotifications([]); return; }
       try {
         const [profile, list] = await Promise.all([
-          currentRole === 'provider' ? getProviderById(user.id) : Promise.resolve(user),
+          currentRole === 'provider' ? getProviderById(user.id) : currentRole === 'customer' ? getCustomerById(user.id) : Promise.resolve(user),
           getNotifications(user.id)
         ]);
         if (active && latest === request) { setCurrentUser(profile); setNotifications(list); }

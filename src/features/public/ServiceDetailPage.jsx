@@ -14,6 +14,7 @@ export function ServiceDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentRole, currentUser, setSavedIntent, showToast } = useApp();
+  const serviceSearchPath = currentRole === 'customer' ? '/customer/services' : '/services';
 
   const load = useCallback(async () => {
     const [service, reviews] = await Promise.all([getServiceById(serviceId, { role: currentRole, userId: currentUser?.id }), getServiceReviews(serviceId)]);
@@ -74,7 +75,7 @@ export function ServiceDetailPage() {
         <ErrorState
           title="Service Not Found"
           description="The requested service listing could not be found or has been archived."
-          onRetry={() => navigate('/services')}
+          onRetry={() => navigate(serviceSearchPath)}
         />
       </div>
     );

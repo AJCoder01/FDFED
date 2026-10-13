@@ -4,6 +4,7 @@ import { Search, Filter, Star, X, Shield } from 'lucide-react';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { getServices, getCategories } from '../../data/mockRepository';
+import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { EmptyState } from '../../design-system/primitives/EmptyState';
 import { Button } from '../../design-system/primitives/Button';
@@ -12,6 +13,8 @@ import { Select } from '../../design-system/primitives/Select';
 export function ServiceSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { currentRole } = useApp();
+  const servicePath = currentRole === 'customer' ? '/customer/services' : '/services';
 
   const currentSearch = searchParams.get('search') || '';
   const currentCategory = searchParams.get('category') || '';
@@ -192,7 +195,7 @@ export function ServiceSearchPage() {
                     <span style={{ fontSize: '11px', color: 'var(--color-muted)', display: 'block' }}>Fixed Price</span>
                     <strong style={{ fontSize: '18px', color: 'var(--color-ink)' }}>₹{srv.price}</strong>
                   </div>
-                  <Button variant="primary" size="sm" onClick={() => navigate(`/services/${srv.id}`)}>
+                  <Button variant="primary" size="sm" onClick={() => navigate(`${servicePath}/${srv.id}`)}>
                     Book Now
                   </Button>
                 </div>

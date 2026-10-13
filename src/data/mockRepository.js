@@ -5,7 +5,8 @@ import { DATA_CHANGED } from './repositoryEvents';
 
 const seeds = {
   services: INITIAL_SERVICES, bookings: INITIAL_BOOKINGS, tickets: INITIAL_TICKETS,
-  disputes: INITIAL_DISPUTES, notifications: INITIAL_NOTIFICATIONS, categories: INITIAL_CATEGORIES
+  disputes: INITIAL_DISPUTES, notifications: INITIAL_NOTIFICATIONS, categories: INITIAL_CATEGORIES,
+  customers: [DEMO_USERS.customer]
 };
 const key = name => `servicehub_${name}`;
 const read = name => JSON.parse(localStorage.getItem(key(name)));
@@ -96,6 +97,38 @@ export const getCategories = () => load('categories');
 export const getProviders = () => load('providers');
 export async function getProviderById(providerId) {
   return (await getProviders()).find(profile => profile.id === providerId) || null;
+}
+export async function getCustomerById(customerId) {
+  return (await load('customers')).find(profile => profile.id === customerId) || null;
+}
+export async function saveCustomerAddresses(customerId, addresses) {
+  return change(() => {
+    const customers = read('customers');
+    const customer = requireRecord(customers, customerId, 'Customer');
+    if (!Array.isArray(addresses)) throw new Error('Provide a valid address list.');
+
+    const seenIds = new Set();
+    const validatedAddresses = addresses.map(address => {
+      const label = address.label?.trim();
+      const addressLine = address.addressLine?.trim();
+      const city = address.city?.trim();
+      const pincode = address.pincode?.trim();
+      if (!address.id || seenIds.has(address.id) || !['Home', 'Work', 'Other'].includes(label) || !addressLine || !city || !/^\d{6}$/.test(pincode)) {
+        throw new Error('Enter a valid address label, street address, city, and 6-digit PIN code.');
+      }
+      seenIds.add(address.id);
+      return { id: address.id, label, addressLine, city, pincode, isDefault: Boolean(address.isDefault) };
+    });
+    if (validatedAddresses.length && !validatedAddresses.some(address => address.isDefault)) validatedAddresses[0].isDefault = true;
+    let defaultAssigned = false;
+    for (const address of validatedAddresses) {
+      if (address.isDefault && !defaultAssigned) defaultAssigned = true;
+      else address.isDefault = false;
+    }
+    customer.addresses = validatedAddresses;
+    save({ customers });
+    return customer;
+  });
 }
 export async function saveProvider(providerId, values, submit = false) {
   return change(() => {

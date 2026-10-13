@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { createBooking } from '../../data/mockRepository';
+import { createBooking, saveCustomerAddresses } from '../../data/mockRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
@@ -13,13 +13,43 @@ export function BookingWizard() {
   const { currentUser, savedIntent, setSavedIntent, showToast } = useApp();
 
   const bookingData = location.state?.intent || savedIntent;
+  const addresses = currentUser?.addresses || [];
+  const defaultAddress = addresses.find(address => address.isDefault) || addresses[0];
 
   const [step, setStep] = useState(1);
-  const [address, setAddress] = useState(currentUser?.addresses?.[0]?.addressLine || 'Flat 402, Green Glen Layout, Bellandur, Bengaluru');
+  const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
+  const [newAddressOpen, setNewAddressOpen] = useState(false);
+  const [newAddress, setNewAddress] = useState({ label: 'Home', addressLine: '', city: '', pincode: '' });
+  const [savingAddress, setSavingAddress] = useState(false);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('UPI (Mock Pay)');
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [loading, setLoading] = useState(false);
+  const selectedAddress = addresses.find(addressItem => addressItem.id === selectedAddressId);
+  const address = selectedAddress
+    ? `${selectedAddress.addressLine}, ${selectedAddress.city} - ${selectedAddress.pincode}`
+    : '';
+
+  const handleSaveAddress = async event => {
+    event.preventDefault();
+    if (savingAddress) return;
+    setSavingAddress(true);
+    try {
+      const saved = await saveCustomerAddresses(currentUser.id, [
+        ...addresses,
+        { ...newAddress, id: `addr-${crypto.randomUUID().slice(0, 8)}`, isDefault: addresses.length === 0 }
+      ]);
+      const created = saved.addresses[saved.addresses.length - 1];
+      setSelectedAddressId(created.id);
+      setNewAddressOpen(false);
+      setNewAddress({ label: 'Home', addressLine: '', city: '', pincode: '' });
+      showToast('Address saved to your address book.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save this address.', 'warning');
+    } finally {
+      setSavingAddress(false);
+    }
+  };
 
   const handleConfirmOrder = async () => {
     setLoading(true);
@@ -119,14 +149,65 @@ export function BookingWizard() {
             <div><strong>Provider:</strong> {bookingData.providerName}</div>
           </div>
 
-          <TextField
-            label="Service Delivery Address"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            multiline
-            rows={2}
-            required
-          />
+          {!newAddressOpen && addresses.length > 0 && (
+            <Select
+              label="Service Delivery Address"
+              value={selectedAddressId}
+              onChange={event => setSelectedAddressId(event.target.value)}
+              options={addresses.map(addressItem => ({
+                value: addressItem.id,
+                label: `${addressItem.label}${addressItem.isDefault ? ' (Default)' : ''} — ${addressItem.addressLine}, ${addressItem.city} - ${addressItem.pincode}`
+              }))}
+              required
+            />
+          )}
+          {!newAddressOpen && (
+            <Button variant="outline" onClick={() => setNewAddressOpen(true)}>
+              + Add a new address
+            </Button>
+          )}
+
+          {newAddressOpen && (
+            <form onSubmit={handleSaveAddress} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-control)' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>Add a delivery address</h3>
+              <Select
+                label="Save as"
+                value={newAddress.label}
+                onChange={event => setNewAddress(form => ({ ...form, label: event.target.value }))}
+                options={[
+                  { value: 'Home', label: 'Home' },
+                  { value: 'Work', label: 'Work' },
+                  { value: 'Other', label: 'Other' }
+                ]}
+                required
+              />
+              <TextField
+                label="Flat, house no., building, street, area"
+                value={newAddress.addressLine}
+                onChange={event => setNewAddress(form => ({ ...form, addressLine: event.target.value }))}
+                required
+              />
+              <div className="grid-cols-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <TextField
+                  label="City"
+                  value={newAddress.city}
+                  onChange={event => setNewAddress(form => ({ ...form, city: event.target.value }))}
+                  required
+                />
+                <TextField
+                  label="PIN Code"
+                  value={newAddress.pincode}
+                  onChange={event => setNewAddress(form => ({ ...form, pincode: event.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                  placeholder="6-digit PIN code"
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button type="submit" disabled={savingAddress}>{savingAddress ? 'Saving…' : 'Save Address'}</Button>
+                <Button variant="secondary" disabled={savingAddress} onClick={() => setNewAddressOpen(false)}>Cancel</Button>
+              </div>
+            </form>
+          )}
 
           <TextField
             label="Special Instructions / Access Notes for Technician"
@@ -135,7 +216,7 @@ export function BookingWizard() {
             placeholder="e.g. Please ring doorbell 402, gate code 1234"
           />
 
-          <Button variant="primary" size="lg" onClick={() => setStep(2)}>
+          <Button variant="primary" size="lg" disabled={!address || newAddressOpen} onClick={() => setStep(2)}>
             Continue to Price Review →
           </Button>
         </div>

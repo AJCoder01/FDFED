@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Home, Search, Calendar, Heart, HelpCircle, User, Bell, RotateCcw, ChevronRight, LogOut } from 'lucide-react';
+import { Shield, Home, Search, Calendar, HelpCircle, Bell, RotateCcw, ChevronRight, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
@@ -14,11 +14,9 @@ export function CustomerLayout() {
 
   const navItems = [
     { label: 'Overview', path: '/customer', icon: Home },
-    { label: 'Find Services', path: '/services', icon: Search },
+    { label: 'Find Services', path: '/customer/services', icon: Search },
     { label: 'My Bookings', path: '/customer/bookings', icon: Calendar },
-    { label: 'Saved Services', path: '/customer/saved', icon: Heart },
     { label: 'Help & Support', path: '/customer/support', icon: HelpCircle },
-    { label: 'Profile & Addresses', path: '/customer/profile', icon: User },
   ];
 
   return (
@@ -87,7 +85,8 @@ export function CustomerLayout() {
           <nav style={{ padding: '20px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path
+                || (item.path !== '/customer' && location.pathname.startsWith(`${item.path}/`));
               return (
                 <Link
                   key={item.path}

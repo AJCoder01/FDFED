@@ -72,14 +72,14 @@ export function AppRoutes() {
       {/* Customer Protected Routes */}
       <Route element={<AuthGuard allowedRoles={['customer']}><CustomerLayout /></AuthGuard>}>
         <Route path="/customer" element={<CustomerDashboard />} />
+        <Route path="/customer/services" element={<ServiceSearchPage />} />
+        <Route path="/customer/services/:serviceId" element={<ServiceDetailPage />} />
         <Route path="/customer/checkout" element={<BookingWizard />} />
         <Route path="/customer/bookings" element={<BookingsListPage />} />
         <Route path="/customer/bookings/:bookingId" element={<BookingDetailPage />} />
-        <Route path="/customer/saved" element={<BookingsListPage />} />
         <Route path="/customer/support" element={<SupportTicketPage />} />
         <Route path="/customer/support/new" element={<SupportTicketPage />} />
         <Route path="/customer/dispute/new" element={<DisputeFilingPage />} />
-        <Route path="/customer/profile" element={<CustomerDashboard />} />
       </Route>
 
       {/* Provider Protected Routes */}
