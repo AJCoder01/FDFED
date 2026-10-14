@@ -7,7 +7,7 @@ import { NotificationDrawer } from '../../features/notifications/NotificationDra
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 
 export function ArbitratorLayout() {
-  const { currentRole, isSuperUser, switchRole, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, isSuperUser, switchRole, logout, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -17,7 +17,7 @@ export function ArbitratorLayout() {
     { label: 'Active Dispute Cases', path: '/arbitrator/cases', icon: FileText },
     { label: 'Hearing Schedule', path: '/arbitrator/hearings', icon: Calendar },
     { label: 'Rulings & Awards', path: '/arbitrator/rulings', icon: Award },
-    { label: 'Arbitrator Profile', path: '/arbitrator/profile', icon: User },
+    { label: 'Profile', path: '/arbitrator/profile', icon: User },
   ];
 
   return (
@@ -34,12 +34,14 @@ export function ArbitratorLayout() {
             {['guest', 'customer', 'provider', 'admin', 'arbitrator'].map((role) => (
               <button
                 key={role}
-                onClick={() => {
-                  switchRole(role, true);
-                  if (role === 'guest') navigate('/');
-                  else if (role === 'customer') navigate('/customer');
-                  else if (role === 'provider') navigate('/provider');
-                  else if (role === 'admin') navigate('/admin');
+                onClick={async () => {
+                  if (role === 'guest') {
+                    await logout();
+                    navigate('/');
+                  } else if (role !== currentRole) {
+                    await logout();
+                    navigate(`/login?role=${role}`);
+                  }
                 }}
                 style={{
                   padding: '3px 10px',
@@ -71,7 +73,7 @@ export function ArbitratorLayout() {
 
       <div style={{ display: 'flex', flex: 1 }}>
         <aside style={{ width: 'var(--sidebar-width)', backgroundColor: 'var(--color-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
-          <Link to="/" aria-label="Return Home" title="Return Home" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+          <Link to="/arbitrator" aria-label="Arbitrator Dashboard" title="Arbitrator Dashboard" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 10px rgba(37,99,235,0.25)' }}>
               <Shield size={20} />
             </div>
@@ -121,7 +123,7 @@ export function ArbitratorLayout() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <ThemeToggle />
-              <button onClick={() => { switchRole('guest'); navigate('/'); }} aria-label="Log out" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-ink)', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
+              <button onClick={async () => { await logout(); navigate('/'); }} aria-label="Log out" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-ink)', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
                 <LogOut size={16} /> Log Out
               </button>
               <button

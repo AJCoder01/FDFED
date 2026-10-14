@@ -21,6 +21,7 @@ import { SignupPage } from '../../features/auth/SignupPage';
 
 // Customer Pages
 import { CustomerDashboard } from '../../features/customer/CustomerDashboard';
+import { CustomerProfilePage } from '../../features/customer/CustomerProfilePage';
 import { BookingWizard } from '../../features/customer/BookingWizard';
 import { BookingsListPage } from '../../features/customer/BookingsListPage';
 import { BookingDetailPage } from '../../features/customer/BookingDetailPage';
@@ -31,7 +32,6 @@ import { DisputeFilingPage } from '../../features/customer/DisputeFilingPage';
 import { ProviderDashboard } from '../../features/provider/ProviderDashboard';
 import { ProviderOnboardingPage } from '../../features/provider/ProviderOnboardingPage';
 import { ListingManagerPage } from '../../features/provider/ListingManagerPage';
-import { AvailabilitySchedulerPage } from '../../features/provider/AvailabilitySchedulerPage';
 import { JobInboxPage } from '../../features/provider/JobInboxPage';
 import { JobDetailPage } from '../../features/provider/JobDetailPage';
 import { EarningsPage } from '../../features/provider/EarningsPage';
@@ -80,6 +80,7 @@ export function AppRoutes() {
         <Route path="/customer/support" element={<SupportTicketPage />} />
         <Route path="/customer/support/new" element={<SupportTicketPage />} />
         <Route path="/customer/dispute/new" element={<DisputeFilingPage />} />
+        <Route path="/customer/profile" element={<CustomerProfilePage />} />
       </Route>
 
       {/* Provider Protected Routes */}
@@ -87,7 +88,6 @@ export function AppRoutes() {
         <Route path="/provider" element={<ProviderDashboard />} />
         <Route path="/provider/services" element={<ListingManagerPage />} />
         <Route path="/provider/services/new" element={<ListingManagerPage />} />
-        <Route path="/provider/availability" element={<AvailabilitySchedulerPage />} />
         <Route path="/provider/jobs" element={<JobInboxPage />} />
         <Route path="/provider/jobs/:jobId" element={<JobDetailPage />} />
         <Route path="/provider/earnings" element={<EarningsPage />} />

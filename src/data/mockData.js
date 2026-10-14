@@ -1,4 +1,4 @@
-// ServiceHub Canonical Indian Marketplace Mock Dataset
+export const DEFAULT_BLANK_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23E2E8F0'%3E%3Crect width='100' height='100' rx='50' fill='%23F1F5F9'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%2394A3B8'/%3E%3Cpath d='M20 86c0-16.569 13.431-30 30-30s30 13.431 30 30' fill='%2394A3B8'/%3E%3C/svg%3E";
 
 export const INITIAL_CATEGORIES = [
   { id: 'cat-1', name: 'Home Cleaning', slug: 'home-cleaning', icon: 'Sparkles', description: 'Deep house cleaning, kitchen & bathroom sanitization', serviceCount: 14 },
@@ -6,6 +6,7 @@ export const INITIAL_CATEGORIES = [
   { id: 'cat-3', name: 'Electrical Repair', slug: 'electrical-repair', icon: 'Zap', description: 'Wiring, switchboards, fan & light fittings', serviceCount: 18 },
   { id: 'cat-4', name: 'Appliance Repair', slug: 'appliance-repair', icon: 'Tv', description: 'Washing machines, refrigerators, microwave repair', serviceCount: 15 },
   { id: 'cat-5', name: 'AC Maintenance', slug: 'ac-maintenance', icon: 'Wind', description: 'AC servicing, gas refill, installation & uninstallation', serviceCount: 19 },
+  { id: 'cat-6', name: 'Others', slug: 'others', icon: 'MoreHorizontal', description: 'Carpentry, painting, pest control & custom handyman assistance', serviceCount: 12 },
 ];
 
 export const DEMO_USERS = {
@@ -59,6 +60,14 @@ export const DEMO_USERS = {
     title: 'Senior Independent Arbitrator'
   }
 };
+
+export const DEFAULT_DEMO_PASSWORD = '123456Ab@';
+
+export const INITIAL_ACCOUNTS = Object.values(DEMO_USERS).map(user => ({
+  ...user,
+  password: DEFAULT_DEMO_PASSWORD,
+  createdAt: '2026-08-01T09:00:00.000Z'
+}));
 
 export const INITIAL_SERVICES = [
   {
@@ -136,6 +145,25 @@ export const INITIAL_SERVICES = [
     policy: 'Inspection fee credited towards repair total.',
     status: 'published',
     availableSlots: ['11:00 AM', '02:30 PM', '05:00 PM']
+  },
+  {
+    id: 'srv-5',
+    title: 'General Handyman, Furniture Assembly & Minor Fixes',
+    categoryId: 'cat-6',
+    categoryName: 'Others',
+    price: 399,
+    duration: '60 mins',
+    rating: 4.8,
+    reviewCount: 21,
+    providerId: 'user-prov-1',
+    providerName: 'Apex Fix Services & Repairs',
+    image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80',
+    description: 'Wall drill hanging, curtain rod installation, door hinge tightening, bed assembly, and customized general handyman tasks.',
+    inclusions: ['Up to 60 mins labor', 'Tool kit and screw fasteners', 'Debris clean-up'],
+    exclusions: ['Heavy replacement hardware'],
+    policy: 'Free cancellation up to 2 hours before scheduled slot.',
+    status: 'published',
+    availableSlots: ['09:00 AM', '11:30 AM', '02:30 PM', '05:00 PM']
   }
 ];
 

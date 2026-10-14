@@ -57,7 +57,6 @@ export function ProviderDashboard() {
 
       <div className="provider-row">
         <Button icon={Plus} disabled={currentUser.verificationStatus !== 'approved'} onClick={() => navigate('/provider/services/new')}>Create New Listing</Button>
-        <Button variant="outline" onClick={() => navigate('/provider/availability')}>Manage Availability</Button>
         <Button variant="secondary" onClick={() => navigate('/provider/jobs')}>View Job Inbox</Button>
       </div>
 

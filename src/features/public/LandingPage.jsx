@@ -1,42 +1,92 @@
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Shield, Star, Wrench, Sparkles, Zap, Tv, Wind, ArrowRight, Bot, MessageSquare } from 'lucide-react';
+import { Search, Shield, Star, Wrench, Sparkles, Zap, Tv, Wind, ArrowRight, X } from 'lucide-react';
 import { getCategories, getServices } from '../../data/mockRepository';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
+import { useApp } from '../../app/context/AppContext';
 
 export function LandingPage() {
+  const { currentRole, logout } = useApp();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // When on the landing page, ensure any stale session is cleared so user is guest and must log in / sign up
+    if (currentRole && currentRole !== 'guest') {
+      logout();
+    }
+  }, [currentRole, logout]);
+
   const load = useCallback(async () => {
     const [categories, services] = await Promise.all([getCategories(), getServices()]);
     return { categories, services };
   }, []);
   const { data, loading, error, refresh } = useRepositoryQuery(load);
   const categories = data?.categories || [];
-  const popularServices = data?.services.slice(0, 4) || [];
+  const allServices = data?.services || [];
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const navigate = useNavigate();
 
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  const isFiltering = Boolean(searchQuery.trim() || selectedCategory);
+
+  const displayedServices = isFiltering
+    ? allServices.filter((s) => {
+        const matchesCategory = selectedCategory ? s.categoryId === selectedCategory : true;
+        const q = searchQuery.toLowerCase().trim();
+        const matchesQuery = !q || (
+          s.title?.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.categoryName?.toLowerCase().includes(q)
+        );
+        return matchesCategory && matchesQuery;
+      })
+    : allServices.slice(0, 4);
+
+  const scrollToServices = () => {
+    const target = document.getElementById('landing-services-section');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    const params = [];
-    if (searchQuery.trim()) params.push(`search=${encodeURIComponent(searchQuery.trim())}`);
-    if (selectedCategory) params.push(`category=${encodeURIComponent(selectedCategory)}`);
-    navigate(params.length > 0 ? `/services?${params.join('&')}` : '/services');
+    scrollToServices();
   };
 
-  const getCategoryIcon = (iconName) => {
+  const handlePopularKeyword = (keyword) => {
+    setSearchQuery(keyword);
+    scrollToServices();
+  };
+
+  const handleCategorySelect = (categoryId) => {
+    if (selectedCategory === categoryId) {
+      setSelectedCategory('');
+    } else {
+      setSelectedCategory(categoryId);
+      scrollToServices();
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('');
+  };
+
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+
+  const getCategoryIcon = (iconName, isSelected = false) => {
+    const color = isSelected ? '#FFFFFF' : 'var(--color-primary)';
     switch (iconName) {
-      case 'Sparkles': return <Sparkles size={24} color="var(--color-primary)" />;
-      case 'Wrench': return <Wrench size={24} color="var(--color-primary)" />;
-      case 'Zap': return <Zap size={24} color="var(--color-primary)" />;
-      case 'Tv': return <Tv size={24} color="var(--color-primary)" />;
-      case 'Wind': return <Wind size={24} color="var(--color-primary)" />;
-      default: return <Wrench size={24} color="var(--color-primary)" />;
+      case 'Sparkles': return <Sparkles size={24} color={color} />;
+      case 'Wrench': return <Wrench size={24} color={color} />;
+      case 'Zap': return <Zap size={24} color={color} />;
+      case 'Tv': return <Tv size={24} color={color} />;
+      case 'Wind': return <Wind size={24} color={color} />;
+      default: return <Wrench size={24} color={color} />;
     }
   };
 
@@ -63,7 +113,7 @@ export function LandingPage() {
             ServiceHub connects you with verified professionals for home services. Fixed INR prices, 256-bit escrow payment protection, and total peace of mind.
           </p>
 
-          {/* Integrated Search Bar Box */}
+          {/* Integrated Search Bar Box - Filters directly on landing page */}
           <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', maxWidth: '760px', margin: '0 auto', padding: '8px', borderRadius: '16px', backgroundColor: 'var(--color-surface)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 2, paddingLeft: '14px', minWidth: '220px' }}>
               <Search size={20} color="#64748B" />
@@ -72,8 +122,18 @@ export function LandingPage() {
                 placeholder="What service do you need? (e.g. AC Repair, Cleaning...)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', border: 'none', outline: 'none', fontSize: '15px', color: 'var(--color-ink)', fontWeight: '500' }}
+                style={{ width: '100%', border: 'none', outline: 'none', fontSize: '15px', color: 'var(--color-ink)', fontWeight: '500', backgroundColor: 'transparent' }}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: 'var(--color-muted)' }}
+                  title="Clear search text"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
             
             <div style={{ width: '1px', height: '32px', backgroundColor: '#E2E8F0' }} className="desktop-nav" />
@@ -97,13 +157,13 @@ export function LandingPage() {
           {/* Quick Popular Keywords */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '20px', fontSize: '13px', color: '#94A3B8', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: '600', color: '#CBD5E1' }}>Popular:</span>
-            <button type="button" onClick={() => navigate('/services?search=cleaning')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Deep House Cleaning</button>
+            <button type="button" onClick={() => handlePopularKeyword('cleaning')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Deep House Cleaning</button>
             <span>•</span>
-            <button type="button" onClick={() => navigate('/services?search=ac')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>AC Servicing</button>
+            <button type="button" onClick={() => handlePopularKeyword('ac')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>AC Servicing</button>
             <span>•</span>
-            <button type="button" onClick={() => navigate('/services?search=plumb')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Plumbing</button>
+            <button type="button" onClick={() => handlePopularKeyword('plumb')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Plumbing</button>
             <span>•</span>
-            <button type="button" onClick={() => navigate('/services?search=electric')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Electrical Repairs</button>
+            <button type="button" onClick={() => handlePopularKeyword('electric')} style={{ background: 'none', border: 'none', color: '#93C5FD', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Electrical Repairs</button>
           </div>
         </div>
       </section>
@@ -142,7 +202,7 @@ export function LandingPage() {
           <div>
             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Browse Categories</span>
             <h2 className="section-title" style={{ marginTop: '2px' }}>Explore Popular Service Categories</h2>
-            <p className="section-subtitle">Select a category to browse qualified local specialists</p>
+            <p className="section-subtitle">Select a category to filter services right here, or view the complete catalog</p>
           </div>
           <Link to="/services" style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             View all categories <ArrowRight size={16} />
@@ -155,46 +215,86 @@ export function LandingPage() {
           </div>
         ) : (
           <div className="grid-cols-5">
-            {categories.map((cat) => (
-              <div
-                key={cat.id}
-                onClick={() => navigate(`/services?category=${cat.id}`)}
-                className="card card-hover"
-                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px' }}
-              >
-                <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {getCategoryIcon(cat.icon)}
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => handleCategorySelect(cat.id)}
+                  className="card card-hover"
+                  style={{
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    padding: '20px',
+                    border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                    backgroundColor: isSelected ? 'rgba(37,99,235,0.06)' : 'var(--color-surface)',
+                    boxShadow: isSelected ? '0 0 0 1px var(--color-primary)' : undefined,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: isSelected ? 'var(--color-primary)' : 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? '#FFF' : undefined }}>
+                    {getCategoryIcon(cat.icon, isSelected)}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '15px', fontWeight: '700', color: isSelected ? 'var(--color-primary)' : 'var(--color-ink)' }}>{cat.name}</h3>
+                    <p style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '4px', lineHeight: '1.4' }}>{cat.description}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>{cat.name}</h3>
-                  <p style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '4px', lineHeight: '1.4' }}>{cat.description}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* 4. POPULAR SERVICES GRID */}
-      <section className="app-container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '28px' }}>
+      {/* 4. POPULAR OR SEARCHED SERVICES GRID */}
+      <section className="app-container" id="landing-services-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top Rated</span>
-            <h2 className="section-title" style={{ marginTop: '2px' }}>Featured Verified Services</h2>
-            <p className="section-subtitle">Transparent fixed-price services in Bengaluru, Mumbai, and Delhi</p>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {isFiltering ? 'Search Results' : 'Top Rated'}
+            </span>
+            <h2 className="section-title" style={{ marginTop: '2px' }}>
+              {isFiltering ? `Matching Services (${displayedServices.length})` : 'Featured Verified Services'}
+            </h2>
+            <p className="section-subtitle">
+              {isFiltering
+                ? `Showing services matching ${[searchQuery ? `"${searchQuery}"` : null, selectedCategory ? categories.find(c => c.id === selectedCategory)?.name : null].filter(Boolean).join(' in ')}`
+                : 'Transparent fixed-price services in Bengaluru, Mumbai, and Delhi'}
+            </p>
           </div>
-          <Link to="/services" style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            Explore all services <ArrowRight size={16} />
-          </Link>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {isFiltering && (
+              <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                Clear Filter
+              </Button>
+            )}
+            <Link to="/services" style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isFiltering ? 'Open in Find Services' : 'Explore all services'} <ArrowRight size={16} />
+            </Link>
+          </div>
         </div>
 
         {loading ? (
           <div className="grid-cols-4">
             {[1, 2, 3, 4].map(i => <Skeleton key={i} height="320px" borderRadius="14px" />)}
           </div>
+        ) : displayedServices.length === 0 ? (
+          <div className="card" style={{ padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <Search size={40} color="var(--color-muted)" />
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-ink)' }}>No services found</h3>
+            <p style={{ fontSize: '14px', color: 'var(--color-muted)', maxWidth: '440px' }}>
+              We couldn't find any services matching your search. Try different keywords, select another category, or reset the filter.
+            </p>
+            <Button variant="primary" size="sm" onClick={handleClearFilters} style={{ marginTop: '8px' }}>
+              Reset Search
+            </Button>
+          </div>
         ) : (
           <div className="grid-cols-4">
-            {popularServices.map((srv) => (
+            {displayedServices.map((srv) => (
               <div key={srv.id} className="card card-hover" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden', borderRadius: 'var(--radius-card)' }}>
                 <div style={{ position: 'relative', height: '170px' }}>
                   <img src={srv.image} alt={srv.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -273,31 +373,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* 6. AI ASSISTANT BANNER (Matching UI Reference 1 & 3) */}
-      <section className="app-container">
-        <div style={{ backgroundColor: 'var(--color-primary-light)', border: '1px solid var(--color-primary-border)', borderRadius: 'var(--radius-panel)', padding: '32px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '16px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }}>
-              <Bot size={28} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)' }}>Meet Ember, your ServiceHub AI Assistant</h3>
-                <span style={{ fontSize: '10px', fontWeight: '700', backgroundColor: 'var(--color-primary)', color: '#FFF', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>AI SMART MATCH</span>
-              </div>
-              <p style={{ fontSize: '14px', color: 'var(--color-muted)', marginTop: '4px' }}>
-                Not sure what service you need? Ember helps you describe issues, get pricing estimates, and match with the top rated expert.
-              </p>
-            </div>
-          </div>
-
-          <Button variant="primary" size="md" icon={MessageSquare} onClick={() => navigate('/services')}>
-            Chat with Assistant
-          </Button>
-        </div>
-      </section>
-
-      {/* 7. BOTTOM CTA SECTION (Matching UI Reference 2) */}
+      {/* 6. BOTTOM CTA SECTION (Matching UI Reference 2) */}
       <section className="app-container">
         <div style={{ backgroundColor: '#0B132B', color: '#FFFFFF', borderRadius: 'var(--radius-panel)', padding: '56px 40px', textAlign: 'center', boxShadow: 'var(--shadow-xl)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ maxWidth: '640px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
@@ -312,7 +388,7 @@ export function LandingPage() {
               <Button variant="primary" size="lg" style={{ borderRadius: '12px' }} onClick={() => navigate('/services')}>
                 Find a Service
               </Button>
-              <Button variant="secondary" size="lg" style={{ borderRadius: '12px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: '#FFFFFF' }} onClick={() => navigate('/signup')}>
+              <Button variant="secondary" size="lg" style={{ borderRadius: '12px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.25)', color: '#FFFFFF' }} onClick={() => navigate('/signup?role=provider')}>
                 Become a Provider
               </Button>
             </div>

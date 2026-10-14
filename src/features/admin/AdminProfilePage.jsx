@@ -1,14 +1,48 @@
-import React from 'react';
-import { Shield, User, Mail, Phone, Lock, CheckCircle2, Award, Server, Key, MapPin, Calendar, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, User, Mail, Phone, Lock, CheckCircle2, Award, Server, Key, MapPin, Calendar, Clock, Edit3, Save, X } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
+import { TextField } from '../../design-system/primitives/TextField';
+import { updateUserProfile } from '../../data/mockRepository';
+import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function AdminProfilePage() {
   const { currentUser, showToast } = useApp();
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(currentUser?.name || '');
+  const [phone, setPhone] = useState(currentUser?.phone || '');
+  const [avatar, setAvatar] = useState(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+  const [department, setDepartment] = useState(currentUser?.department || 'Platform Operations & Compliance');
+  const [saving, setSaving] = useState(false);
+
   const handleSecurityCheck = () => {
     showToast('Admin security session verified cleanly.', 'success');
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      showToast('Name cannot be empty.', 'warning');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateUserProfile(currentUser.id, {
+        name: name.trim(),
+        phone: phone.trim(),
+        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+        department: department.trim()
+      });
+      setIsEditing(false);
+      showToast('Admin profile updated successfully!', 'success');
+    } catch (err) {
+      showToast(err.message || 'Unable to update profile.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -17,20 +51,133 @@ export function AdminProfilePage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 className="page-title">Administrator Profile</h1>
-          <p className="page-subtitle">View account metadata, system permissions, and operational security clearance.</p>
+          <p className="page-subtitle">View and edit account metadata, contact details, and system permissions.</p>
         </div>
-        <Button variant="outline" size="sm" icon={Key} onClick={handleSecurityCheck}>
-          Verify Session Security
-        </Button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Button
+            variant={isEditing ? 'outline' : 'primary'}
+            size="sm"
+            icon={isEditing ? X : Edit3}
+            onClick={() => {
+              if (isEditing) {
+                setName(currentUser?.name || '');
+                setPhone(currentUser?.phone || '');
+                setAvatar(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+                setDepartment(currentUser?.department || 'Platform Operations & Compliance');
+              }
+              setIsEditing(!isEditing);
+            }}
+          >
+            {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+          </Button>
+          <Button variant="outline" size="sm" icon={Key} onClick={handleSecurityCheck}>
+            Verify Security
+          </Button>
+        </div>
       </div>
+
+      {/* Edit Profile Form when active */}
+      {isEditing && (
+        <form onSubmit={handleSaveProfile} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '28px', border: '2px solid var(--color-warning)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Edit3 size={20} color="var(--color-warning)" />
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)' }}>Edit Administrator Profile Details</h3>
+            </div>
+            <StatusBadge status="warning" label="Editing Active" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <TextField
+              label="Full Name *"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Priya Nair"
+              required
+            />
+            <TextField
+              label="Contact Phone Number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. +91 99000 11223"
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <TextField
+              label="Operations Role / Department"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              placeholder="e.g. Marketplace Operations & Compliance"
+            />
+            <TextField
+              label="Account Email (Read-Only)"
+              value={currentUser?.email || ''}
+              disabled
+              helperText="Primary administrator credential managed under root governance"
+            />
+          </div>
+
+          <div>
+            <TextField
+              label="Avatar Image URL (or use Blank Default Silhouette)"
+              value={avatar}
+              onChange={(e) => setAvatar(e.target.value)}
+              placeholder="https://..."
+              helperText="Paste an image URL or reset to default blank avatar"
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px' }}>
+              <img
+                src={avatar || DEFAULT_BLANK_AVATAR}
+                alt="Avatar preview"
+                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-warning)' }}
+                onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
+              >
+                Use Blank Silhouette Avatar
+              </Button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setName(currentUser?.name || '');
+                setPhone(currentUser?.phone || '');
+                setAvatar(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+                setDepartment(currentUser?.department || 'Platform Operations & Compliance');
+                setIsEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              icon={Save}
+              disabled={saving}
+            >
+              {saving ? 'Saving Changes...' : 'Save Profile Changes'}
+            </Button>
+          </div>
+        </form>
+      )}
 
       {/* Main Profile Summary Card */}
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', padding: '32px' }}>
         <div style={{ position: 'relative' }}>
           <img
-            src={currentUser?.avatar || 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80'}
+            src={currentUser?.avatar || DEFAULT_BLANK_AVATAR}
             alt={currentUser?.name}
             style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--color-warning)' }}
+            onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
           />
           <div style={{ position: 'absolute', bottom: '0', right: '0', backgroundColor: '#10B981', width: '22px', height: '22px', borderRadius: '50%', border: '3px solid #FFF' }} />
         </div>
@@ -41,7 +188,7 @@ export function AdminProfilePage() {
             <StatusBadge status="approved" label="Active Admin" />
           </div>
           <p style={{ fontSize: '14px', color: 'var(--color-primary)', fontWeight: '700', marginTop: '2px' }}>
-            Platform Operations Lead & Marketplace Compliance Administrator
+            {currentUser?.department || 'Platform Operations Lead & Marketplace Compliance Administrator'}
           </p>
           <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '13px', color: 'var(--color-muted)', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={15} color="var(--color-primary)" /> {currentUser?.email || 'admin.ops@servicehub.in'}</span>

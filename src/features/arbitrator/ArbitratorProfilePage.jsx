@@ -1,14 +1,48 @@
-import React from 'react';
-import { Scale, User, Mail, Phone, ShieldCheck, CheckCircle2, Award, FileText, Calendar, Clock, MapPin, Gavel } from 'lucide-react';
+import React, { useState } from 'react';
+import { Scale, User, Mail, Phone, ShieldCheck, CheckCircle2, Award, FileText, Calendar, Clock, MapPin, Gavel, Edit3, Save, X } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
+import { TextField } from '../../design-system/primitives/TextField';
+import { updateUserProfile } from '../../data/mockRepository';
+import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ArbitratorProfilePage() {
   const { currentUser, showToast } = useApp();
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(currentUser?.name || '');
+  const [phone, setPhone] = useState(currentUser?.phone || '');
+  const [avatar, setAvatar] = useState(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+  const [title, setTitle] = useState(currentUser?.title || 'Senior Independent Arbitrator');
+  const [saving, setSaving] = useState(false);
+
   const handleCredentialVerify = () => {
     showToast('Arbitrator bar council credentials & digital signature verified.', 'success');
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      showToast('Name cannot be empty.', 'warning');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateUserProfile(currentUser.id, {
+        name: name.trim(),
+        phone: phone.trim(),
+        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+        title: title.trim()
+      });
+      setIsEditing(false);
+      showToast('Arbitrator profile updated successfully!', 'success');
+    } catch (err) {
+      showToast(err.message || 'Unable to update profile.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -17,20 +51,133 @@ export function ArbitratorProfilePage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 className="page-title">Arbitrator Profile & Accreditation</h1>
-          <p className="page-subtitle">View official panel credentials, dispute resolution statistics, and judicial standing.</p>
+          <p className="page-subtitle">View and edit official panel credentials, contact details, and judicial standing.</p>
         </div>
-        <Button variant="outline" size="sm" icon={ShieldCheck} onClick={handleCredentialVerify}>
-          Verify Bar Accreditation
-        </Button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Button
+            variant={isEditing ? 'outline' : 'primary'}
+            size="sm"
+            icon={isEditing ? X : Edit3}
+            onClick={() => {
+              if (isEditing) {
+                setName(currentUser?.name || '');
+                setPhone(currentUser?.phone || '');
+                setAvatar(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+                setTitle(currentUser?.title || 'Senior Independent Arbitrator');
+              }
+              setIsEditing(!isEditing);
+            }}
+          >
+            {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+          </Button>
+          <Button variant="outline" size="sm" icon={ShieldCheck} onClick={handleCredentialVerify}>
+            Verify Accreditation
+          </Button>
+        </div>
       </div>
+
+      {/* Edit Profile Form when active */}
+      {isEditing && (
+        <form onSubmit={handleSaveProfile} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '28px', border: '2px solid var(--color-conflict)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Edit3 size={20} color="var(--color-conflict)" />
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)' }}>Edit Arbitrator Profile Details</h3>
+            </div>
+            <StatusBadge status="warning" label="Editing Active" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <TextField
+              label="Full Legal Name *"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Justice V. K. Sundaram (Retd.)"
+              required
+            />
+            <TextField
+              label="Direct Phone Number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. +91 94444 88888"
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <TextField
+              label="Judicial Standing / Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Senior Independent Arbitrator"
+            />
+            <TextField
+              label="Tribunal Email (Read-Only)"
+              value={currentUser?.email || ''}
+              disabled
+              helperText="Official judicial email registered with the arbitration panel"
+            />
+          </div>
+
+          <div>
+            <TextField
+              label="Avatar Image URL (or use Blank Default Silhouette)"
+              value={avatar}
+              onChange={(e) => setAvatar(e.target.value)}
+              placeholder="https://..."
+              helperText="Paste an image URL or reset to default blank avatar"
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px' }}>
+              <img
+                src={avatar || DEFAULT_BLANK_AVATAR}
+                alt="Avatar preview"
+                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-conflict)' }}
+                onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
+              >
+                Use Blank Silhouette Avatar
+              </Button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setName(currentUser?.name || '');
+                setPhone(currentUser?.phone || '');
+                setAvatar(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+                setTitle(currentUser?.title || 'Senior Independent Arbitrator');
+                setIsEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              icon={Save}
+              disabled={saving}
+            >
+              {saving ? 'Saving Changes...' : 'Save Profile Changes'}
+            </Button>
+          </div>
+        </form>
+      )}
 
       {/* Main Profile Summary Card */}
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', padding: '32px' }}>
         <div style={{ position: 'relative' }}>
           <img
-            src={currentUser?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'}
+            src={currentUser?.avatar || DEFAULT_BLANK_AVATAR}
             alt={currentUser?.name}
             style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--color-conflict)' }}
+            onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
           />
           <div style={{ position: 'absolute', bottom: '0', right: '0', backgroundColor: '#10B981', width: '22px', height: '22px', borderRadius: '50%', border: '3px solid #FFF' }} />
         </div>

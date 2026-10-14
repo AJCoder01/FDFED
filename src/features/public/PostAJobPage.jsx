@@ -1,28 +1,31 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Briefcase, CheckCircle2, ArrowRight } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Briefcase, CheckCircle2, ArrowRight, Lock, UserPlus, LogIn } from 'lucide-react';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
+import { Modal } from '../../design-system/primitives/Modal';
 import { useApp } from '../../app/context/AppContext';
 import { getTodayDateInputValue } from '../../utils/date';
 
 export function PostAJobPage() {
   const navigate = useNavigate();
-  const { showToast } = useApp();
+  const { showToast, currentUser, currentRole } = useApp();
+  const isCustomer = currentUser && currentRole === 'customer';
 
   const [formData, setFormData] = useState({
     category: 'Home Cleaning',
     title: '',
-    location: 'Bengaluru',
+    location: currentUser?.addresses?.[0]?.city || '',
     description: '',
     preferredDate: getTodayDateInputValue(),
     budget: '2000',
-    contactName: 'Aarav Sharma',
-    contactPhone: '+91 98765 43210'
+    contactName: currentUser?.name || '',
+    contactPhone: currentUser?.phone || ''
   });
 
   const [submittedRequest, setSubmittedRequest] = useState(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -30,6 +33,13 @@ export function PostAJobPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!isCustomer) {
+      setAuthModalOpen(true);
+      showToast('You must be logged in as a customer to post a custom job.', 'warning');
+      return;
+    }
+
     if (!formData.title || !formData.description) {
       showToast('Please fill in the job title and detailed description.', 'warning');
       return;
@@ -39,6 +49,7 @@ export function PostAJobPage() {
     setSubmittedRequest({
       id: reqId,
       ...formData,
+      customerId: currentUser.id,
       createdAt: new Date().toLocaleDateString('en-GB')
     });
     showToast('Custom job request submitted successfully!', 'success');
@@ -88,6 +99,25 @@ export function PostAJobPage() {
         <p className="page-subtitle">Get quotes from verified professionals for custom home service needs</p>
       </div>
 
+      {!isCustomer && (
+        <div style={{ backgroundColor: 'rgba(234, 179, 8, 0.1)', border: '1px solid var(--color-warning)', padding: '16px', borderRadius: 'var(--radius-control)', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Lock size={20} color="var(--color-warning)" />
+            <span style={{ fontSize: '13px', color: 'var(--color-ink)', fontWeight: 600 }}>
+              Customer Account Required: You must be signed in as a Customer to submit a custom job.
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Link to="/login?role=customer">
+              <Button variant="outline" size="sm">Log In</Button>
+            </Link>
+            <Link to="/signup?role=customer">
+              <Button variant="primary" size="sm">Sign Up</Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <Select
           label="Service Category"
@@ -101,6 +131,7 @@ export function PostAJobPage() {
             { value: 'Electrical Repair', label: 'Electrical Repair' },
             { value: 'Appliance Repair', label: 'Appliance Repair' },
             { value: 'AC Maintenance', label: 'AC Maintenance' },
+            { value: 'Others', label: 'Others' }
           ]}
         />
 
@@ -128,6 +159,7 @@ export function PostAJobPage() {
           <TextField
             label="Service Location (City / Area)"
             name="location"
+            placeholder="e.g. Bengaluru, HSR Layout"
             value={formData.location}
             onChange={handleChange}
             required
@@ -155,6 +187,7 @@ export function PostAJobPage() {
           <TextField
             label="Contact Phone Number"
             name="contactPhone"
+            placeholder="+91 98765 43210"
             value={formData.contactPhone}
             onChange={handleChange}
             required
@@ -165,6 +198,30 @@ export function PostAJobPage() {
           Submit Job Request
         </Button>
       </form>
+
+      {/* Customer Login Required Modal */}
+      <Modal
+        title="Customer Sign In Required"
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--color-ink-secondary)', lineHeight: 1.5, margin: 0 }}>
+            To ensure secure order dispatch and direct communication with verified service professionals, you must be signed in as a <strong>Customer</strong> to post a custom job request.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+            <Button variant="outline" onClick={() => setAuthModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/signup?role=customer')}>
+              <UserPlus size={16} style={{ marginRight: '6px' }} /> Sign Up as Customer
+            </Button>
+            <Button variant="primary" onClick={() => navigate('/login?role=customer')}>
+              <LogIn size={16} style={{ marginRight: '6px' }} /> Log In
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

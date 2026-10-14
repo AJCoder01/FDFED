@@ -7,23 +7,18 @@ import { NotificationDrawer } from '../../features/notifications/NotificationDra
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 
 export function ProviderLayout() {
-  const { currentRole, isSuperUser, switchRole, currentUser, handleResetDemoData, toast, clearToast, unreadCount, reloadNotifications, showToast } = useApp();
+  const { currentRole, isSuperUser, switchRole, logout, currentUser, handleResetDemoData, toast, clearToast, unreadCount, reloadNotifications, showToast } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
 
-  useEffect(() => {
-    if (isSuperUser && currentRole !== 'provider') switchRole('provider', true);
-  }, [currentRole, isSuperUser, switchRole]);
-
   const navItems = [
     { label: 'Overview', path: '/provider', icon: LayoutDashboard },
     { label: 'My Services', path: '/provider/services', icon: Wrench },
-    { label: 'Availability', path: '/provider/availability', icon: Calendar },
     { label: 'Job Inbox', path: '/provider/jobs', icon: Briefcase },
     { label: 'Earnings Summary', path: '/provider/earnings', icon: DollarSign },
     { label: 'Customer Reviews', path: '/provider/reviews', icon: Star },
-    { label: 'Provider Profile', path: '/provider/profile', icon: User },
+    { label: 'Profile', path: '/provider/profile', icon: User },
   ];
 
   return (
@@ -40,12 +35,14 @@ export function ProviderLayout() {
             {['guest', 'customer', 'provider', 'admin', 'arbitrator'].map((role) => (
               <button
                 key={role}
-                onClick={() => {
-                  switchRole(role, true);
-                  if (role === 'guest') navigate('/');
-                  else if (role === 'customer') navigate('/customer');
-                  else if (role === 'admin') navigate('/admin');
-                  else if (role === 'arbitrator') navigate('/arbitrator');
+                onClick={async () => {
+                  if (role === 'guest') {
+                    await logout();
+                    navigate('/');
+                  } else if (role !== currentRole) {
+                    await logout();
+                    navigate(`/login?role=${role}`);
+                  }
                 }}
                 style={{
                   padding: '3px 10px',
@@ -77,7 +74,7 @@ export function ProviderLayout() {
 
       <div className="provider-shell" style={{ display: 'flex', flex: 1 }}>
         <aside className="provider-sidebar" style={{ width: 'var(--sidebar-width)', backgroundColor: 'var(--color-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
-          <Link to="/" aria-label="Return Home" title="Return Home" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+          <Link to="/provider" aria-label="Provider Dashboard" title="Provider Dashboard" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 10px rgba(37,99,235,0.25)' }}>
               <Shield size={20} />
             </div>
@@ -128,7 +125,7 @@ export function ProviderLayout() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <ThemeToggle />
-              <button onClick={() => { switchRole('guest'); navigate('/'); }} aria-label="Log out" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-ink)', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
+              <button onClick={async () => { await logout(); navigate('/'); }} aria-label="Log out" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-ink)', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
                 <LogOut size={16} /> Log Out
               </button>
               <button
@@ -148,13 +145,13 @@ export function ProviderLayout() {
                 )}
               </button>
 
-              <div className="provider-user" style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)' }}>
+              <Link to="/provider/profile" title="View Provider Profile" className="provider-user" style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
                 <img src={currentUser?.avatar} alt={currentUser?.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-success)' }} />
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{currentUser?.name}</div>
                   <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', textTransform: 'capitalize' }}>{currentUser?.verificationStatus?.replaceAll('_', ' ') || 'Verification unavailable'}</div>
                 </div>
-              </div>
+              </Link>
             </div>
           </header>
 
