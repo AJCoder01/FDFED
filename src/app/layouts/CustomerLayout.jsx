@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Home, Search, Calendar, HelpCircle, Bell, RotateCcw, ChevronRight, LogOut } from 'lucide-react';
+import { Shield, Home, Search, Calendar, HelpCircle, Bell, RotateCcw, ChevronRight, LogOut, User } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 
 export function CustomerLayout() {
-  const { currentRole, isSuperUser, switchRole, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, isSuperUser, switchRole, logout, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -16,6 +16,7 @@ export function CustomerLayout() {
     { label: 'Overview', path: '/customer', icon: Home },
     { label: 'Find Services', path: '/customer/services', icon: Search },
     { label: 'My Bookings', path: '/customer/bookings', icon: Calendar },
+    { label: 'Profile', path: '/customer/profile', icon: User },
     { label: 'Help & Support', path: '/customer/support', icon: HelpCircle },
   ];
 
@@ -33,12 +34,14 @@ export function CustomerLayout() {
             {['guest', 'customer', 'provider', 'admin', 'arbitrator'].map((role) => (
               <button
                 key={role}
-                onClick={() => {
-                  switchRole(role, true);
-                  if (role === 'guest') navigate('/');
-                  else if (role === 'provider') navigate('/provider');
-                  else if (role === 'admin') navigate('/admin');
-                  else if (role === 'arbitrator') navigate('/arbitrator');
+                onClick={async () => {
+                  if (role === 'guest') {
+                    await logout();
+                    navigate('/');
+                  } else if (role !== currentRole) {
+                    await logout();
+                    navigate(`/login?role=${role}`);
+                  }
                 }}
                 style={{
                   padding: '3px 10px',
@@ -72,7 +75,7 @@ export function CustomerLayout() {
       <div style={{ display: 'flex', flex: 1 }}>
         {/* Sidebar */}
         <aside style={{ width: 'var(--sidebar-width)', backgroundColor: 'var(--color-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
-          <Link to="/" aria-label="Return Home" title="Return Home" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+          <Link to="/customer" aria-label="Customer Dashboard" title="Customer Dashboard" style={{ padding: '24px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 10px rgba(37,99,235,0.25)' }}>
               <Shield size={20} />
             </div>
@@ -125,7 +128,7 @@ export function CustomerLayout() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <ThemeToggle />
-              <button onClick={() => { switchRole('guest'); navigate('/'); }} aria-label="Log out" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-ink)', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
+              <button onClick={async () => { await logout(); navigate('/'); }} aria-label="Log out" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-ink)', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
                 <LogOut size={16} /> Log Out
               </button>
               <button
@@ -140,13 +143,13 @@ export function CustomerLayout() {
                 )}
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)' }}>
+              <Link to="/customer/profile" title="View Customer Profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
                 <img src={currentUser?.avatar} alt={currentUser?.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary-border)' }} />
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{currentUser?.name}</div>
                   <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Bengaluru, KA</div>
                 </div>
-              </div>
+              </Link>
             </div>
           </header>
 

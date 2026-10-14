@@ -49,6 +49,49 @@ export function HelpPage() {
         </div>
       </div>
 
+      {/* Official ServiceHub Contact Credentials */}
+      <div className="card" style={{ padding: '28px', border: '1px solid var(--color-primary-light)', backgroundColor: 'var(--color-surface)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+            <PhoneCall size={22} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)', margin: 0 }}>ServiceHub Official Contact Credentials</h2>
+            <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: '2px 0 0 0' }}>Get in touch with customer care, technician dispatch, or grievance desk</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginTop: '20px' }}>
+          <div style={{ padding: '16px', borderRadius: 'var(--radius-control)', backgroundColor: 'var(--color-page-bg)', border: '1px solid var(--color-border)' }}>
+            <strong style={{ fontSize: '13px', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Helpline & Dispatch</strong>
+            <p style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)', margin: '6px 0 2px 0' }}>1800-123-SERVICE (Toll-Free)</p>
+            <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0 }}>+91 80 4567 8900 (Direct Desk)</p>
+          </div>
+
+          <div style={{ padding: '16px', borderRadius: 'var(--radius-control)', backgroundColor: 'var(--color-page-bg)', border: '1px solid var(--color-border)' }}>
+            <strong style={{ fontSize: '13px', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Email Support</strong>
+            <p style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)', margin: '6px 0 2px 0' }}>support@servicehub.in</p>
+            <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0 }}>Average response: Under 30 mins</p>
+          </div>
+
+          <div style={{ padding: '16px', borderRadius: 'var(--radius-control)', backgroundColor: 'var(--color-page-bg)', border: '1px solid var(--color-border)' }}>
+            <strong style={{ fontSize: '13px', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Grievance Officer</strong>
+            <p style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)', margin: '6px 0 2px 0' }}>grievance@servicehub.in</p>
+            <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0 }}>Officer: Smt. Neha Sundaram</p>
+          </div>
+
+          <div style={{ padding: '16px', borderRadius: 'var(--radius-control)', backgroundColor: 'var(--color-page-bg)', border: '1px solid var(--color-border)' }}>
+            <strong style={{ fontSize: '13px', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Support Timings</strong>
+            <p style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)', margin: '6px 0 2px 0' }}>Mon – Sun: 7:00 AM – 10:00 PM</p>
+            <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0 }}>Emergency technician dispatch 24/7</p>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '16px', padding: '12px 16px', borderRadius: 'var(--radius-control)', backgroundColor: 'var(--color-page-bg)', fontSize: '12px', color: 'var(--color-muted)' }}>
+          <strong>Corporate Headquarters:</strong> ServiceHub Technologies India Pvt. Ltd., 5th Floor, Salarpuria Cyber Park, Electronic City Phase 1, Bengaluru, Karnataka – 560100
+        </div>
+      </div>
+
       <div className="card">
         <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-ink)', marginBottom: '20px' }}>Frequently Asked Questions</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

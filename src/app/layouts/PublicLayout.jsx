@@ -7,7 +7,7 @@ import { Toast } from '../../design-system/primitives/Toast';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 
 export function PublicLayout() {
-  const { currentRole, isSuperUser, switchRole, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, isSuperUser, switchRole, logout, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,13 +25,16 @@ export function PublicLayout() {
             {['guest', 'customer', 'provider', 'admin', 'arbitrator'].map((role) => (
               <button
                 key={role}
-                onClick={() => {
-                  switchRole(role, true);
-                  if (role === 'customer') navigate('/customer');
-                  else if (role === 'provider') navigate('/provider');
-                  else if (role === 'admin') navigate('/admin');
-                  else if (role === 'arbitrator') navigate('/arbitrator');
-                  else navigate('/');
+                onClick={async () => {
+                  if (role === 'guest') {
+                    await logout();
+                    navigate('/');
+                  } else if (role !== currentRole) {
+                    await logout();
+                    navigate(`/login?role=${role}`);
+                  } else {
+                    navigate(`/${role}`);
+                  }
                 }}
                 style={{
                   padding: '3px 10px',
@@ -64,7 +67,7 @@ export function PublicLayout() {
       {/* Main Navbar */}
       <header style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-xs)' }}>
         <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '72px' }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+          <Link to={currentRole === 'guest' ? '/' : `/${currentRole}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
               <Shield size={22} />
             </div>
@@ -100,18 +103,25 @@ export function PublicLayout() {
                 </Link>
               </>
             ) : (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => {
-                  if (currentRole === 'customer') navigate('/customer');
-                  else if (currentRole === 'provider') navigate('/provider');
-                  else if (currentRole === 'admin') navigate('/admin');
-                  else if (currentRole === 'arbitrator') navigate('/arbitrator');
-                }}
-              >
-                Go to Dashboard ({currentRole})
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => navigate(`/${currentRole}`)}
+                >
+                  Dashboard
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={async () => {
+                    await logout();
+                    navigate('/');
+                  }}
+                >
+                  Log Out
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -158,7 +168,7 @@ export function PublicLayout() {
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
                 <li><Link to="/services" style={{ color: '#94A3B8' }}>Browse All Services</Link></li>
                 <li><Link to="/post-a-job" style={{ color: '#94A3B8' }}>Post Custom Request</Link></li>
-                <li><Link to="/signup" style={{ color: '#94A3B8' }}>Become a Provider</Link></li>
+                <li><Link to="/signup?role=provider" style={{ color: '#94A3B8' }}>Become a Provider</Link></li>
                 <li><Link to="/help" style={{ color: '#94A3B8' }}>Escrow Guarantee</Link></li>
               </ul>
             </div>
@@ -166,9 +176,9 @@ export function PublicLayout() {
             <div>
               <h4 style={{ color: '#FFFFFF', fontSize: '14px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cities Covered</h4>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
-                <li>Bengaluru (Koramangala, Indiranagar)</li>
-                <li>Mumbai (Andheri, Bandra)</li>
-                <li>Delhi NCR (Gurugram, Noida)</li>
+                <li>Bengaluru</li>
+                <li>Mumbai</li>
+                <li>Delhi NCR</li>
               </ul>
             </div>
           </div>

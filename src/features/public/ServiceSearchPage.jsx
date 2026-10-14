@@ -41,6 +41,12 @@ export function ServiceSearchPage() {
     setSearchParams(params);
   };
 
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchInput(value);
+    updateFilters('search', value);
+  };
+
   const handleSearchFormSubmit = (e) => {
     e.preventDefault();
     updateFilters('search', searchInput);
@@ -50,6 +56,12 @@ export function ServiceSearchPage() {
     setSearchInput('');
     setSearchParams(new URLSearchParams());
   };
+
+  const categoryOptions = [
+    { value: '', label: 'All Categories' },
+    ...categories.map(c => ({ value: c.id, label: c.name })),
+    ...(!categories.some(c => c.name?.toLowerCase() === 'others' || c.id === 'cat-6') ? [{ value: 'cat-6', label: 'Others' }] : [])
+  ];
 
   return (
     <div className="app-container" style={{ padding: '32px 16px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -66,9 +78,9 @@ export function ServiceSearchPage() {
             <Search size={18} color="var(--color-muted)" />
             <input
               type="text"
-              placeholder="Search services by keyword..."
+              placeholder="Search by title, category, or description..."
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
+              onChange={handleSearchChange}
               style={{ width: '100%', height: '40px', border: 'none', outline: 'none', fontSize: '14px' }}
             />
           </div>
@@ -82,10 +94,7 @@ export function ServiceSearchPage() {
               placeholder="All Categories"
               value={currentCategory}
               onChange={(e) => updateFilters('category', e.target.value)}
-              options={[
-                { value: '', label: 'All Categories' },
-                ...categories.map(c => ({ value: c.id, label: c.name }))
-              ]}
+              options={categoryOptions}
             />
           </div>
 

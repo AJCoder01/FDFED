@@ -1,18 +1,62 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { DEMO_USERS } from '../../data/mockData';
-import { getCustomerById, getNotifications, getProviderById, resetDemoData } from '../../data/mockRepository';
+import {
+  getCustomerById,
+  getNotifications,
+  getProviderById,
+  getUserProfile,
+  resetDemoData,
+  authenticateUser,
+  signUpUser,
+  logActivity
+} from '../../data/mockRepository';
 import { subscribeToRepository } from '../../data/repositoryEvents';
 
 const AppContext = createContext();
 const ROLE_KEY = 'servicehub_demo_role';
+const SESSION_USER_KEY = 'servicehub_session_user';
+const BOOT_KEY = 'servicehub_server_boot_id';
 const THEME_KEY = 'servicehub_theme';
 const roles = ['guest', 'customer', 'provider', 'admin', 'arbitrator'];
-const initialRole = () => roles.includes(localStorage.getItem(ROLE_KEY)) ? localStorage.getItem(ROLE_KEY) : 'guest';
+
+// When localhost server restarts (new boot ID detected), reset active session to guest and redirect to landing page
+const currentBootId = typeof __SERVER_BOOT_ID__ !== 'undefined' ? __SERVER_BOOT_ID__ : null;
+if (currentBootId && typeof window !== 'undefined') {
+  try {
+    const lastBootId = localStorage.getItem(BOOT_KEY);
+    if (lastBootId !== currentBootId) {
+      localStorage.setItem(BOOT_KEY, currentBootId);
+      localStorage.removeItem(SESSION_USER_KEY);
+      localStorage.removeItem(ROLE_KEY);
+      if (window.location.pathname !== '/') {
+        window.history.replaceState(null, '', '/');
+      }
+    }
+  } catch {
+    // Storage access fallback
+  }
+}
+
+const getInitialSessionUser = () => {
+  try {
+    const raw = localStorage.getItem(SESSION_USER_KEY);
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user && user.id && roles.includes(user.role) ? user : null;
+  } catch {
+    return null;
+  }
+};
+
+const initialRole = () => {
+  const user = getInitialSessionUser();
+  if (user && roles.includes(user.role)) return user.role;
+  return 'guest';
+};
 
 export function AppProvider({ children }) {
   const [currentRole, setCurrentRole] = useState(initialRole);
-  const [currentUser, setCurrentUser] = useState(() => DEMO_USERS[initialRole()] || null);
-  const [isSuperUser, setIsSuperUser] = useState(() => initialRole() === 'admin');
+  const [currentUser, setCurrentUser] = useState(getInitialSessionUser);
+  const [isSuperUser, setIsSuperUser] = useState(() => getInitialSessionUser()?.role === 'admin');
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light');
   const [notifications, setNotifications] = useState([]);
   const [savedIntent, setSavedIntent] = useState(null);
@@ -32,14 +76,27 @@ export function AppProvider({ children }) {
     let request = 0;
     const reload = async () => {
       const latest = ++request;
-      const user = DEMO_USERS[currentRole];
-      if (!user) { setCurrentUser(null); setNotifications([]); return; }
+      if (!currentUser?.id || currentRole === 'guest') {
+        setNotifications([]);
+        return;
+      }
       try {
         const [profile, list] = await Promise.all([
-          currentRole === 'provider' ? getProviderById(user.id) : currentRole === 'customer' ? getCustomerById(user.id) : Promise.resolve(user),
-          getNotifications(user.id)
+          currentRole === 'provider'
+            ? getProviderById(currentUser.id)
+            : currentRole === 'customer'
+            ? getCustomerById(currentUser.id)
+            : getUserProfile(currentUser.id),
+          getNotifications(currentUser.id)
         ]);
-        if (active && latest === request) { setCurrentUser(profile); setNotifications(list); }
+        if (active && latest === request) {
+          if (profile) {
+            const merged = { ...currentUser, ...profile };
+            setCurrentUser(merged);
+            localStorage.setItem(SESSION_USER_KEY, JSON.stringify(merged));
+          }
+          setNotifications(list || []);
+        }
       } catch (error) {
         if (active) showToast(error.message, 'error');
       }
@@ -47,34 +104,78 @@ export function AppProvider({ children }) {
     reload();
     const unsubscribe = subscribeToRepository(reload);
     return () => { active = false; unsubscribe(); };
-  }, [currentRole, showToast]);
+  }, [currentRole, currentUser?.id, showToast]);
 
-  const switchRole = (role, preserveSuperUser = false) => {
-    if (!roles.includes(role)) return;
-    localStorage.setItem(ROLE_KEY, role);
-    setIsSuperUser(value => role === 'admin' || (preserveSuperUser && value));
-    if (role === currentRole) return;
-    setCurrentRole(role);
-    setCurrentUser(DEMO_USERS[role] || null);
+  const login = async (email, password, expectedRole) => {
+    const user = await authenticateUser(email, password, expectedRole);
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    localStorage.setItem(ROLE_KEY, user.role);
+    setCurrentUser(user);
+    setCurrentRole(user.role);
+    setIsSuperUser(user.role === 'admin');
+    return user;
+  };
+
+  const signup = async (userData) => {
+    const user = await signUpUser(userData);
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    localStorage.setItem(ROLE_KEY, user.role);
+    setCurrentUser(user);
+    setCurrentRole(user.role);
+    setIsSuperUser(user.role === 'admin');
+    return user;
+  };
+
+  const logout = async () => {
+    if (currentUser) {
+      try {
+        await logActivity({
+          userId: currentUser.id,
+          userEmail: currentUser.email,
+          userName: currentUser.name,
+          role: currentRole,
+          type: 'LOGOUT',
+          description: `User signed out: ${currentUser.name} (${currentRole.toUpperCase()})`
+        });
+      } catch {
+        // Safe fallback
+      }
+    }
+    localStorage.removeItem(SESSION_USER_KEY);
+    localStorage.setItem(ROLE_KEY, 'guest');
+    setCurrentRole('guest');
+    setCurrentUser(null);
+    setIsSuperUser(false);
     setNotifications([]);
   };
+
+  const switchRole = (role) => {
+    if (role === 'guest') {
+      logout();
+    }
+  };
+
   const reloadNotifications = useCallback(async () => {
     const id = currentUser?.id;
     const list = id ? await getNotifications(id) : [];
     if (userId.current === id) setNotifications(list);
   }, [currentUser?.id]);
+
   const handleResetDemoData = async () => {
     try {
       const result = await resetDemoData();
-      switchRole('guest');
+      await logout();
       setSavedIntent(null);
       showToast(result.message);
-    } catch (error) { showToast(error.message, 'error'); }
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
   };
 
   return (
     <AppContext.Provider value={{
       currentRole, currentUser, isSuperUser, switchRole, theme,
+      login, signup, logout,
       toggleTheme: () => setTheme(value => value === 'light' ? 'dark' : 'light'),
       notifications, unreadCount: notifications.filter(notification => !notification.read).length,
       reloadNotifications, savedIntent, setSavedIntent, showToast, toast, clearToast, handleResetDemoData

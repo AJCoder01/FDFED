@@ -1,4 +1,4 @@
-import { INITIAL_CATEGORIES, INITIAL_SERVICES, INITIAL_BOOKINGS, INITIAL_TICKETS, INITIAL_DISPUTES, INITIAL_NOTIFICATIONS, DEMO_USERS } from './mockData';
+import { INITIAL_CATEGORIES, INITIAL_SERVICES, INITIAL_BOOKINGS, INITIAL_TICKETS, INITIAL_DISPUTES, INITIAL_NOTIFICATIONS, DEMO_USERS, INITIAL_ACCOUNTS, DEFAULT_DEMO_PASSWORD, DEFAULT_BLANK_AVATAR } from './mockData';
 import { availableSlots, DEFAULT_SCHEDULE, validateSchedule, validateSlots, validDate, localClock, slotMinutes } from './scheduling';
 import { isAccepted, isPending, isPaid, platformFee, netPayout, collectedAmount, refundPayment } from './bookingRules';
 import { DATA_CHANGED } from './repositoryEvents';
@@ -6,7 +6,20 @@ import { DATA_CHANGED } from './repositoryEvents';
 const seeds = {
   services: INITIAL_SERVICES, bookings: INITIAL_BOOKINGS, tickets: INITIAL_TICKETS,
   disputes: INITIAL_DISPUTES, notifications: INITIAL_NOTIFICATIONS, categories: INITIAL_CATEGORIES,
-  customers: [DEMO_USERS.customer]
+  customers: [DEMO_USERS.customer],
+  accounts: INITIAL_ACCOUNTS,
+  activity_log: [
+    {
+      id: 'act-init-1',
+      userId: 'system',
+      userEmail: 'system@servicehub.in',
+      userName: 'Platform System',
+      role: 'admin',
+      type: 'SYSTEM',
+      description: 'Platform initialized with demo accounts and initial dataset.',
+      timestamp: '2026-08-01T09:00:00.000Z'
+    }
+  ]
 };
 const key = name => `servicehub_${name}`;
 const read = name => JSON.parse(localStorage.getItem(key(name)));
@@ -96,10 +109,272 @@ export async function resetDemoData() {
 export const getCategories = () => load('categories');
 export const getProviders = () => load('providers');
 export async function getProviderById(providerId) {
-  return (await getProviders()).find(profile => profile.id === providerId) || null;
+  const providers = await getProviders();
+  const provider = providers.find(profile => profile.id === providerId);
+  if (provider) return provider;
+  const accounts = (await load('accounts')) || [];
+  return accounts.find(profile => profile.id === providerId && profile.role === 'provider') || null;
 }
 export async function getCustomerById(customerId) {
-  return (await load('customers')).find(profile => profile.id === customerId) || null;
+  const customers = (await load('customers')) || [];
+  const customer = customers.find(profile => profile.id === customerId);
+  if (customer) return customer;
+  const accounts = (await load('accounts')) || [];
+  return accounts.find(profile => profile.id === customerId && profile.role === 'customer') || null;
+}
+export async function getUserProfile(userId) {
+  const accounts = (await load('accounts')) || [];
+  const account = accounts.find(item => item.id === userId);
+  if (account) return account;
+  const customer = (await load('customers'))?.find(item => item.id === userId);
+  if (customer) return customer;
+  const provider = (await load('providers'))?.find(item => item.id === userId);
+  return provider || null;
+}
+export async function getAccounts() {
+  return load('accounts');
+}
+export async function logActivity({ userId, userEmail, userName, role, type, description }) {
+  return change(() => {
+    const logs = read('activity_log') || [];
+    const entry = {
+      id: id('act'),
+      userId: userId || 'anonymous',
+      userEmail: userEmail || 'anonymous@servicehub.in',
+      userName: userName || 'User',
+      role: role || 'guest',
+      type: type || 'GENERAL',
+      description: description || '',
+      timestamp: stamp()
+    };
+    logs.unshift(entry);
+    if (logs.length > 200) logs.length = 200;
+    save({ activity_log: logs });
+    return entry;
+  });
+}
+export async function getActivityLogs(filterUserId) {
+  const logs = (await load('activity_log')) || [];
+  if (filterUserId) return logs.filter(log => log.userId === filterUserId);
+  return logs;
+}
+export async function signUpUser(data) {
+  return change(() => {
+    const accounts = read('accounts') || [];
+    const email = data.email?.trim().toLowerCase();
+    const password = data.password;
+    const role = data.role?.trim().toLowerCase();
+    const name = data.name?.trim();
+    const phone = data.phone?.trim();
+
+    if (!name) throw new Error('Please enter your full name.');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address.');
+    if (!password || password.length < 6) throw new Error('Password must be at least 6 characters long.');
+    if (!phone) throw new Error('Please enter your contact phone number.');
+    if (!['customer', 'provider', 'admin', 'arbitrator'].includes(role)) {
+      throw new Error('Please choose a valid role (Customer, Provider, Admin, or Arbitrator).');
+    }
+
+    if (accounts.some(acc => acc.email?.toLowerCase() === email)) {
+      throw new Error('An account with this email address already exists. Please log in.');
+    }
+
+    const userId = id(`user-${role.slice(0, 4)}`);
+
+    const newAccount = {
+      id: userId,
+      name,
+      email,
+      password,
+      role,
+      phone,
+      avatar: data.avatar?.trim() || DEFAULT_BLANK_AVATAR,
+      createdAt: stamp()
+    };
+
+    const changes = {};
+
+    if (role === 'customer') {
+      const address = {
+        id: id('addr'),
+        label: data.addressLabel?.trim() || 'Home',
+        addressLine: data.addressLine?.trim() || 'Flat 101, Main Road',
+        city: data.city?.trim() || 'Bengaluru',
+        pincode: data.pincode?.trim() || '560001',
+        isDefault: true
+      };
+      newAccount.addresses = [address];
+      const customers = read('customers') || [];
+      customers.push({ ...newAccount });
+      changes.customers = customers;
+    } else if (role === 'provider') {
+      newAccount.businessName = data.businessName?.trim() || `${name}'s Pro Services`;
+      newAccount.serviceArea = data.serviceArea?.trim() || 'Bengaluru Urban';
+      newAccount.skills = Array.isArray(data.skills) && data.skills.length > 0
+        ? data.skills
+        : [data.skill?.trim() || 'Home Cleaning'];
+      newAccount.verificationStatus = 'approved';
+      newAccount.rating = 5.0;
+      newAccount.reviewCount = 0;
+      newAccount.weeklyAvailability = { ...DEFAULT_SCHEDULE };
+      const providers = read('providers') || [];
+      providers.push({ ...newAccount });
+      changes.providers = providers;
+    } else if (role === 'arbitrator') {
+      newAccount.title = data.title?.trim() || 'Senior Independent Arbitrator';
+    } else if (role === 'admin') {
+      newAccount.department = data.department?.trim() || 'Platform Administration';
+    }
+
+    accounts.push(newAccount);
+    changes.accounts = accounts;
+
+    const activityLogs = read('activity_log') || [];
+    activityLogs.unshift({
+      id: id('act'),
+      userId: newAccount.id,
+      userEmail: newAccount.email,
+      userName: newAccount.name,
+      role: newAccount.role,
+      type: 'SIGNUP',
+      description: `New ${role.toUpperCase()} registered: ${newAccount.name} (${newAccount.email})`,
+      timestamp: stamp()
+    });
+    changes.activity_log = activityLogs;
+
+    save(changes);
+    return newAccount;
+  });
+}
+export async function authenticateUser(email, password, role) {
+  initializeStorage();
+  await delay();
+
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail || !password) {
+    throw new Error('Please enter both email and password.');
+  }
+
+  const accounts = read('accounts') || [];
+  let account = accounts.find(acc => acc.email?.toLowerCase() === normalizedEmail);
+
+  if (!account) {
+    const demoAccount = Object.values(DEMO_USERS).find(acc => acc.email?.toLowerCase() === normalizedEmail);
+    if (demoAccount && password === DEFAULT_DEMO_PASSWORD) {
+      account = { ...demoAccount, password: DEFAULT_DEMO_PASSWORD };
+    }
+  }
+
+  if (!account) {
+    throw new Error('No account found with this email. Please check your credentials or sign up.');
+  }
+
+  if (account.password !== password) {
+    throw new Error('Incorrect password. Please verify your credentials.');
+  }
+
+  if (role && account.role !== role) {
+    throw new Error(`This account is registered as a ${account.role.toUpperCase()}, not ${role.toUpperCase()}. Please sign in under the correct role.`);
+  }
+
+  const activityLogs = read('activity_log') || [];
+  activityLogs.unshift({
+    id: id('act'),
+    userId: account.id,
+    userEmail: account.email,
+    userName: account.name,
+    role: account.role,
+    type: 'LOGIN',
+    description: `User signed in: ${account.name} (${account.role.toUpperCase()})`,
+    timestamp: stamp()
+  });
+  save({ activity_log: activityLogs });
+
+  return account;
+}
+export async function updateUserProfile(userId, updates = {}) {
+  return change(() => {
+    const accounts = read('accounts') || [];
+    let account = accounts.find(a => a.id === userId);
+    if (!account) {
+      const demoAccount = Object.values(DEMO_USERS).find(acc => acc.id === userId);
+      if (demoAccount) {
+        account = { ...demoAccount, password: DEFAULT_DEMO_PASSWORD };
+        accounts.push(account);
+      } else {
+        throw new Error('Account record not found.');
+      }
+    }
+
+    if (updates.name !== undefined && updates.name.trim()) account.name = updates.name.trim();
+    if (updates.phone !== undefined) account.phone = updates.phone.trim();
+    if (updates.avatar !== undefined) account.avatar = updates.avatar.trim();
+    if (updates.email !== undefined && updates.email.trim()) account.email = updates.email.trim().toLowerCase();
+
+    const changes = { accounts };
+
+    if (account.role === 'customer') {
+      const customers = read('customers') || [];
+      const customer = customers.find(c => c.id === userId);
+      if (customer) {
+        customer.name = account.name;
+        customer.phone = account.phone;
+        customer.avatar = account.avatar;
+        customer.email = account.email;
+        if (Array.isArray(updates.addresses)) {
+          customer.addresses = updates.addresses;
+          account.addresses = updates.addresses;
+        }
+        changes.customers = customers;
+      }
+    } else if (account.role === 'provider') {
+      const providers = read('providers') || [];
+      const provider = providers.find(p => p.id === userId);
+      if (provider) {
+        if (updates.businessName !== undefined && updates.businessName.trim()) {
+          provider.businessName = updates.businessName.trim();
+          account.businessName = provider.businessName;
+        }
+        if (updates.serviceArea !== undefined) {
+          provider.serviceArea = updates.serviceArea.trim();
+          account.serviceArea = provider.serviceArea;
+        }
+        if (Array.isArray(updates.skills) && updates.skills.length > 0) {
+          provider.skills = [...new Set(updates.skills)];
+          account.skills = provider.skills;
+        }
+        provider.name = account.name;
+        provider.phone = account.phone;
+        provider.avatar = account.avatar;
+        provider.email = account.email;
+        changes.providers = providers;
+      }
+    } else if (account.role === 'admin') {
+      if (updates.department !== undefined) {
+        account.department = updates.department.trim();
+      }
+    } else if (account.role === 'arbitrator') {
+      if (updates.title !== undefined) {
+        account.title = updates.title.trim();
+      }
+    }
+
+    const activityLogs = read('activity_log') || [];
+    activityLogs.unshift({
+      id: id('act'),
+      userId: account.id,
+      userEmail: account.email,
+      userName: account.name,
+      role: account.role,
+      type: 'PROFILE_UPDATE',
+      description: `Updated profile details for ${account.name} (${account.role.toUpperCase()})`,
+      timestamp: stamp()
+    });
+    changes.activity_log = activityLogs;
+
+    save(changes);
+    return account;
+  });
 }
 export async function saveCustomerAddresses(customerId, addresses) {
   return change(() => {
@@ -138,6 +413,10 @@ export async function saveProvider(providerId, values, submit = false) {
     const serviceArea = values.serviceArea?.trim();
     if (!businessName || !serviceArea || !values.skills?.length) throw new Error('Enter a business name, coverage area, and at least one skill.');
     if (submit && !values.documentName?.trim()) throw new Error('Enter a document filename before submitting for verification.');
+    if (values.name?.trim()) profile.name = values.name.trim();
+    if (values.phone !== undefined) profile.phone = values.phone.trim();
+    if (values.avatar !== undefined) profile.avatar = values.avatar.trim();
+
     Object.assign(profile, {
       businessName, serviceArea, skills: [...new Set(values.skills)],
       documentName: values.documentName?.trim() || '',
@@ -147,7 +426,19 @@ export async function saveProvider(providerId, values, submit = false) {
     const services = read('services').map(service => service.providerId === providerId ? { ...service, providerName: businessName } : service);
     const notifications = read('notifications');
     if (submit) notify(notifications, [['user-admin-1', '/admin/providers']], 'Provider Verification Submitted', `${businessName} submitted a verification profile.`);
-    save({ providers: profiles, services, notifications });
+
+    const accounts = read('accounts') || [];
+    const account = accounts.find(a => a.id === providerId);
+    if (account) {
+      account.businessName = businessName;
+      account.serviceArea = serviceArea;
+      account.skills = profile.skills;
+      if (profile.name) account.name = profile.name;
+      if (profile.phone) account.phone = profile.phone;
+      if (profile.avatar) account.avatar = profile.avatar;
+    }
+
+    save({ providers: profiles, services, notifications, accounts });
     return profile;
   });
 }
@@ -182,7 +473,12 @@ export async function getServices(filters = {}) {
   if (filters.role === 'provider') services = services.filter(service => service.providerId === filters.userId);
   else if (filters.role !== 'admin') services = services.filter(service => visible(service, providers));
   if (filters.category) services = services.filter(service => service.categoryId === filters.category || service.categoryName === filters.category);
-  if (filters.search) services = services.filter(service => `${service.title} ${service.description}`.toLowerCase().includes(filters.search.toLowerCase()));
+  if (filters.search) {
+    const q = filters.search.trim().toLowerCase();
+    services = services.filter(service =>
+      `${service.title || ''} ${service.categoryName || ''} ${service.description || ''}`.toLowerCase().includes(q)
+    );
+  }
   if (filters.maxPrice) services = services.filter(service => service.price <= Number(filters.maxPrice));
   const bookings = read('bookings');
   services = services.map(service => ratings(service, bookings));
