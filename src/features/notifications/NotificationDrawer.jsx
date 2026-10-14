@@ -65,7 +65,7 @@ export function NotificationDrawer({ isOpen, onClose }) {
   };
 
   if (!isOpen) return null;
-  const visible = notifications.filter(notification => !notification.userId || notification.userId === currentUser?.id);
+  const visible = notifications.filter(notification => (!notification.userId || notification.userId === currentUser?.id) && !notification.read);
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(23, 32, 51, 0.4)', zIndex: 1500, display: 'flex', justifyContent: 'flex-end' }}>
@@ -78,7 +78,7 @@ export function NotificationDrawer({ isOpen, onClose }) {
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <Button variant="secondary" size="sm" onClick={refresh} disabled={busy}>{busy ? 'Refreshing…' : 'Refresh Notifications'}</Button>
           {error && <p role="alert">{error}</p>}
-          <Button variant="outline" size="sm" disabled={busy || !visible.some(notification => !notification.read)} onClick={() => markRead()}>Mark All Read</Button>
+          <Button variant="outline" size="sm" disabled={busy || visible.length === 0} onClick={() => markRead()}>Mark All Read</Button>
           {currentUser?.role === 'provider' && <p style={{ fontSize: '12px', color: 'var(--color-muted)' }}>See Earnings for completed, pending, held, and refunded amounts.</p>}
           {visible.length === 0 && <p style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--color-muted)' }}>No notifications at the moment.</p>}
           {visible.map(notification => {

@@ -88,7 +88,8 @@ export function TicketResolutionPage() {
               { value: 'Partial Refund (50%)', label: 'Partial Refund (50% credit)' },
               { value: 'Redo Service Requested', label: 'Request Redo Service (appointment to be agreed)' },
               { value: 'Formal Warning Issued to Provider', label: 'Formal Warning Issued to Provider' },
-              { value: 'Escalated to Arbitration', label: 'Escalate to Formal Arbitration' }
+              { value: 'Escalated to Arbitration', label: 'Escalate to Formal Arbitration' },
+              { value: 'Other Resolution Outcome', label: 'Other' }
             ]}
           />
         </div>

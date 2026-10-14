@@ -39,8 +39,9 @@ import { ReviewsPage } from '../../features/provider/ReviewsPage';
 
 // Admin Pages
 import { AdminDashboard } from '../../features/admin/AdminDashboard';
-import { ProviderModerationPage } from '../../features/admin/ProviderModerationPage';
-import { ListingModerationPage } from '../../features/admin/ListingModerationPage';
+import { AdminServicesPage } from '../../features/admin/AdminServicesPage';
+import { AdminAccountsPage } from '../../features/admin/AdminAccountsPage';
+import { ArbitratorApplicationPage } from '../../features/admin/ArbitratorApplicationPage';
 import { BookingInspectorPage } from '../../features/admin/BookingInspectorPage';
 import { TicketResolutionPage } from '../../features/admin/TicketResolutionPage';
 import { CategoryManagerPage } from '../../features/admin/CategoryManagerPage';
@@ -98,14 +99,17 @@ export function AppRoutes() {
       {/* Admin Protected Routes */}
       <Route element={<AuthGuard allowedRoles={['admin']}><AdminLayout /></AuthGuard>}>
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/services" element={<AdminServicesPage />} />
+        <Route path="/admin/accounts" element={<AdminAccountsPage />} />
         <Route path="/admin/revenue" element={<AdminRevenuePage />} />
-        <Route path="/admin/providers" element={<ProviderModerationPage />} />
-        <Route path="/admin/listings" element={<ListingModerationPage />} />
+        <Route path="/admin/arbitrator-applications" element={<ArbitratorApplicationPage />} />
         <Route path="/admin/bookings" element={<BookingInspectorPage />} />
         <Route path="/admin/tickets" element={<TicketResolutionPage />} />
         <Route path="/admin/categories" element={<CategoryManagerPage />} />
         <Route path="/admin/disputes" element={<DisputeAssignmentPage />} />
         <Route path="/admin/profile" element={<AdminProfilePage />} />
+        <Route path="/admin/providers" element={<Navigate to="/admin/accounts" replace />} />
+        <Route path="/admin/listings" element={<Navigate to="/admin/services" replace />} />
       </Route>
 
       {/* Arbitrator Protected Routes */}

@@ -80,6 +80,7 @@ export function SupportTicketPage() {
               { value: 'Late Technician Arrival', label: 'Late Technician Arrival' },
               { value: 'Damage / Spill Claim', label: 'Damage / Spill Claim' },
               { value: 'Incorrect Billing', label: 'Incorrect Billing' },
+              { value: 'Other', label: 'Other' },
             ]}
           />
 
@@ -91,6 +92,7 @@ export function SupportTicketPage() {
               { value: 'Low', label: 'Low - Minor inconvenience' },
               { value: 'Medium', label: 'Medium - Incomplete work' },
               { value: 'High', label: 'High - Property damage / Urgent fix' },
+              { value: 'Other', label: 'Other' },
             ]}
           />
 

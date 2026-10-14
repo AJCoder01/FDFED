@@ -1,4 +1,5 @@
 export const DEFAULT_BLANK_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23E2E8F0'%3E%3Crect width='100' height='100' rx='50' fill='%23F1F5F9'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%2394A3B8'/%3E%3Cpath d='M20 86c0-16.569 13.431-30 30-30s30 13.431 30 30' fill='%2394A3B8'/%3E%3C/svg%3E";
+export const DEFAULT_SERVICE_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400' fill='%23F1F5F9'%3E%3Crect width='600' height='400' fill='%23F8FAFC'/%3E%3Crect x='1' y='1' width='598' height='398' fill='none' stroke='%23CBD5E1' stroke-width='2' rx='12'/%3E%3Cpath d='M250 170a50 50 0 1 0 100 0 50 50 0 0 0-100 0zm-70 140c0-45 55-80 120-80s120 35 120 80H180z' fill='%23CBD5E1'/%3E%3Ctext x='50%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='22' font-weight='700' fill='%2364748B'%3EServiceHub Service Listing%3C/text%3E%3C/svg%3E";
 
 export const INITIAL_CATEGORIES = [
   { id: 'cat-1', name: 'Home Cleaning', slug: 'home-cleaning', icon: 'Sparkles', description: 'Deep house cleaning, kitchen & bathroom sanitization', serviceCount: 14 },
@@ -16,7 +17,8 @@ export const DEMO_USERS = {
     email: 'aarav@gmail.com',
     role: 'customer',
     phone: '+91 98765 43210',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+    avatar: DEFAULT_BLANK_AVATAR,
+    location: 'Bengaluru',
     addresses: [
       { id: 'addr-1', label: 'Home', addressLine: 'Flat 402, Green Glen Layout, Bellandur', city: 'Bengaluru', pincode: '560103', isDefault: true },
       { id: 'addr-2', label: 'Work', addressLine: '9th Floor, Prestage Tech Park, Marathahalli', city: 'Bengaluru', pincode: '560103' }
@@ -28,12 +30,13 @@ export const DEMO_USERS = {
     email: 'rohan@gmail.com',
     role: 'provider',
     phone: '+91 91234 56789',
-    avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=120&q=80',
+    avatar: DEFAULT_BLANK_AVATAR,
     businessName: 'Apex Fix Services & Repairs',
     verificationStatus: 'approved', // draft, submitted, changes_requested, approved, suspended
     rating: 4.8,
     reviewCount: 34,
     serviceArea: 'Bengaluru Urban (Bellandur, HSR Layout, Koramangala, Indiranagar)',
+    location: 'Bengaluru',
     skills: ['AC Maintenance', 'Electrical Repair', 'Appliance Repair'],
     weeklyAvailability: {
       days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -47,8 +50,21 @@ export const DEMO_USERS = {
     name: 'Naina Kapoor',
     email: 'admin@gmail.com',
     role: 'admin',
+    isSuperUser: true,
     phone: '+91 99000 11223',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=120&q=80'
+    avatar: DEFAULT_BLANK_AVATAR,
+    location: 'Bengaluru'
+  },
+  staffAdmin: {
+    id: 'user-admin-2',
+    name: 'Priya Nair',
+    email: 'staffadmin@gmail.com',
+    role: 'admin',
+    isSuperUser: false,
+    phone: '+91 99000 44556',
+    avatar: DEFAULT_BLANK_AVATAR,
+    department: 'Platform Operations',
+    location: 'Bengaluru'
   },
   arbitrator: {
     id: 'user-arbit-1',
@@ -56,8 +72,9 @@ export const DEMO_USERS = {
     email: 'kabir@gmail.com',
     role: 'arbitrator',
     phone: '+91 94444 88888',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
-    title: 'Senior Independent Arbitrator'
+    avatar: DEFAULT_BLANK_AVATAR,
+    title: 'Senior Independent Arbitrator',
+    location: 'Bengaluru'
   }
 };
 
@@ -119,7 +136,7 @@ export const INITIAL_SERVICES = [
     reviewCount: 19,
     providerId: 'user-prov-1',
     providerName: 'Apex Fix Services & Repairs',
-    image: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80',
     description: 'Complete inspection of main MCB board, earthing test, switchboard fixes, and replacement of burnt wiring sockets.',
     inclusions: ['Earthing check', 'MCB load audit', 'Fix up to 3 minor sockets'],
     exclusions: ['New heavy wiring materials'],
@@ -138,7 +155,7 @@ export const INITIAL_SERVICES = [
     reviewCount: 14,
     providerId: 'user-prov-1',
     providerName: 'Apex Fix Services & Repairs',
-    image: 'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?auto=format&fit=crop&w=600&q=80',
+    image: DEFAULT_SERVICE_IMAGE,
     description: 'Diagnose noise, vibration, motor faults, water drain issues, and complete drum scaling treatment.',
     inclusions: ['Diagnosis fee included', 'Descaling treatment', 'Drain pump inspection'],
     exclusions: ['New PCB board cost'],
@@ -157,7 +174,7 @@ export const INITIAL_SERVICES = [
     reviewCount: 21,
     providerId: 'user-prov-1',
     providerName: 'Apex Fix Services & Repairs',
-    image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80',
+    image: DEFAULT_SERVICE_IMAGE,
     description: 'Wall drill hanging, curtain rod installation, door hinge tightening, bed assembly, and customized general handyman tasks.',
     inclusions: ['Up to 60 mins labor', 'Tool kit and screw fasteners', 'Debris clean-up'],
     exclusions: ['Heavy replacement hardware'],
@@ -342,9 +359,9 @@ export const INITIAL_DISPUTES = [
     providerName: 'Apex Fix Services & Repairs',
     amountInDispute: 649,
     claimAmount: 3500, // Claiming flooring damage compensation
-    status: 'assigned', // pending_assignment, assigned, hearing_scheduled, ruled, closed
-    arbitratorId: 'user-arbit-1',
-    arbitratorName: 'Justice V. K. Sundaram (Retd.)',
+    status: 'pending_assignment', // pending_assignment, assigned, hearing_scheduled, ruled, closed
+    arbitratorId: null,
+    arbitratorName: null,
     createdAt: '2026-08-12 14:00',
     customerStatement: 'Technician left drain hose loose leading to ₹3500 water damage to wooden floor.',
     providerStatement: 'Hose was clamped properly. The customer moved the machine after service.',
@@ -352,12 +369,7 @@ export const INITIAL_DISPUTES = [
       { id: 'ev-1', uploader: 'Aarav Sharma (Customer)', title: 'Flooring Water Damage Photo', filename: 'floor_damage.jpg', uploadedAt: '2026-08-12 14:15' },
       { id: 'ev-2', uploader: 'Rajesh Kumar (Provider)', title: 'Post-Service Inspection Sheet', filename: 'inspection_signoff.pdf', uploadedAt: '2026-08-12 16:30' }
     ],
-    hearingSchedule: {
-      scheduledDate: '2026-08-22',
-      scheduledTime: '11:00 AM',
-      meetUrl: 'https://meet.servicehub.in/dispute-101-hearing',
-      status: 'scheduled'
-    },
+    hearingSchedule: null,
     ruling: null
   }
 ];
@@ -366,8 +378,8 @@ export const INITIAL_NOTIFICATIONS = [
   {
     id: 'notif-1',
     userId: 'user-cust-1',
-    title: 'Dispute Hearing Scheduled',
-    message: 'Arbitrator Justice Sundaram scheduled a virtual hearing for Case #DISP-101 on Aug 22 at 11:00 AM.',
+    title: 'Dispute Case Filed',
+    message: 'Dispute Case #DISP-101 has been registered and is pending arbitrator assignment.',
     targetLink: '/customer/bookings/BK-87102',
     read: false,
     createdAt: '2026-08-12 17:00'
@@ -380,5 +392,29 @@ export const INITIAL_NOTIFICATIONS = [
     targetLink: '/provider/jobs/BK-89021',
     read: true,
     createdAt: '2026-08-16 14:25'
+  }
+];
+
+export const INITIAL_ARBITRATOR_APPLICATIONS = [
+  {
+    id: 'arb-app-101',
+    name: 'Devraj Sen',
+    email: 'devraj.arbitration@legalhub.in',
+    phone: '9876543210',
+    country: 'India',
+    linkedin: 'https://linkedin.com/in/devrajsen-arb',
+    title: 'Commercial Arbitrator & Mediator',
+    experience: 12,
+    expertise: 'Consumer Contract & Service Quality Disputes',
+    organization: 'Indian Council of Arbitration',
+    prevExperience: 'Empaneled with national consumer dispute panels; adjudicated over 60 service delivery conflicts.',
+    files: {
+      resume: 'devraj_sen_curriculum_vitae.pdf',
+      cert: 'arbitration_fellowship_cert.pdf',
+      license: 'bar_council_advocate_license.pdf',
+      extra: 'sample_service_dispute_award.pdf'
+    },
+    status: 'pending', // pending, approved, rejected
+    submittedAt: '2026-08-15T10:30:00.000Z'
   }
 ];

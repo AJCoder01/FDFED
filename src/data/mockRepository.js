@@ -1,4 +1,4 @@
-import { INITIAL_CATEGORIES, INITIAL_SERVICES, INITIAL_BOOKINGS, INITIAL_TICKETS, INITIAL_DISPUTES, INITIAL_NOTIFICATIONS, DEMO_USERS, INITIAL_ACCOUNTS, DEFAULT_DEMO_PASSWORD, DEFAULT_BLANK_AVATAR } from './mockData';
+import { INITIAL_CATEGORIES, INITIAL_SERVICES, INITIAL_BOOKINGS, INITIAL_TICKETS, INITIAL_DISPUTES, INITIAL_NOTIFICATIONS, DEMO_USERS, INITIAL_ACCOUNTS, DEFAULT_DEMO_PASSWORD, DEFAULT_BLANK_AVATAR, INITIAL_ARBITRATOR_APPLICATIONS } from './mockData';
 import { availableSlots, DEFAULT_SCHEDULE, validateSchedule, validateSlots, validDate, localClock, slotMinutes } from './scheduling';
 import { isAccepted, isPending, isPaid, platformFee, netPayout, collectedAmount, refundPayment } from './bookingRules';
 import { DATA_CHANGED } from './repositoryEvents';
@@ -8,6 +8,7 @@ const seeds = {
   disputes: INITIAL_DISPUTES, notifications: INITIAL_NOTIFICATIONS, categories: INITIAL_CATEGORIES,
   customers: [DEMO_USERS.customer],
   accounts: INITIAL_ACCOUNTS,
+  arbitrator_applications: INITIAL_ARBITRATOR_APPLICATIONS,
   activity_log: [
     {
       id: 'act-init-1',
@@ -32,6 +33,50 @@ function initializeStorage() {
     if (!localStorage.getItem(key(name))) localStorage.setItem(key(name), JSON.stringify(value));
   }
   if (!localStorage.getItem(key('providers'))) localStorage.setItem(key('providers'), JSON.stringify(initialProviders(read('services'), read('bookings'))));
+
+  // Migrate existing saved demo data so DISP-101 appears unassigned
+  try {
+    const rawDisputes = localStorage.getItem(key('disputes'));
+    if (rawDisputes) {
+      let disputes = JSON.parse(rawDisputes);
+      let changed = false;
+      disputes = disputes.map(d => {
+        if (d.id === 'DISP-101' && (d.arbitratorName?.includes('Sundaram') || d.arbitratorId === 'user-arbit-1' || d.hearingSchedule)) {
+          changed = true;
+          return {
+            ...d,
+            status: 'pending_assignment',
+            arbitratorId: null,
+            arbitratorName: null,
+            hearingSchedule: null
+          };
+        }
+        return d;
+      });
+      if (changed) {
+        localStorage.setItem(key('disputes'), JSON.stringify(disputes));
+      }
+    }
+    const rawNotifications = localStorage.getItem(key('notifications'));
+    if (rawNotifications) {
+      let notifs = JSON.parse(rawNotifications);
+      let notifChanged = false;
+      notifs = notifs.map(n => {
+        if (n.id === 'notif-1' && (n.message?.includes('Sundaram') || n.title?.includes('Hearing Scheduled'))) {
+          notifChanged = true;
+          return {
+            ...n,
+            title: 'Dispute Case Filed',
+            message: 'Dispute Case #DISP-101 has been registered and is pending arbitrator assignment.'
+          };
+        }
+        return n;
+      });
+      if (notifChanged) {
+        localStorage.setItem(key('notifications'), JSON.stringify(notifs));
+      }
+    }
+  } catch (_) {}
 }
 
 function initialProviders(services, bookings) {
@@ -181,6 +226,8 @@ export async function signUpUser(data) {
 
     const userId = id(`user-${role.slice(0, 4)}`);
 
+    const enteredLocation = (data.location || data.city || data.serviceArea || data.country || '').trim();
+
     const newAccount = {
       id: userId,
       name,
@@ -188,6 +235,7 @@ export async function signUpUser(data) {
       password,
       role,
       phone,
+      location: enteredLocation || 'Bengaluru',
       avatar: data.avatar?.trim() || DEFAULT_BLANK_AVATAR,
       createdAt: stamp()
     };
@@ -195,21 +243,24 @@ export async function signUpUser(data) {
     const changes = {};
 
     if (role === 'customer') {
+      const custCity = data.city?.trim() || enteredLocation || 'Bengaluru';
       const address = {
         id: id('addr'),
         label: data.addressLabel?.trim() || 'Home',
         addressLine: data.addressLine?.trim() || 'Flat 101, Main Road',
-        city: data.city?.trim() || 'Bengaluru',
+        city: custCity,
         pincode: data.pincode?.trim() || '560001',
         isDefault: true
       };
+      newAccount.location = custCity;
       newAccount.addresses = [address];
       const customers = read('customers') || [];
       customers.push({ ...newAccount });
       changes.customers = customers;
     } else if (role === 'provider') {
       newAccount.businessName = data.businessName?.trim() || `${name}'s Pro Services`;
-      newAccount.serviceArea = data.serviceArea?.trim() || 'Bengaluru Urban';
+      newAccount.serviceArea = data.serviceArea?.trim() || enteredLocation || 'Bengaluru Urban';
+      newAccount.location = enteredLocation || newAccount.serviceArea;
       newAccount.skills = Array.isArray(data.skills) && data.skills.length > 0
         ? data.skills
         : [data.skill?.trim() || 'Home Cleaning'];
@@ -222,8 +273,11 @@ export async function signUpUser(data) {
       changes.providers = providers;
     } else if (role === 'arbitrator') {
       newAccount.title = data.title?.trim() || 'Senior Independent Arbitrator';
+      newAccount.location = enteredLocation || data.country?.trim() || 'Bengaluru';
+      newAccount.country = data.country?.trim() || enteredLocation || 'India';
     } else if (role === 'admin') {
       newAccount.department = data.department?.trim() || 'Platform Administration';
+      newAccount.location = enteredLocation || 'Bengaluru';
     }
 
     accounts.push(newAccount);
@@ -310,8 +364,21 @@ export async function updateUserProfile(userId, updates = {}) {
     if (updates.phone !== undefined) account.phone = updates.phone.trim();
     if (updates.avatar !== undefined) account.avatar = updates.avatar.trim();
     if (updates.email !== undefined && updates.email.trim()) account.email = updates.email.trim().toLowerCase();
+    if (updates.location !== undefined) account.location = updates.location.trim();
+    if (updates.city !== undefined) account.city = updates.city.trim();
+    if (updates.country !== undefined) account.country = updates.country.trim();
 
     const changes = { accounts };
+
+    // Load related datasets for cross-actor synchronization
+    const services = read('services') || [];
+    const bookings = read('bookings') || [];
+    const disputes = read('disputes') || [];
+    const tickets = read('tickets') || [];
+    let servicesModified = false;
+    let bookingsModified = false;
+    let disputesModified = false;
+    let ticketsModified = false;
 
     if (account.role === 'customer') {
       const customers = read('customers') || [];
@@ -321,11 +388,33 @@ export async function updateUserProfile(userId, updates = {}) {
         customer.phone = account.phone;
         customer.avatar = account.avatar;
         customer.email = account.email;
+        if (account.location) customer.location = account.location;
         if (Array.isArray(updates.addresses)) {
           customer.addresses = updates.addresses;
           account.addresses = updates.addresses;
         }
         changes.customers = customers;
+      }
+
+      // Sync customer changes to all their bookings, disputes, and tickets
+      for (const b of bookings) {
+        if (b.customerId === userId) {
+          b.customerName = account.name;
+          if (account.phone) b.customerPhone = account.phone;
+          bookingsModified = true;
+        }
+      }
+      for (const d of disputes) {
+        if (d.customerId === userId) {
+          d.customerName = account.name;
+          disputesModified = true;
+        }
+      }
+      for (const t of tickets) {
+        if (t.customerId === userId) {
+          t.customerName = account.name;
+          ticketsModified = true;
+        }
       }
     } else if (account.role === 'provider') {
       const providers = read('providers') || [];
@@ -347,7 +436,37 @@ export async function updateUserProfile(userId, updates = {}) {
         provider.phone = account.phone;
         provider.avatar = account.avatar;
         provider.email = account.email;
+        if (account.location) provider.location = account.location;
         changes.providers = providers;
+      }
+
+      const activeName = account.businessName || account.name;
+
+      // Sync provider changes across all services, bookings, disputes, tickets
+      for (const s of services) {
+        if (s.providerId === userId) {
+          s.providerName = activeName;
+          servicesModified = true;
+        }
+      }
+      for (const b of bookings) {
+        if (b.providerId === userId) {
+          b.providerName = activeName;
+          if (account.phone) b.providerPhone = account.phone;
+          bookingsModified = true;
+        }
+      }
+      for (const d of disputes) {
+        if (d.providerId === userId) {
+          d.providerName = activeName;
+          disputesModified = true;
+        }
+      }
+      for (const t of tickets) {
+        if (t.providerId === userId) {
+          t.providerName = activeName;
+          ticketsModified = true;
+        }
       }
     } else if (account.role === 'admin') {
       if (updates.department !== undefined) {
@@ -357,7 +476,18 @@ export async function updateUserProfile(userId, updates = {}) {
       if (updates.title !== undefined) {
         account.title = updates.title.trim();
       }
+      for (const d of disputes) {
+        if (d.arbitratorId === userId) {
+          d.arbitratorName = account.name;
+          disputesModified = true;
+        }
+      }
     }
+
+    if (servicesModified) changes.services = services;
+    if (bookingsModified) changes.bookings = bookings;
+    if (disputesModified) changes.disputes = disputes;
+    if (ticketsModified) changes.tickets = tickets;
 
     const activityLogs = read('activity_log') || [];
     activityLogs.unshift({
@@ -438,7 +568,11 @@ export async function saveProvider(providerId, values, submit = false) {
       if (profile.avatar) account.avatar = profile.avatar;
     }
 
-    save({ providers: profiles, services, notifications, accounts });
+    const bookings = (read('bookings') || []).map(job => job.providerId === providerId ? { ...job, providerName: businessName, providerPhone: profile.phone || job.providerPhone } : job);
+    const disputes = (read('disputes') || []).map(disp => disp.providerId === providerId ? { ...disp, providerName: businessName } : disp);
+    const tickets = (read('tickets') || []).map(t => t.providerId === providerId ? { ...t, providerName: businessName } : t);
+
+    save({ providers: profiles, services, bookings, disputes, tickets, notifications, accounts });
     return profile;
   });
 }
@@ -499,18 +633,27 @@ export async function saveService(values, actor = {}) {
   return change(() => {
     const services = read('services');
     const existing = values.id ? requireRecord(services, values.id, 'Listing') : null;
-    const service = { rating: null, reviewCount: 0, status: 'published', ...existing, ...values };
+    const policy = (values.policy || existing?.policy || 'Free cancellation up to 2 hours before scheduled slot. 100% money back guarantee.').trim();
+    const service = { rating: null, reviewCount: 0, status: 'published', policy, ...existing, ...values, policy };
     checkOwner(service, actor, 'providerId');
     const provider = requireRecord(read('providers'), service.providerId, 'Provider');
     if (!['draft', 'published', 'paused', 'archived'].includes(service.status)) throw new Error('Invalid listing status.');
     if (service.status === 'published' && provider.verificationStatus !== 'approved') throw new Error('An approved provider profile is required to publish.');
-    if (!service.title?.trim() || !service.description?.trim() || !service.policy?.trim() || !read('categories').some(category => category.id === service.categoryId)) throw new Error('Enter a title, category, description, and cancellation policy.');
+    if (!service.title?.trim() || !service.description?.trim() || !read('categories').some(category => category.id === service.categoryId)) throw new Error('Enter a title, category, and description.');
     if (!Number.isFinite(Number(service.price)) || Number(service.price) <= 0) throw new Error('Enter a positive service price.');
     const duration = Number.parseInt(service.duration, 10);
     const error = validateSlots(service.availableSlots || [], duration);
     if (error && service.status !== 'draft') throw new Error(error);
     if (!Number.isInteger(duration) || duration <= 0 || duration > 1440) throw new Error('Enter a valid duration.');
-    Object.assign(service, { id: existing?.id || id('srv'), title: service.title.trim(), description: service.description.trim(), price: Number(service.price), providerName: provider.businessName });
+    Object.assign(service, {
+      id: existing?.id || id('srv'),
+      title: service.title.trim(),
+      description: service.description.trim(),
+      price: Number(service.price),
+      providerName: provider.businessName,
+      inclusions: Array.isArray(service.inclusions) ? service.inclusions : [],
+      exclusions: Array.isArray(service.exclusions) ? service.exclusions : []
+    });
     if (existing) services[services.indexOf(existing)] = service;
     else services.unshift(service);
     save({ services });
@@ -790,7 +933,13 @@ export async function saveDisputeResponse(disputeId, providerId, statement, file
     checkOwner(dispute, { userId: providerId }, 'providerId');
     if (dispute.status === 'ruled' || !statement.trim()) throw new Error('Enter a response for an open dispute.');
     dispute.providerStatement = statement.trim();
-    if (filename.trim()) dispute.evidences.push({ id: id('ev'), uploader: `${dispute.providerName} (Provider)`, title: filename.trim(), filename: filename.trim(), uploadedAt: stamp() });
+    if (Array.isArray(filename)) {
+      for (const fn of filename) {
+        if (fn?.trim()) dispute.evidences.push({ id: id('ev'), uploader: `${dispute.providerName} (Provider)`, uploaderRole: 'provider', title: fn.trim(), filename: fn.trim(), uploadedAt: stamp() });
+      }
+    } else if (typeof filename === 'string' && filename.trim()) {
+      dispute.evidences.push({ id: id('ev'), uploader: `${dispute.providerName} (Provider)`, uploaderRole: 'provider', title: filename.trim(), filename: filename.trim(), uploadedAt: stamp() });
+    }
     const notifications = read('notifications');
     notify(notifications, [[dispute.arbitratorId || 'user-admin-1', dispute.arbitratorId ? `/arbitrator/cases/${dispute.id}` : '/admin/disputes']], 'Provider Dispute Response', `Provider response added to ${dispute.id}.`);
     save({ disputes, notifications });
@@ -806,10 +955,13 @@ export async function scheduleHearing(disputeId, values) {
     if (!Number.isFinite(slotMinutes(values.scheduledTime)) || (values.scheduledDate === localClock().date && slotMinutes(values.scheduledTime) <= localClock().minutes)) throw new Error('Choose a valid future hearing time.');
     if (!/^https?:\/\//i.test(values.meetUrl)) throw new Error('Enter an HTTP or HTTPS meeting URL.');
     Object.assign(dispute, { status: 'hearing_scheduled', hearingSchedule: { ...values, status: 'scheduled' } });
-    const job = requireRecord(read('bookings'), dispute.bookingId, 'Booking');
+    const bookings = read('bookings');
+    const job = requireRecord(bookings, dispute.bookingId, 'Booking');
+    job.hearingSchedule = { ...values, status: 'scheduled' };
+    event(job, 'Dispute Hearing Scheduled', `Virtual hearing scheduled for ${values.scheduledDate} at ${values.scheduledTime}.`);
     const notifications = read('notifications');
-    notify(notifications, parties(job), 'Dispute Hearing Scheduled', `Case ${dispute.id}: ${values.scheduledDate} at ${values.scheduledTime}.`);
-    save({ disputes, notifications });
+    notify(notifications, parties(job), 'Dispute Hearing Scheduled', `Case ${dispute.id}: ${values.scheduledDate} at ${values.scheduledTime}. Meet link: ${values.meetUrl}`);
+    save({ disputes, bookings, notifications });
     return dispute;
   });
 }
@@ -818,15 +970,25 @@ export async function issueRuling(disputeId, values) {
     const disputes = read('disputes');
     const dispute = requireRecord(disputes, disputeId, 'Dispute');
     if (!dispute.arbitratorId || dispute.status === 'ruled') throw new Error('Only an assigned, open case can receive a ruling.');
-    if (!['In Favor of Customer', 'In Favor of Provider', 'Mutual Settlement / Split'].includes(values.verdict) || !values.reason.trim() || !Number.isFinite(Number(values.awardAmount)) || Number(values.awardAmount) < 0) throw new Error('Enter a valid verdict, award, and rationale.');
+    const validVerdicts = [
+      'In Favor of Customer', 'In favour of Customer',
+      'In Favor of Provider', 'In favour of Provider',
+      'Mutual Settlement / Split'
+    ];
+    if (!validVerdicts.includes(values.verdict) || !values.reason.trim() || !Number.isFinite(Number(values.awardAmount)) || Number(values.awardAmount) < 0) {
+      throw new Error('Enter a valid verdict, award, and rationale.');
+    }
     const bookings = read('bookings');
     const job = requireRecord(bookings, dispute.bookingId, 'Booking');
     if (job.status !== 'disputed') throw new Error('This booking no longer has an open dispute.');
     dispute.status = 'ruled';
     dispute.ruling = { ...values, awardAmount: Number(values.awardAmount), issuedAt: stamp() };
     job.hasDispute = false;
+    job.ruling = dispute.ruling;
+    job.disputeRuling = dispute.ruling;
     job.status = job.statusBeforeDispute || 'completed';
-    if (values.verdict !== 'In Favor of Provider') {
+    const isFavorProvider = values.verdict.toLowerCase().includes('provider');
+    if (!isFavorProvider) {
       refundPayment(job, Number(values.awardAmount));
       if (job.paymentStatus === 'Refunded') job.status = 'cancelled';
     }
@@ -854,3 +1016,109 @@ export async function getServiceReviews(serviceId) {
   return (await load('bookings')).filter(job => job.serviceId === serviceId && job.reviewSubmitted)
     .map(job => ({ id: job.id, customerName: job.customerName, rating: job.reviewRating, comment: job.reviewComment, reply: job.reviewReply, date: job.reviewDate || job.scheduledDate }));
 }
+
+// Arbitrator Applications Management
+export async function getArbitratorApplications() {
+  return load('arbitrator_applications');
+}
+
+export async function submitArbitratorApplication(values) {
+  return change(() => {
+    const apps = read('arbitrator_applications') || [];
+    const newApp = {
+      id: id('arb-app'),
+      status: 'pending',
+      submittedAt: stamp(),
+      name: values.name.trim(),
+      email: values.email.trim().toLowerCase(),
+      phone: values.phone.trim(),
+      country: values.country.trim(),
+      linkedin: values.linkedin?.trim() || '',
+      title: values.title?.trim() || 'Panel Arbitrator',
+      password: values.password,
+      experience: Number(values.experience) || 0,
+      expertise: values.expertise.trim(),
+      organization: values.organization.trim(),
+      prevExperience: values.prevExperience?.trim() || '',
+      files: values.files || {
+        resume: values.fileName_resume || values.resume || '',
+        cert: values.fileName_cert || values.cert || '',
+        license: values.fileName_license || values.license || '',
+        extra: values.fileName_extra || values.extra || ''
+      }
+    };
+    apps.unshift(newApp);
+    const notifications = read('notifications');
+    notify(notifications, [['user-admin-1', '/admin/arbitrator-applications']], 'New Arbitrator Application', `${newApp.name} applied as an Arbitrator.`);
+    save({ arbitrator_applications: apps, notifications });
+    return newApp;
+  });
+}
+
+export async function approveArbitratorApplication(applicationId) {
+  return change(() => {
+    const apps = read('arbitrator_applications') || [];
+    const app = requireRecord(apps, applicationId, 'Application');
+    if (app.status === 'approved') throw new Error('Application is already approved.');
+    app.status = 'approved';
+    app.decidedAt = stamp();
+
+    // Create / activate arbitrator account so they can log in
+    const accounts = read('accounts') || [];
+    let existingAccount = accounts.find(a => a.email.toLowerCase() === app.email.toLowerCase());
+    if (!existingAccount) {
+      existingAccount = {
+        id: id('user-arbit'),
+        name: app.name,
+        email: app.email.toLowerCase(),
+        password: app.password || DEFAULT_DEMO_PASSWORD,
+        role: 'arbitrator',
+        phone: app.phone,
+        location: app.country,
+        country: app.country,
+        title: app.title || 'Senior Independent Arbitrator',
+        specialization: app.expertise,
+        experience: app.experience,
+        organization: app.organization,
+        avatar: DEFAULT_BLANK_AVATAR,
+        createdAt: stamp()
+      };
+      accounts.push(existingAccount);
+    } else {
+      existingAccount.role = 'arbitrator';
+      existingAccount.name = app.name;
+      existingAccount.phone = app.phone;
+      existingAccount.location = app.country;
+      existingAccount.country = app.country;
+      if (app.password) existingAccount.password = app.password;
+    }
+
+    const activityLogs = read('activity_log') || [];
+    activityLogs.unshift({
+      id: id('act'),
+      userId: existingAccount.id,
+      userEmail: existingAccount.email,
+      userName: existingAccount.name,
+      role: 'arbitrator',
+      type: 'ARBITRATOR_APPROVED',
+      description: `Arbitrator application approved for ${app.name} (${app.email})`,
+      timestamp: stamp()
+    });
+
+    save({ arbitrator_applications: apps, accounts, activity_log: activityLogs });
+    return app;
+  });
+}
+
+export async function rejectArbitratorApplication(applicationId, reason = '') {
+  return change(() => {
+    const apps = read('arbitrator_applications') || [];
+    const app = requireRecord(apps, applicationId, 'Application');
+    app.status = 'rejected';
+    app.rejectReason = reason || 'Requirements not met at this time.';
+    app.decidedAt = stamp();
+    save({ arbitrator_applications: apps });
+    return app;
+  });
+}
+

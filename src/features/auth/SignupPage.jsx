@@ -7,6 +7,7 @@ import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
 
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
+import { ArbitratorSignupWizard } from './ArbitratorSignupWizard';
 
 export function SignupPage() {
   const { signup, setSavedIntent } = useApp();
@@ -123,6 +124,14 @@ export function SignupPage() {
       setSubmitting(false);
     }
   };
+
+  if (selectedRole === 'arbitrator') {
+    return (
+      <div className="app-container" style={{ padding: '40px 16px', maxWidth: '780px', margin: '0 auto' }}>
+        <ArbitratorSignupWizard onBackToRoleSelect={() => setSelectedRole('customer')} />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container" style={{ padding: '40px 16px', maxWidth: '580px', margin: '0 auto' }}>

@@ -244,7 +244,8 @@ export function AdminRevenuePage() {
               options={[
                 { value: 'ALL', label: 'All Statuses' },
                 { value: 'Paid', label: 'Paid / Completed' },
-                { value: 'Disputed', label: 'Disputed' }
+                { value: 'Disputed', label: 'Disputed' },
+                { value: 'Other', label: 'Other' }
               ]}
             />
           </div>

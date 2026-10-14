@@ -56,7 +56,10 @@ const initialRole = () => {
 export function AppProvider({ children }) {
   const [currentRole, setCurrentRole] = useState(initialRole);
   const [currentUser, setCurrentUser] = useState(getInitialSessionUser);
-  const [isSuperUser, setIsSuperUser] = useState(() => getInitialSessionUser()?.role === 'admin');
+  const [isSuperUser, setIsSuperUser] = useState(() => {
+    const user = getInitialSessionUser();
+    return user?.role === 'admin' && user?.isSuperUser !== false;
+  });
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light');
   const [notifications, setNotifications] = useState([]);
   const [savedIntent, setSavedIntent] = useState(null);
@@ -112,7 +115,7 @@ export function AppProvider({ children }) {
     localStorage.setItem(ROLE_KEY, user.role);
     setCurrentUser(user);
     setCurrentRole(user.role);
-    setIsSuperUser(user.role === 'admin');
+    setIsSuperUser(user.role === 'admin' && user.isSuperUser !== false);
     return user;
   };
 
@@ -122,7 +125,7 @@ export function AppProvider({ children }) {
     localStorage.setItem(ROLE_KEY, user.role);
     setCurrentUser(user);
     setCurrentRole(user.role);
-    setIsSuperUser(user.role === 'admin');
+    setIsSuperUser(user.role === 'admin' && user.isSuperUser === true);
     return user;
   };
 

@@ -18,7 +18,7 @@ export function RulingIssuancePage() {
 
   const caseId = searchParams.get('caseId') || 'DISP-101';
 
-  const [verdict, setVerdict] = useState('In Favor of Customer');
+  const [verdict, setVerdict] = useState('In favour of Customer');
   const [awardAmount, setAwardAmount] = useState('0');
   const [rulingReason, setRulingReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -203,16 +203,20 @@ export function RulingIssuancePage() {
           onChange={(event) => setVerdict(event.target.value)}
           options={[
             {
-              value: 'In Favor of Customer',
-              label: 'In Favor of Customer (Full/Partial Award granted)'
+              value: 'In favour of Customer',
+              label: 'In favour of Customer (Claim Granted / Award compensation to Customer)'
             },
             {
-              value: 'In Favor of Provider',
-              label: 'In Favor of Provider (Claim dismissed)'
+              value: 'In favour of Provider',
+              label: 'In favour of Provider (Claim Dismissed / Findings favor Provider)'
             },
             {
               value: 'Mutual Settlement / Split',
               label: 'Mutual Settlement / Split Responsibility'
+            },
+            {
+              value: 'Other',
+              label: 'Other Verdict'
             }
           ]}
         />

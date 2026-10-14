@@ -32,7 +32,8 @@ export function JobInboxPage() {
         { value: 'all', label: 'All Jobs' }, { value: 'pending', label: 'Pending Requests' },
         { value: 'active', label: 'Active & Scheduled' }, { value: 'in_progress', label: 'In Progress' },
         { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' },
-        { value: 'reschedule_proposed', label: 'Time Proposed' }, { value: 'disputed', label: 'Disputed' }
+        { value: 'reschedule_proposed', label: 'Time Proposed' }, { value: 'disputed', label: 'Disputed' },
+        { value: 'other', label: 'Other' }
       ]} />
       {filtered.length === 0 && <p className="provider-hint">No jobs match this filter.</p>}
       {filtered.map(job => (

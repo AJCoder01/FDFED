@@ -348,14 +348,53 @@ export function DisputeCaseDetailPage() {
             <div
               style={{
                 backgroundColor: 'var(--color-info-bg)',
-                padding: '10px',
+                padding: '12px',
                 borderRadius: 'var(--radius-control)',
-                color: 'var(--color-info)',
-                fontWeight: '600',
+                color: 'var(--color-ink)',
+                fontSize: '13px'
               }}
             >
-              📅 Virtual Hearing: {dispute.hearingSchedule.scheduledDate} at{' '}
-              {dispute.hearingSchedule.scheduledTime}
+              <div style={{ fontWeight: '700', marginBottom: '4px' }}>
+                📅 Virtual Hearing Scheduled
+              </div>
+              <div>{dispute.hearingSchedule.scheduledDate} at {dispute.hearingSchedule.scheduledTime}</div>
+              {dispute.hearingSchedule.meetUrl && (
+                <div style={{ marginTop: '6px' }}>
+                  <a
+                    href={dispute.hearingSchedule.meetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--color-primary)', fontWeight: '700', textDecoration: 'underline' }}
+                  >
+                    Open Virtual Hearing Room →
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {dispute.ruling && (
+            <div
+              style={{
+                backgroundColor: 'var(--color-page-bg)',
+                padding: '14px',
+                borderRadius: 'var(--radius-control)',
+                border: '1px solid var(--color-border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                fontSize: '13px'
+              }}
+            >
+              <strong style={{ color: 'var(--color-ink)', fontSize: '14px' }}>⚖️ Final Binding Ruling</strong>
+              <div><strong>Verdict:</strong> {dispute.ruling.verdict}</div>
+              <div><strong>Award Amount:</strong> ₹{dispute.ruling.awardAmount}</div>
+              <div><strong>Rationale:</strong> {dispute.ruling.reason}</div>
+              {dispute.ruling.issuedAt && (
+                <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
+                  Issued on: {dispute.ruling.issuedAt}
+                </span>
+              )}
             </div>
           )}
         </div>

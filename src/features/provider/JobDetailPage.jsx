@@ -94,7 +94,18 @@ export function JobDetailPage() {
               <p>{dispute.customerStatement}</p>
               {dispute.status === 'ruled' && dispute.providerStatement && <p><strong>Your Response:</strong> {dispute.providerStatement}</p>}
               <ProviderDisputeResponse dispute={dispute} />
-              {dispute.evidences.length > 0 && <div><strong>Evidence Records</strong><ul style={{ paddingLeft: '20px' }}>{dispute.evidences.map(evidence => <li key={evidence.id}>{evidence.filename}</li>)}</ul></div>}
+              {dispute.evidences && dispute.evidences.filter(e => e.uploaderRole === 'provider' || (e.uploader && e.uploader.includes('Provider'))).length > 0 && (
+                <div>
+                  <strong>Your Submitted Evidence Records:</strong>
+                  <ul style={{ paddingLeft: '20px' }}>
+                    {dispute.evidences
+                      .filter(e => e.uploaderRole === 'provider' || (e.uploader && e.uploader.includes('Provider')))
+                      .map(evidence => (
+                        <li key={evidence.id}>{evidence.filename} <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>({evidence.uploadedAt})</span></li>
+                      ))}
+                  </ul>
+                </div>
+              )}
               <p className="provider-hint">Assigned arbitrator: {dispute.arbitratorName || 'Not assigned'}</p>
               {dispute.hearingSchedule && <p>Hearing: {formatDate(dispute.hearingSchedule.scheduledDate)} at {dispute.hearingSchedule.scheduledTime}</p>}
               {dispute.hearingSchedule && dispute.status !== 'ruled' && <a href={dispute.hearingSchedule.meetUrl} target="_blank" rel="noreferrer">Join Hearing</a>}

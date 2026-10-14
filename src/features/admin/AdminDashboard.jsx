@@ -12,7 +12,7 @@ export function AdminDashboard() {
   const navigate = useNavigate();
   const load = useCallback(async () => {
     const [bookings, tickets, disputes, services, revenue] = await Promise.all([getBookings('admin'), getTickets(), getDisputes(), getServices({ role: 'admin' }), getRevenueStats()]);
-    return { bookingsCount: bookings.length, ticketsCount: tickets.filter(ticket => ticket.status === 'open').length,
+    return { bookingsCount: bookings.length, ticketsCount: tickets.filter(ticket => ticket.status !== 'resolved').length,
       disputesCount: disputes.filter(dispute => dispute.status === 'pending_assignment').length,
       servicesCount: services.length, platformRevenue: revenue.totalRevenue, gmv: revenue.gmv };
   }, []);
@@ -55,7 +55,7 @@ export function AdminDashboard() {
             <Headphones size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>OPEN TICKETS</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>UNRESOLVED TICKETS</span>
             <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)' }}>{stats.ticketsCount}</div>
           </div>
         </div>
@@ -87,21 +87,41 @@ export function AdminDashboard() {
 
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Provider Moderation Queue</h2>
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin/providers')}>Manage Queue</Button>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Platform Services</h2>
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/services')}>View Services</Button>
           </div>
           <div style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
-            Review pending business verification applications and skill audit certificates.
+            Inspect all services across categories and monitor listings registered on the marketplace.
           </div>
         </div>
 
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Dispute Case Assignment</h2>
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin/disputes')}>Assign Cases</Button>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Actor Accounts Directory</h2>
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/accounts')}>Manage Accounts</Button>
           </div>
           <div style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
-            Assign unresolved booking disputes to independent Arbitrators.
+            Filter and review registered customer, provider, arbitrator, and admin accounts.
+          </div>
+        </div>
+
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Arbitrator Applications</h2>
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/arbitrator-applications')}>Review Applications</Button>
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
+            Review credential submissions, uploaded licenses/resumes, and approve or reject applicant arbitrators.
+          </div>
+        </div>
+
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Disputes & Verdicts</h2>
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/disputes')}>Assign & Review</Button>
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
+            Assign unresolved disputes to independent Arbitrators and review hearing schedules and binding rulings.
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Plus, Trash2, CheckCircle2, Save, Edit3 } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Plus, Trash2, CheckCircle2, Save, Edit3, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { updateUserProfile } from '../../data/mockRepository';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -19,6 +19,14 @@ export function CustomerProfilePage() {
   const [newAddressOpen, setNewAddressOpen] = useState(false);
   const [newAddr, setNewAddr] = useState({ label: 'Home', addressLine: '', city: '', pincode: '', isDefault: false });
   const [saving, setSaving] = useState(false);
+
+  const handleAvatarFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setAvatar(ev.target.result);
+    reader.readAsDataURL(file);
+  };
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -159,12 +167,42 @@ export function CustomerProfilePage() {
             helperText="Email is your registered account ID and cannot be altered."
           />
 
-          <TextField
-            label="Profile Picture URL (Optional)"
-            value={avatar}
-            onChange={(e) => setAvatar(e.target.value)}
-            placeholder="https://... (Leave blank for default placeholder avatar)"
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>Profile Picture</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <img
+                src={avatar || DEFAULT_BLANK_AVATAR}
+                alt="Profile Preview"
+                style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary)' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  id="customerAvatarUpload"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarFile}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  icon={Upload}
+                  onClick={() => document.getElementById('customerAvatarUpload').click()}
+                >
+                  Upload Picture
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
+                >
+                  Clear to Empty Avatar
+                </Button>
+              </div>
+            </div>
+          </div>
 
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
             <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>

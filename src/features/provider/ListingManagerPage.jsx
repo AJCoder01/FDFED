@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Upload, Image as ImageIcon } from 'lucide-react';
 import { getCategories, getServices, saveService } from '../../data/mockRepository';
+import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
@@ -16,8 +17,7 @@ import { money, validateSlots } from './providerUtils';
 
 const emptyForm = {
   id: '', title: '', categoryId: '', price: '', duration: 60, description: '',
-  inclusions: '', exclusions: '', policy: '', availableSlots: [],
-  image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80'
+  availableSlots: [], image: ''
 };
 
 export function ListingManagerPage() {
@@ -52,11 +52,25 @@ export function ListingManagerPage() {
     if (pathname.endsWith('/new')) navigate('/provider/services', { replace: true });
   };
   const edit = service => {
-    setForm({ ...service, duration: Number.parseInt(service.duration, 10), inclusions: service.inclusions.join(', '), exclusions: service.exclusions.join(', ') });
+    setForm({
+      ...service,
+      duration: Number.parseInt(service.duration, 10),
+      image: service.image || ''
+    });
     setFormError('');
     setOpen(true);
   };
   const change = event => setForm(value => ({ ...value, [event.target.name]: event.target.value }));
+
+  const handleImageFile = event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      setForm(prev => ({ ...prev, image: e.target.result }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const save = async event => {
     event.preventDefault();
@@ -65,8 +79,8 @@ export function ListingManagerPage() {
     const price = Number(form.price);
     const duration = Number(form.duration);
     const slotError = validateSlots(form.availableSlots, duration);
-    if (!form.title.trim() || !form.description.trim() || !form.policy.trim() || !category) {
-      setFormError('Enter a title, category, description, and cancellation policy.');
+    if (!form.title.trim() || !form.description.trim() || !category) {
+      setFormError('Enter a title, category, and description.');
       return;
     }
     if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(duration) || duration <= 0 || duration > 1440) {
@@ -74,21 +88,25 @@ export function ListingManagerPage() {
       return;
     }
     if (slotError) { setFormError(slotError); return; }
-    if (!/^https?:\/\//i.test(form.image.trim()) || event.currentTarget.elements.namedItem('image').validity.typeMismatch) {
-      setFormError('Enter a valid HTTP or HTTPS image URL.');
-      return;
-    }
     if (!approved) { setFormError('An approved provider profile is required to manage listings.'); return; }
     setBusy(true);
     setFormError('');
     try {
+      const finalImage = form.image?.trim() || DEFAULT_SERVICE_IMAGE;
       await saveService({
         ...(form.id ? { id: form.id } : {}),
-        title: form.title.trim(), description: form.description.trim(), price, duration: `${duration} mins`,
-        categoryId: category.id, categoryName: category.name, policy: form.policy.trim(), image: form.image.trim(),
-        inclusions: form.inclusions.split(',').map(item => item.trim()).filter(Boolean),
-        exclusions: form.exclusions.split(',').map(item => item.trim()).filter(Boolean),
-        providerId: currentUser.id, providerName: currentUser.businessName || currentUser.name,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        price,
+        duration: `${duration} mins`,
+        categoryId: category.id,
+        categoryName: category.name,
+        policy: form.policy?.trim() || 'Standard 24-hour cancellation policy applies.',
+        image: finalImage,
+        inclusions: [],
+        exclusions: [],
+        providerId: currentUser.id,
+        providerName: currentUser.businessName || currentUser.name,
         availableSlots: form.availableSlots,
         ...(!form.id ? { status: draft ? 'draft' : 'published' } : {})
       }, { role: 'provider', userId: currentUser.id });
@@ -118,6 +136,11 @@ export function ListingManagerPage() {
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="300px" borderRadius="12px" />;
 
+  const categoryOptions = (data.categories || []).map(cat => ({ value: cat.id, label: cat.name }));
+  if (!categoryOptions.some(opt => opt.label.toLowerCase() === 'others' || opt.label.toLowerCase() === 'other')) {
+    categoryOptions.push({ value: 'cat-6', label: 'Other' });
+  }
+
   return (
     <div className="provider-page">
       <div className="page-header provider-row provider-between">
@@ -130,7 +153,7 @@ export function ListingManagerPage() {
       <div className="grid-cols-3">
         {data.services.map(service => (
           <div key={service.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <img src={service.image} alt={service.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+            <img src={service.image || DEFAULT_SERVICE_IMAGE} alt={service.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
             <div className="provider-stack" style={{ padding: '16px' }}>
               <div className="provider-row provider-between"><span className="provider-hint">{service.categoryName}</span><StatusBadge status={service.status} /></div>
               <h3>{service.title}</h3><strong>{money(service.price)} · {service.duration}</strong>
@@ -138,7 +161,6 @@ export function ListingManagerPage() {
                 <Button variant="outline" size="sm" onClick={() => navigate(`/services/${service.id}`)}>Preview</Button>
                 <Button variant="secondary" size="sm" disabled={busy || !approved} onClick={() => edit(service)}>Edit</Button>
                 <Button variant="secondary" size="sm" disabled={busy || !approved} onClick={() => changeStatus(service, service.status === 'published' ? 'paused' : 'published')}>{service.status === 'published' ? 'Pause' : 'Publish'}</Button>
-                {service.status !== 'archived' && <Button variant="danger" size="sm" disabled={busy || !approved} onClick={() => changeStatus(service, 'archived')}>Archive</Button>}
               </div>
             </div>
           </div>
@@ -161,16 +183,50 @@ export function ListingManagerPage() {
           <div className="provider-stack">
             {!form.id && <label className="provider-row"><input type="checkbox" checked={draft} onChange={event => setDraft(event.target.checked)} disabled={busy} />Save as a draft</label>}
             <TextField name="title" label="Service Title" value={form.title} onChange={change} disabled={busy} required />
-            <Select name="categoryId" label="Service Category" value={form.categoryId} onChange={change} disabled={busy} required options={data.categories.map(category => ({ value: category.id, label: category.name }))} />
+            <Select name="categoryId" label="Service Category" value={form.categoryId} onChange={change} disabled={busy} required options={categoryOptions} />
             <div className="grid-cols-2">
               <TextField name="price" label="Fixed Price (INR)" type="number" min="1" value={form.price} onChange={change} disabled={busy} required />
               <TextField name="duration" label="Duration (Minutes)" type="number" min="1" value={form.duration} onChange={change} disabled={busy} required />
             </div>
             <TextField name="description" label="Detailed Description" value={form.description} onChange={change} disabled={busy} multiline required />
-            <TextField name="inclusions" label="Inclusions (Comma separated)" value={form.inclusions} onChange={change} disabled={busy} />
-            <TextField name="exclusions" label="Exclusions (Comma separated)" value={form.exclusions} onChange={change} disabled={busy} />
-            <TextField name="policy" label="Cancellation & Service Policy" value={form.policy} onChange={change} disabled={busy} required />
-            <TextField name="image" label="Image URL" type="url" value={form.image} onChange={change} disabled={busy} required />
+
+            {/* Service Image Upload & Default Avatar fallback */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>Service Image</label>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div style={{ width: '100px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-page-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {form.image ? (
+                    <img src={form.image} alt="Service Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <ImageIcon size={28} color="var(--color-muted)" />
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <input
+                    type="file"
+                    id="serviceImageInput"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleImageFile}
+                    disabled={busy}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    icon={Upload}
+                    onClick={() => document.getElementById('serviceImageInput').click()}
+                    disabled={busy}
+                  >
+                    Upload Service Image
+                  </Button>
+                  <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
+                    If no image is uploaded, a default service placeholder avatar will be used.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <SlotEditor slots={form.availableSlots} onChange={slots => setForm(value => ({ ...value, availableSlots: slots }))} disabled={busy} />
             {formError && <p role="alert" className="provider-error">{formError}</p>}
           </div>

@@ -271,7 +271,8 @@ export function BookingWizard() {
             options={[
               { value: 'UPI (Mock Pay)', label: 'UPI Instant Pay (GPay / PhonePe)' },
               { value: 'Card (Mock Pay)', label: 'Credit / Debit Card (Mock)' },
-              { value: 'Cash After Service', label: 'Cash / Pay After Service' }
+              { value: 'Cash After Service', label: 'Cash / Pay After Service' },
+              { value: 'Other Payment Method', label: 'Other' }
             ]}
           />
 

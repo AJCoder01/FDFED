@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scale, User, Mail, Phone, ShieldCheck, CheckCircle2, Award, FileText, Calendar, Clock, MapPin, Gavel, Edit3, Save, X } from 'lucide-react';
+import { Scale, User, Mail, Phone, ShieldCheck, CheckCircle2, Award, FileText, Calendar, Clock, MapPin, Gavel, Edit3, Save, X, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -16,6 +16,14 @@ export function ArbitratorProfilePage() {
   const [avatar, setAvatar] = useState(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
   const [title, setTitle] = useState(currentUser?.title || 'Senior Independent Arbitrator');
   const [saving, setSaving] = useState(false);
+
+  const handleAvatarFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setAvatar(ev.target.result);
+    reader.readAsDataURL(file);
+  };
 
   const handleCredentialVerify = () => {
     showToast('Arbitrator bar council credentials & digital signature verified.', 'success');
@@ -118,29 +126,44 @@ export function ArbitratorProfilePage() {
             />
           </div>
 
-          <div>
-            <TextField
-              label="Avatar Image URL (or use Blank Default Silhouette)"
-              value={avatar}
-              onChange={(e) => setAvatar(e.target.value)}
-              placeholder="https://..."
-              helperText="Paste an image URL or reset to default blank avatar"
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>Profile Picture</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <img
                 src={avatar || DEFAULT_BLANK_AVATAR}
                 alt="Avatar preview"
-                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-conflict)' }}
+                style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-conflict)', backgroundColor: 'var(--color-page-bg)' }}
                 onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
-              >
-                Use Blank Silhouette Avatar
-              </Button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  id="arbitratorAvatarUpload"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarFile}
+                  disabled={saving}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  icon={Upload}
+                  onClick={() => document.getElementById('arbitratorAvatarUpload').click()}
+                  disabled={saving}
+                >
+                  Upload Picture
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
+                  disabled={saving}
+                >
+                  Clear to Empty Avatar
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -184,16 +207,16 @@ export function ArbitratorProfilePage() {
 
         <div style={{ flex: 1, minWidth: '240px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{currentUser?.name || 'Justice V. K. Sundaram (Retd.)'}</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{currentUser?.name || 'Kabir Malhotra'}</h2>
             <StatusBadge status="approved" label="Empaneled Arbitrator" />
           </div>
           <p style={{ fontSize: '14px', color: 'var(--color-conflict)', fontWeight: '700', marginTop: '2px' }}>
             {currentUser?.title || 'Senior Independent Arbitrator'} • Indian Arbitration Panel
           </p>
           <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '13px', color: 'var(--color-muted)', flexWrap: 'wrap' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={15} color="var(--color-primary)" /> {currentUser?.email || 'arbitrator.sundaram@servicehub.in'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={15} color="var(--color-primary)" /> {currentUser?.email || 'kabir@gmail.com'}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={15} color="var(--color-primary)" /> {currentUser?.phone || '+91 94444 88888'}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={15} color="var(--color-primary)" /> Arbitration Tribunal, Bengaluru</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={15} color="var(--color-primary)" /> {currentUser?.location || currentUser?.country || 'Arbitration Tribunal, India'}</span>
           </div>
         </div>
       </div>
@@ -261,7 +284,7 @@ export function ArbitratorProfilePage() {
 
             <div style={{ padding: '16px', backgroundColor: 'var(--color-page-bg)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
               <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-warning)' }}>1</div>
-              <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px', fontWeight: '600' }}>Active Dispute (#DISP-101)</div>
+              <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px', fontWeight: '600' }}>Active Disputes</div>
             </div>
 
             <div style={{ padding: '16px', backgroundColor: 'var(--color-page-bg)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', textAlign: 'center' }}>

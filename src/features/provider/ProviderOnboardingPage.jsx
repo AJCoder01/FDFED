@@ -4,10 +4,19 @@ import { saveProvider } from '../../data/mockRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
+import { Upload } from 'lucide-react';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ProviderOnboardingPage() {
   const { currentUser, showToast } = useApp();
+
+  const handleAvatarFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setForm(f => ({ ...f, avatar: ev.target.result }));
+    reader.readAsDataURL(file);
+  };
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -88,23 +97,44 @@ export function ProviderOnboardingPage() {
           <TextField name="phone" label="Contact Phone Number" value={form.phone} onChange={change} disabled={busy} placeholder="e.g. +91 98888 77665" />
         </div>
 
-        <div>
-          <TextField name="avatar" label="Profile Avatar URL (or use Blank Default Silhouette)" value={form.avatar} onChange={change} disabled={busy} placeholder="https://..." helperText="Paste an image URL or reset to default blank avatar silhouette" />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>Profile Picture</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <img
               src={form.avatar || DEFAULT_BLANK_AVATAR}
               alt="Avatar preview"
-              style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-success)' }}
+              style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-success)', backgroundColor: 'var(--color-page-bg)' }}
               onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setForm(f => ({ ...f, avatar: DEFAULT_BLANK_AVATAR }))}
-            >
-              Use Blank Silhouette Avatar
-            </Button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input
+                type="file"
+                id="providerAvatarUpload"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleAvatarFile}
+                disabled={busy}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                icon={Upload}
+                onClick={() => document.getElementById('providerAvatarUpload').click()}
+                disabled={busy}
+              >
+                Upload Picture
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setForm(f => ({ ...f, avatar: DEFAULT_BLANK_AVATAR }))}
+                disabled={busy}
+              >
+                Clear to Empty Avatar
+              </Button>
+            </div>
           </div>
         </div>
 

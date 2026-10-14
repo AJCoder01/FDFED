@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, User, Mail, Phone, Lock, CheckCircle2, Award, Server, Key, MapPin, Calendar, Clock, Edit3, Save, X } from 'lucide-react';
+import { Shield, User, Mail, Phone, Lock, CheckCircle2, Award, Server, Key, MapPin, Calendar, Clock, Edit3, Save, X, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -16,6 +16,14 @@ export function AdminProfilePage() {
   const [avatar, setAvatar] = useState(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
   const [department, setDepartment] = useState(currentUser?.department || 'Platform Operations & Compliance');
   const [saving, setSaving] = useState(false);
+
+  const handleAvatarFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setAvatar(ev.target.result);
+    reader.readAsDataURL(file);
+  };
 
   const handleSecurityCheck = () => {
     showToast('Admin security session verified cleanly.', 'success');
@@ -118,29 +126,44 @@ export function AdminProfilePage() {
             />
           </div>
 
-          <div>
-            <TextField
-              label="Avatar Image URL (or use Blank Default Silhouette)"
-              value={avatar}
-              onChange={(e) => setAvatar(e.target.value)}
-              placeholder="https://..."
-              helperText="Paste an image URL or reset to default blank avatar"
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>Profile Picture</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <img
                 src={avatar || DEFAULT_BLANK_AVATAR}
                 alt="Avatar preview"
-                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-warning)' }}
+                style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-warning)', backgroundColor: 'var(--color-page-bg)' }}
                 onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
-              >
-                Use Blank Silhouette Avatar
-              </Button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  id="adminAvatarUpload"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarFile}
+                  disabled={saving}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  icon={Upload}
+                  onClick={() => document.getElementById('adminAvatarUpload').click()}
+                  disabled={saving}
+                >
+                  Upload Picture
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
+                  disabled={saving}
+                >
+                  Clear to Empty Avatar
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -193,7 +216,7 @@ export function AdminProfilePage() {
           <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '13px', color: 'var(--color-muted)', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={15} color="var(--color-primary)" /> {currentUser?.email || 'admin.ops@servicehub.in'}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={15} color="var(--color-primary)" /> {currentUser?.phone || '+91 99000 11223'}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={15} color="var(--color-primary)" /> ServiceHub HQ, Bengaluru</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={15} color="var(--color-primary)" /> {currentUser?.location || 'ServiceHub HQ, Bengaluru'}</span>
           </div>
         </div>
       </div>

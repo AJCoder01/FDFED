@@ -156,7 +156,6 @@ export function CustomerDashboard() {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--color-muted)', display: 'block' }}>Paid After Refunds</span>
                     <strong style={{ fontSize: '16px', color: 'var(--color-ink)' }}>₹{collectedAmount(bk)}</strong>
                   </div>
                   <Button variant="secondary" size="sm" onClick={() => navigate(`/customer/bookings/${bk.id}`)}>
