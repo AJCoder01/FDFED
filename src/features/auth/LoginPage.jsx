@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Shield, UserRound, Wrench, Scale, ArrowLeft, KeyRound, UserPlus } from 'lucide-react';
+import { Shield, ShieldCheck, UserRound, Wrench, Scale, ArrowLeft, KeyRound, UserPlus, Sparkles } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_DEMO_PASSWORD } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -12,7 +12,7 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
   const roleParam = searchParams.get('role');
-  const selectedRole = roleParam === 'superuser' ? 'admin' : roleParam;
+  const selectedRole = roleParam;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,22 +23,37 @@ export function LoginPage() {
     { role: 'customer', label: 'Customer', description: 'Book and manage services', icon: UserRound },
     { role: 'provider', label: 'Provider', description: 'Manage services and jobs', icon: Wrench },
     { role: 'arbitrator', label: 'Arbitrator', description: 'Review and resolve disputes', icon: Scale },
-    { role: 'admin', label: 'SuperUser / Admin', description: 'Platform administration', icon: Shield }
+    { role: 'admin', label: 'Admin', description: 'Platform operations & compliance management', icon: Shield },
+    { role: 'superuser', label: 'SuperUser', description: 'Root platform access & multi-actor demo switcher', icon: ShieldCheck, isSuper: true }
   ];
 
-  const credentialRoles = ['customer', 'provider', 'arbitrator', 'admin'];
+  const credentialRoles = ['customer', 'provider', 'arbitrator', 'admin', 'superuser'];
   const hasSelectedCredentialRole = credentialRoles.includes(selectedRole);
   const selectedChoice = roleChoices.find(({ role }) => role === selectedRole);
   const selectedRoleLabel = selectedChoice?.label || 'Account';
 
-  const demoAccount = selectedRole ? DEMO_USERS[selectedRole] : null;
+  let demoAccount = null;
+  if (selectedRole === 'superuser') {
+    demoAccount = DEMO_USERS.admin;
+  } else if (selectedRole === 'admin') {
+    demoAccount = DEMO_USERS.staffAdmin;
+  } else if (selectedRole && DEMO_USERS[selectedRole]) {
+    demoAccount = DEMO_USERS[selectedRole];
+  }
+
+  // Pre-fill credentials automatically when selecting or opening a role directly
+  useEffect(() => {
+    if (demoAccount) {
+      setEmail(demoAccount.email);
+      setPassword(DEFAULT_DEMO_PASSWORD);
+      setError('');
+    }
+  }, [selectedRole]);
 
   const chooseRole = (role) => {
-    const query = new URLSearchParams({ role: role === 'superuser' ? 'admin' : role });
+    const query = new URLSearchParams({ role });
     if (redirectParam) query.set('redirect', redirectParam);
     setError('');
-    setEmail('');
-    setPassword('');
     navigate(`/login?${query.toString()}`);
   };
 
@@ -50,13 +65,34 @@ export function LoginPage() {
     }
   };
 
+  // Instant 1-Click SuperUser Login
+  const handleQuickSuperUserLogin = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      await login(DEMO_USERS.admin.email, DEFAULT_DEMO_PASSWORD, 'admin');
+      navigate('/admin');
+    } catch (err) {
+      setError(err.message || 'Unable to sign in as SuperUser.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
 
     try {
-      const user = await login(email, password, selectedRole);
+      const expectedAuthRole = selectedRole === 'superuser' ? 'admin' : selectedRole;
+      const user = await login(email, password, expectedAuthRole);
+
+      const isSuper = user.isSuperUser === true || user.email?.toLowerCase() === 'admin@gmail.com' || user.id === 'user-admin-1';
+      if (selectedRole === 'superuser' && !isSuper) {
+        throw new Error('This account does not have SuperUser root privileges. Please sign in as Admin.');
+      }
+
       if (savedIntent && user.role === 'customer') {
         navigate('/customer/checkout');
       } else {
@@ -64,9 +100,10 @@ export function LoginPage() {
           customer: '/customer',
           provider: '/provider',
           admin: '/admin',
+          superuser: '/admin',
           arbitrator: '/arbitrator'
         };
-        navigate(redirectParam === 'checkout' && user.role === 'customer' ? '/customer/checkout' : destinations[user.role]);
+        navigate(redirectParam === 'checkout' && user.role === 'customer' ? '/customer/checkout' : (destinations[selectedRole] || destinations[user.role]));
       }
     } catch (err) {
       setError(err.message || 'Email or password is incorrect. Check your credentials and try again.');
@@ -96,7 +133,60 @@ export function LoginPage() {
 
         {!hasSelectedCredentialRole ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {roleChoices.map(({ role, label, description, icon: Icon }) => (
+            {/* 1-Click Instant SuperUser Login Banner */}
+            <div
+              style={{
+                backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderRadius: 'var(--radius-control)',
+                padding: '14px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--color-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#FFF',
+                    boxShadow: '0 2px 6px rgba(99, 102, 241, 0.3)'
+                  }}
+                >
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <strong style={{ fontSize: '13px', color: 'var(--color-ink)', display: 'block' }}>
+                    ⚡ 1-Click SuperUser Login
+                  </strong>
+                  <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
+                    Instant demo access (Naina Kapoor)
+                  </span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handleQuickSuperUserLogin}
+                disabled={submitting}
+              >
+                {submitting ? 'Signing in...' : 'Sign In Now'}
+              </Button>
+            </div>
+
+            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '6px 0 2px' }}>
+              Or choose standard role login:
+            </div>
+
+            {roleChoices.map(({ role, label, description, icon: Icon, isSuper }) => (
               <button
                 key={role}
                 type="button"
@@ -106,18 +196,39 @@ export function LoginPage() {
                   alignItems: 'center',
                   gap: '12px',
                   width: '100%',
-                  padding: '14px',
+                  padding: '12px 14px',
                   borderRadius: 'var(--radius-control)',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-surface)',
+                  border: isSuper ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  background: isSuper ? 'rgba(99, 102, 241, 0.04)' : 'var(--color-surface)',
                   color: 'var(--color-ink)',
                   cursor: 'pointer',
-                  textAlign: 'left'
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease'
                 }}
               >
-                <Icon size={20} color="var(--color-primary)" />
-                <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
-                  <strong style={{ fontSize: '14px' }}>{label}</strong>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    backgroundColor: isSuper ? 'rgba(99, 102, 241, 0.12)' : 'var(--color-page-bg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isSuper ? 'var(--color-primary)' : 'var(--color-muted)'
+                  }}
+                >
+                  <Icon size={18} />
+                </div>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong style={{ fontSize: '14px' }}>{label}</strong>
+                    {isSuper && (
+                      <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--color-primary)', color: '#FFF' }}>
+                        DEMO CONTROLLER
+                      </span>
+                    )}
+                  </span>
                   <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>{description}</span>
                 </span>
                 <span aria-hidden="true" style={{ color: 'var(--color-muted)' }}>→</span>
@@ -181,7 +292,7 @@ export function LoginPage() {
 
             {demoAccount && (
               <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'var(--color-page-bg)', border: '1px solid var(--color-border)', fontSize: '11px', color: 'var(--color-muted)' }}>
-                <span>Demo: <strong style={{ color: 'var(--color-ink)' }}>{demoAccount.email}</strong> / Password: <strong style={{ color: 'var(--color-ink)' }}>123456Ab@</strong></span>
+                <span>{selectedRoleLabel} Demo: <strong style={{ color: 'var(--color-ink)' }}>{demoAccount.email}</strong> / Password: <strong style={{ color: 'var(--color-ink)' }}>123456Ab@</strong></span>
               </div>
             )}
 
@@ -210,15 +321,17 @@ export function LoginPage() {
             )}
 
             <Button type="submit" variant="primary" fullWidth size="lg" disabled={submitting}>
-              {submitting ? 'Signing In...' : 'Sign In'}
+              {submitting ? 'Signing In...' : `Sign In as ${selectedRoleLabel}`}
             </Button>
 
-            <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-muted)', marginTop: '8px' }}>
-              Don't have an account?{' '}
-              <Link to={`/signup?role=${selectedRole}`} style={{ color: 'var(--color-primary)', fontWeight: '700', textDecoration: 'none' }}>
-                Sign up as {selectedRoleLabel}
-              </Link>
-            </div>
+            {selectedRole !== 'superuser' && selectedRole !== 'admin' && (
+              <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-muted)', marginTop: '8px' }}>
+                Don't have an account?{' '}
+                <Link to={`/signup?role=${selectedRole}`} style={{ color: 'var(--color-primary)', fontWeight: '700', textDecoration: 'none' }}>
+                  Sign up as {selectedRoleLabel}
+                </Link>
+              </div>
+            )}
           </form>
         )}
       </div>

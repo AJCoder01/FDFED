@@ -9,6 +9,7 @@ import {
   signUpUser,
   logActivity
 } from '../../data/mockRepository';
+import { DEMO_USERS } from '../../data/mockData';
 import { subscribeToRepository } from '../../data/repositoryEvents';
 
 const AppContext = createContext();
@@ -16,6 +17,7 @@ const ROLE_KEY = 'servicehub_demo_role';
 const SESSION_USER_KEY = 'servicehub_session_user';
 const BOOT_KEY = 'servicehub_server_boot_id';
 const THEME_KEY = 'servicehub_theme';
+const SUPERUSER_MODE_KEY = 'servicehub_superuser_mode';
 const roles = ['guest', 'customer', 'provider', 'admin', 'arbitrator'];
 
 // When localhost server restarts (new boot ID detected), reset active session to guest and redirect to landing page
@@ -27,6 +29,7 @@ if (currentBootId && typeof window !== 'undefined') {
       localStorage.setItem(BOOT_KEY, currentBootId);
       localStorage.removeItem(SESSION_USER_KEY);
       localStorage.removeItem(ROLE_KEY);
+      localStorage.removeItem(SUPERUSER_MODE_KEY);
       if (window.location.pathname !== '/') {
         window.history.replaceState(null, '', '/');
       }
@@ -36,12 +39,33 @@ if (currentBootId && typeof window !== 'undefined') {
   }
 }
 
+const isSuperUserModeActive = () => {
+  try {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(SUPERUSER_MODE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const isSuperUserAccount = user => Boolean(
+  user &&
+  user.role === 'admin' &&
+  (user.isSuperUser === true || user.email?.toLowerCase() === 'admin@gmail.com' || user.id === 'user-admin-1')
+);
+
 const getInitialSessionUser = () => {
   try {
     const raw = localStorage.getItem(SESSION_USER_KEY);
     if (!raw) return null;
     const user = JSON.parse(raw);
-    return user && user.id && roles.includes(user.role) ? user : null;
+    if (user && user.id && roles.includes(user.role)) {
+      if (isSuperUserAccount(user)) {
+        user.isSuperUser = true;
+      }
+      return user;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -56,9 +80,10 @@ const initialRole = () => {
 export function AppProvider({ children }) {
   const [currentRole, setCurrentRole] = useState(initialRole);
   const [currentUser, setCurrentUser] = useState(getInitialSessionUser);
+  const [isSuperUserDemoMode, setIsSuperUserDemoMode] = useState(isSuperUserModeActive);
   const [isSuperUser, setIsSuperUser] = useState(() => {
     const user = getInitialSessionUser();
-    return user?.role === 'admin' && user?.isSuperUser !== false;
+    return isSuperUserAccount(user);
   });
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light');
   const [notifications, setNotifications] = useState([]);
@@ -111,11 +136,22 @@ export function AppProvider({ children }) {
 
   const login = async (email, password, expectedRole) => {
     const user = await authenticateUser(email, password, expectedRole);
+    const isSuper = isSuperUserAccount(user);
+    if (isSuper) {
+      user.isSuperUser = true;
+    }
     localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
     localStorage.setItem(ROLE_KEY, user.role);
     setCurrentUser(user);
     setCurrentRole(user.role);
-    setIsSuperUser(user.role === 'admin' && user.isSuperUser !== false);
+    if (isSuper) {
+      localStorage.setItem(SUPERUSER_MODE_KEY, 'true');
+      setIsSuperUserDemoMode(true);
+    } else {
+      localStorage.removeItem(SUPERUSER_MODE_KEY);
+      setIsSuperUserDemoMode(false);
+    }
+    setIsSuperUser(isSuper);
     return user;
   };
 
@@ -125,7 +161,15 @@ export function AppProvider({ children }) {
     localStorage.setItem(ROLE_KEY, user.role);
     setCurrentUser(user);
     setCurrentRole(user.role);
-    setIsSuperUser(user.role === 'admin' && user.isSuperUser === true);
+    const isSuper = user.role === 'admin' && user.isSuperUser === true;
+    if (isSuper) {
+      localStorage.setItem(SUPERUSER_MODE_KEY, 'true');
+      setIsSuperUserDemoMode(true);
+    } else {
+      localStorage.removeItem(SUPERUSER_MODE_KEY);
+      setIsSuperUserDemoMode(false);
+    }
+    setIsSuperUser(isSuper);
     return user;
   };
 
@@ -145,17 +189,75 @@ export function AppProvider({ children }) {
       }
     }
     localStorage.removeItem(SESSION_USER_KEY);
+    localStorage.removeItem(SUPERUSER_MODE_KEY);
     localStorage.setItem(ROLE_KEY, 'guest');
     setCurrentRole('guest');
     setCurrentUser(null);
     setIsSuperUser(false);
+    setIsSuperUserDemoMode(false);
     setNotifications([]);
   };
 
-  const switchRole = (role) => {
-    if (role === 'guest') {
-      logout();
+  const switchRole = async (targetRole) => {
+    if (targetRole === 'guest') {
+      await logout();
+      return { success: true, path: '/' };
     }
+
+    const destinations = {
+      customer: '/customer',
+      provider: '/provider',
+      admin: '/admin',
+      superuser: '/admin',
+      staffAdmin: '/admin',
+      arbitrator: '/arbitrator'
+    };
+
+    let userToSwitch = null;
+
+    if (targetRole === 'superuser') {
+      userToSwitch = DEMO_USERS.admin;
+    } else if (targetRole === 'admin' || targetRole === 'staffAdmin') {
+      userToSwitch = DEMO_USERS.staffAdmin;
+    } else if (DEMO_USERS[targetRole]) {
+      userToSwitch = DEMO_USERS[targetRole];
+    }
+
+    if (!userToSwitch) {
+      return { success: false, path: '/' };
+    }
+
+    const isSwitchSuper = isSuperUserAccount(userToSwitch);
+    if (isSwitchSuper) {
+      userToSwitch = { ...userToSwitch, isSuperUser: true };
+    }
+
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(userToSwitch));
+    localStorage.setItem(ROLE_KEY, userToSwitch.role);
+    localStorage.setItem(SUPERUSER_MODE_KEY, 'true');
+
+    setCurrentUser(userToSwitch);
+    setCurrentRole(userToSwitch.role);
+    setIsSuperUser(isSwitchSuper);
+    setIsSuperUserDemoMode(true);
+
+    try {
+      logActivity({
+        userId: userToSwitch.id,
+        userEmail: userToSwitch.email,
+        userName: userToSwitch.name,
+        role: userToSwitch.role,
+        type: 'ROLE_SWITCH',
+        description: `Switched demo persona to: ${userToSwitch.name} (${userToSwitch.role.toUpperCase()})`
+      }).catch(() => {});
+    } catch {
+      // Safe fallback
+    }
+
+    return {
+      success: true,
+      path: destinations[targetRole] || '/'
+    };
   };
 
   const reloadNotifications = useCallback(async () => {
@@ -177,7 +279,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      currentRole, currentUser, isSuperUser, switchRole, theme,
+      currentRole, currentUser, isSuperUser, isSuperUserDemoMode, switchRole, theme,
       login, signup, logout,
       toggleTheme: () => setTheme(value => value === 'light' ? 'dark' : 'light'),
       notifications, unreadCount: notifications.filter(notification => !notification.read).length,

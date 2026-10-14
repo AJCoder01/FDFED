@@ -206,9 +206,9 @@ export function AdminProfilePage() {
         </div>
 
         <div style={{ flex: 1, minWidth: '240px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{currentUser?.name || 'Priya Nair'}</h2>
-            <StatusBadge status="approved" label="Active Admin" />
+            <StatusBadge status="approved" label={currentUser?.isSuperUser ? 'Active SuperUser' : 'Active Admin'} />
           </div>
           <p style={{ fontSize: '14px', color: 'var(--color-primary)', fontWeight: '700', marginTop: '2px' }}>
             {currentUser?.department || 'Platform Operations Lead & Marketplace Compliance Administrator'}
@@ -244,12 +244,16 @@ export function AdminProfilePage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px dashed var(--color-border)' }}>
               <span style={{ color: 'var(--color-muted)' }}>System Role</span>
-              <span style={{ fontWeight: '700', color: 'var(--color-warning)', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.04em' }}>Administrator</span>
+              <span style={{ fontWeight: '700', color: 'var(--color-warning)', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.04em' }}>
+                {currentUser?.isSuperUser ? 'SuperUser' : 'Admin'}
+              </span>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px dashed var(--color-border)' }}>
               <span style={{ color: 'var(--color-muted)' }}>Access Level</span>
-              <strong style={{ color: 'var(--color-ink)' }}>Super Admin (Level 3)</strong>
+              <strong style={{ color: 'var(--color-ink)' }}>
+                {currentUser?.isSuperUser ? 'SuperUser (Root Access & Multi-Actor Demo)' : 'Admin (Platform Operations)'}
+              </strong>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px dashed var(--color-border)' }}>

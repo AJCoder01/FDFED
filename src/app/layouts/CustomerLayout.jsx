@@ -5,9 +5,11 @@ import { useApp } from '../context/AppContext';
 import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
+import { DemoSwitcherBar } from './DemoSwitcherBar';
+import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function CustomerLayout() {
-  const { currentRole, isSuperUser, switchRole, logout, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { logout, currentUser, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -22,54 +24,7 @@ export function CustomerLayout() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
-      {isSuperUser && (
-      <div style={{ backgroundColor: '#090F1E', color: '#94A3B8', padding: '8px 24px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontWeight: '700', color: '#60A5FA', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
-            ServiceHub Demo Switcher:
-          </span>
-          <span style={{ color: '#E2E8F0' }}>Role: <strong style={{ color: '#93C5FD' }}>CUSTOMER</strong> ({currentUser?.name})</span>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {['guest', 'customer', 'provider', 'admin', 'arbitrator'].map((role) => (
-              <button
-                key={role}
-                onClick={async () => {
-                  if (role === 'guest') {
-                    await logout();
-                    navigate('/');
-                  } else if (role !== currentRole) {
-                    await logout();
-                    navigate(`/login?role=${role}`);
-                  }
-                }}
-                style={{
-                  padding: '3px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid',
-                  borderColor: currentRole === role ? 'var(--color-primary)' : 'rgba(255,255,255,0.12)',
-                  backgroundColor: currentRole === role ? 'var(--color-primary)' : 'rgba(255,255,255,0.05)',
-                  color: currentRole === role ? '#FFFFFF' : '#CBD5E1',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  textTransform: 'capitalize',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {role}
-              </button>
-            ))}
-          </div>
-        </div>
-        <button
-          onClick={handleResetDemoData}
-          style={{ background: '#EF4444', color: '#FFF', border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
-        >
-          <RotateCcw size={12} /> Reset Demo Data
-        </button>
-      </div>
-      )}
+      <DemoSwitcherBar />
 
       {/* Main Layout Shell */}
       <div style={{ display: 'flex', flex: 1 }}>
@@ -144,9 +99,9 @@ export function CustomerLayout() {
               </button>
 
               <Link to="/customer/profile" title="View Customer Profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
-                <img src={currentUser?.avatar} alt={currentUser?.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary-border)' }} />
+                <img src={currentUser?.avatar || DEFAULT_BLANK_AVATAR} alt={currentUser?.name || 'Customer'} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary-border)' }} />
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{currentUser?.name}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{currentUser?.name || 'Customer'}</div>
                   <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Bengaluru, KA</div>
                 </div>
               </Link>

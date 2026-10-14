@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, BarChart2, Users, CheckSquare, Eye, Headphones, Layers, Gavel, User, Bell, RotateCcw, ChevronRight, DollarSign, LogOut } from 'lucide-react';
+import { Shield, BarChart2, Users, CheckSquare, Eye, Headphones, Layers, Gavel, User, Bell, ChevronRight, DollarSign, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
+import { DemoSwitcherBar } from './DemoSwitcherBar';
 
 export function AdminLayout() {
-  const { currentRole, isSuperUser, switchRole, logout, currentUser, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { logout, currentUser, isSuperUser, isSuperUserDemoMode, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
 
+  const isSuper = Boolean(
+    isSuperUser ||
+    isSuperUserDemoMode ||
+    currentUser?.isSuperUser === true ||
+    currentUser?.email?.toLowerCase() === 'admin@gmail.com' ||
+    currentUser?.id === 'user-admin-1'
+  );
+  const isActualSuper = isSuper && currentUser?.id !== 'user-admin-2';
+
   const navItems = [
     { label: 'Ops Dashboard', path: '/admin', icon: BarChart2 },
     { label: 'Platform Services', path: '/admin/services', icon: Layers },
-    { label: 'User Accounts', path: '/admin/accounts', icon: Users },
+    ...(isActualSuper ? [{ label: 'User Accounts', path: '/admin/accounts', icon: Users }] : []),
     { label: 'Revenue & Ledger', path: '/admin/revenue', icon: DollarSign },
     { label: 'Arbitrator Applications', path: '/admin/arbitrator-applications', icon: CheckSquare },
     { label: 'Dispute Assignment', path: '/admin/disputes', icon: Gavel },
@@ -27,54 +37,7 @@ export function AdminLayout() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
-      {isSuperUser && (
-      <div style={{ backgroundColor: '#090F1E', color: '#94A3B8', padding: '8px 24px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontWeight: '700', color: '#60A5FA', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
-            ServiceHub Demo Switcher:
-          </span>
-          <span style={{ color: '#E2E8F0' }}>Role: <strong style={{ color: '#93C5FD' }}>PLATFORM ADMIN</strong> ({currentUser?.name})</span>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {['guest', 'customer', 'provider', 'admin', 'arbitrator'].map((role) => (
-              <button
-                key={role}
-                onClick={async () => {
-                  if (role === 'guest') {
-                    await logout();
-                    navigate('/');
-                  } else if (role !== currentRole) {
-                    await logout();
-                    navigate(`/login?role=${role}`);
-                  }
-                }}
-                style={{
-                  padding: '3px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid',
-                  borderColor: currentRole === role ? 'var(--color-primary)' : 'rgba(255,255,255,0.12)',
-                  backgroundColor: currentRole === role ? 'var(--color-primary)' : 'rgba(255,255,255,0.05)',
-                  color: currentRole === role ? '#FFFFFF' : '#CBD5E1',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  textTransform: 'capitalize',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {role}
-              </button>
-            ))}
-          </div>
-        </div>
-        <button
-          onClick={handleResetDemoData}
-          style={{ background: '#EF4444', color: '#FFF', border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
-        >
-          <RotateCcw size={12} /> Reset Demo Data
-        </button>
-      </div>
-      )}
+      <DemoSwitcherBar />
 
       <div style={{ display: 'flex', flex: 1 }}>
         <aside style={{ width: 'var(--sidebar-width)', backgroundColor: 'var(--color-surface)', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column' }}>
@@ -84,7 +47,9 @@ export function AdminLayout() {
             </div>
             <div>
               <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)', letterSpacing: '-0.02em' }}>ServiceHub</div>
-              <div style={{ fontSize: '10px', color: 'var(--color-warning)', fontWeight: '800', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Platform Admin</div>
+              <div style={{ fontSize: '10px', color: 'var(--color-warning)', fontWeight: '800', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                {isActualSuper ? 'SuperUser' : 'Admin'}
+              </div>
             </div>
           </Link>
 
@@ -147,7 +112,9 @@ export function AdminLayout() {
                 <img src={currentUser?.avatar} alt={currentUser?.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-warning)' }} />
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{currentUser?.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Operations Lead</div>
+                  <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+                    {currentUser?.isSuperUser ? 'SuperUser' : 'Admin'}
+                  </div>
                 </div>
               </Link>
             </div>

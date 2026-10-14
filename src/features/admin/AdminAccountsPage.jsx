@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { getAccounts } from '../../data/mockRepository';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
+import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
@@ -9,7 +11,7 @@ import { Button } from '../../design-system/primitives/Button';
 import { Modal } from '../../design-system/primitives/Modal';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { Users, Shield, UserRound, Wrench, Scale, Eye } from 'lucide-react';
+import { Users, Shield, ShieldCheck, UserRound, Wrench, Scale, Eye, UserCheck } from 'lucide-react';
 
 const SENSITIVE_KEY_PATTERNS = [
   'password',
@@ -45,10 +47,42 @@ function sanitizeData(data) {
 }
 
 export function AdminAccountsPage() {
+  const { currentUser, isSuperUser, isSuperUserDemoMode, switchRole } = useApp();
+  const navigate = useNavigate();
+
+  const isSuper = Boolean(
+    isSuperUser ||
+    currentUser?.isSuperUser === true ||
+    currentUser?.email?.toLowerCase() === 'admin@gmail.com' ||
+    currentUser?.id === 'user-admin-1'
+  );
+  // Restrict only staff admin (user-admin-2) when not running in superuser demo mode
+  const isRestrictedStaffAdmin = currentUser?.id === 'user-admin-2' && !isSuperUserDemoMode && !isSuper;
+  const canViewAllActors = !isRestrictedStaffAdmin;
+
   const { data: accounts, loading, error, refresh } = useRepositoryQuery(getAccounts);
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedAccount, setSelectedAccount] = useState(null);
+
+  if (!canViewAllActors) {
+    return (
+      <div className="card" style={{ padding: '48px 32px', textAlign: 'center', maxWidth: '600px', margin: '40px auto' }}>
+        <div style={{ width: '56px', height: '56px', borderRadius: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Shield size={28} />
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-ink)', marginBottom: '8px' }}>
+          SuperUser Access Required
+        </h2>
+        <p style={{ fontSize: '14px', color: 'var(--color-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
+          Viewing all platform actor accounts and inspecting account details is restricted to the SuperUser (Naina Kapoor). Admin accounts can access operational platform features such as Services, Bookings, Tickets, Disputes, and Ledger.
+        </p>
+        <Link to="/admin" style={{ textDecoration: 'none' }}>
+          <Button variant="primary">Return to Ops Dashboard</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="400px" borderRadius="12px" />;
@@ -58,7 +92,8 @@ export function AdminAccountsPage() {
     { value: 'customer', label: 'Customers' },
     { value: 'provider', label: 'Service Providers' },
     { value: 'arbitrator', label: 'Arbitrators' },
-    { value: 'admin', label: 'Platform Admins' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'superuser', label: 'SuperUser' },
     { value: 'other', label: 'Other Actors' }
   ];
 
@@ -70,18 +105,38 @@ export function AdminAccountsPage() {
       (acc.location && acc.location.toLowerCase().includes(search.toLowerCase())) ||
       (acc.city && acc.city.toLowerCase().includes(search.toLowerCase()));
 
-    const matchesRole = selectedRole === 'all' || acc.role === selectedRole;
+    const isAccSuper = acc.role === 'admin' && (acc.isSuperUser === true || acc.id === 'user-admin-1' || acc.email?.toLowerCase() === 'admin@gmail.com');
+    const matchesRole = selectedRole === 'all' ||
+      (selectedRole === 'superuser' ? isAccSuper :
+       selectedRole === 'admin' ? (acc.role === 'admin' && !isAccSuper) :
+       acc.role === selectedRole);
     return matchesSearch && matchesRole;
   });
 
-  const getRoleBadge = (role) => {
+  const getRoleBadge = (row) => {
+    if (row?.role === 'admin') {
+      const isRowSuper = row.isSuperUser === true || row.email?.toLowerCase() === 'admin@gmail.com' || row.id === 'user-admin-1';
+      if (isRowSuper) {
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', fontSize: '12px', fontWeight: '700' }}>
+            <ShieldCheck size={13} />
+            SuperUser
+          </span>
+        );
+      }
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', fontSize: '12px', fontWeight: '700' }}>
+          <Shield size={13} />
+          Admin
+        </span>
+      );
+    }
     const styles = {
       customer: { bg: 'rgba(37, 99, 235, 0.1)', color: 'var(--color-primary)', label: 'Customer', icon: UserRound },
       provider: { bg: 'rgba(16, 185, 129, 0.1)', color: '#059669', label: 'Provider', icon: Wrench },
-      arbitrator: { bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', label: 'Arbitrator', icon: Scale },
-      admin: { bg: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', label: 'Admin', icon: Shield }
+      arbitrator: { bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', label: 'Arbitrator', icon: Scale }
     };
-    const style = styles[role] || { bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b', label: role || 'User', icon: Users };
+    const style = styles[row?.role] || { bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b', label: row?.role || 'User', icon: Users };
     const Icon = style.icon;
 
     return (
@@ -113,7 +168,7 @@ export function AdminAccountsPage() {
     {
       header: 'Role',
       accessor: 'role',
-      render: (row) => getRoleBadge(row.role)
+      render: (row) => getRoleBadge(row)
     },
     {
       header: 'Email Address',
@@ -205,9 +260,27 @@ export function AdminAccountsPage() {
           title={`Actor Account Details: ${cleanSelectedAccount.name || cleanSelectedAccount.id}`}
           maxWidth="560px"
           footer={(
-            <Button variant="secondary" onClick={() => setSelectedAccount(null)}>
-              Close
-            </Button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '12px', flexWrap: 'wrap' }}>
+              {cleanSelectedAccount.role && ['customer', 'provider', 'arbitrator', 'admin'].includes(cleanSelectedAccount.role) && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={UserCheck}
+                  onClick={async () => {
+                    const isAccountSuper = cleanSelectedAccount.isSuperUser || cleanSelectedAccount.id === 'user-admin-1' || cleanSelectedAccount.email?.toLowerCase() === 'admin@gmail.com';
+                    const roleTarget = isAccountSuper ? 'superuser' : (cleanSelectedAccount.role === 'admin' ? 'admin' : cleanSelectedAccount.role);
+                    setSelectedAccount(null);
+                    const res = await switchRole(roleTarget);
+                    if (res?.path) navigate(res.path);
+                  }}
+                >
+                  Switch Demo to this Actor
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => setSelectedAccount(null)}>
+                Close
+              </Button>
+            </div>
           )}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -221,7 +294,7 @@ export function AdminAccountsPage() {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <strong style={{ fontSize: '16px', color: 'var(--color-ink)' }}>{cleanSelectedAccount.name}</strong>
-                  {getRoleBadge(cleanSelectedAccount.role)}
+                  {getRoleBadge(cleanSelectedAccount)}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '4px' }}>
                   Account ID: <code style={{ backgroundColor: 'var(--color-surface)', padding: '2px 6px', borderRadius: '4px' }}>{cleanSelectedAccount.id}</code>
@@ -293,8 +366,8 @@ export function AdminAccountsPage() {
 
             {cleanSelectedAccount.role === 'admin' && (
               <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-                <strong style={{ fontSize: '13px', color: 'var(--color-ink)' }}>Admin Access Privileges</strong>
-                <div><strong>Super User (Root Access):</strong> {cleanSelectedAccount.isSuperUser ? 'Yes (Full Platform Permissions)' : 'No (Staff Operations)'}</div>
+                <strong style={{ fontSize: '13px', color: 'var(--color-ink)' }}>Access Role Privileges</strong>
+                <div><strong>Role Type:</strong> {cleanSelectedAccount.isSuperUser ? 'SuperUser (Full Platform & Demo Controller)' : 'Admin (Platform Operations)'}</div>
                 {cleanSelectedAccount.department && <div><strong>Department:</strong> {cleanSelectedAccount.department}</div>}
               </div>
             )}

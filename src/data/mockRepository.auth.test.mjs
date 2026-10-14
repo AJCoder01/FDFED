@@ -31,6 +31,12 @@ test('authenticateUser succeeds with demo credentials for all actors', async () 
   const admin = await repository.authenticateUser('admin@gmail.com', '123456Ab@', 'admin');
   assert.equal(admin.name, 'Naina Kapoor');
   assert.equal(admin.role, 'admin');
+  assert.equal(admin.isSuperUser, true);
+
+  const staffAdmin = await repository.authenticateUser('staffadmin@gmail.com', '123456Ab@', 'admin');
+  assert.equal(staffAdmin.name, 'Priya Nair');
+  assert.equal(staffAdmin.role, 'admin');
+  assert.equal(staffAdmin.isSuperUser, false);
 
   const arbitrator = await repository.authenticateUser('kabir@gmail.com', '123456Ab@', 'arbitrator');
   assert.equal(arbitrator.name, 'Kabir Malhotra');

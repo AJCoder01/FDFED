@@ -59,7 +59,8 @@ export function AdminServicesPage() {
     { value: 'published', label: 'Published' },
     { value: 'paused', label: 'Paused' },
     { value: 'draft', label: 'Draft' },
-    { value: 'archived', label: 'Archived' }
+    { value: 'archived', label: 'Archived' },
+    { value: 'other', label: 'Other' }
   ];
 
   const filteredServices = (data?.services || []).filter(s => {

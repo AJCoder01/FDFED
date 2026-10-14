@@ -76,6 +76,39 @@ function initializeStorage() {
         localStorage.setItem(key('notifications'), JSON.stringify(notifs));
       }
     }
+
+    // Ensure all demo accounts exist in accounts with proper isSuperUser flags
+    const rawAccounts = localStorage.getItem(key('accounts'));
+    if (rawAccounts) {
+      let accounts = JSON.parse(rawAccounts);
+      let accountsChanged = false;
+      for (const demoUser of Object.values(DEMO_USERS)) {
+        const existingIdx = accounts.findIndex(a => a.id === demoUser.id || a.email?.toLowerCase() === demoUser.email?.toLowerCase());
+        if (existingIdx === -1) {
+          accounts.push({ ...demoUser, password: DEFAULT_DEMO_PASSWORD, createdAt: '2026-08-01T09:00:00.000Z' });
+          accountsChanged = true;
+        } else {
+          if (accounts[existingIdx].isSuperUser !== demoUser.isSuperUser) {
+            accounts[existingIdx].isSuperUser = demoUser.isSuperUser;
+            accountsChanged = true;
+          }
+        }
+      }
+      if (accountsChanged) {
+        localStorage.setItem(key('accounts'), JSON.stringify(accounts));
+      }
+    }
+
+    const rawSessionUser = localStorage.getItem('servicehub_session_user');
+    if (rawSessionUser) {
+      const sessionUser = JSON.parse(rawSessionUser);
+      if (sessionUser && sessionUser.role === 'admin' && (sessionUser.id === 'user-admin-1' || sessionUser.email?.toLowerCase() === 'admin@gmail.com')) {
+        if (!sessionUser.isSuperUser) {
+          sessionUser.isSuperUser = true;
+          localStorage.setItem('servicehub_session_user', JSON.stringify(sessionUser));
+        }
+      }
+    }
   } catch (_) {}
 }
 
@@ -170,14 +203,31 @@ export async function getCustomerById(customerId) {
 export async function getUserProfile(userId) {
   const accounts = (await load('accounts')) || [];
   const account = accounts.find(item => item.id === userId);
-  if (account) return account;
+  if (account) {
+    if (account.id === 'user-admin-1' || account.email?.toLowerCase() === 'admin@gmail.com') {
+      return { ...account, isSuperUser: true };
+    }
+    if (account.id === 'user-admin-2' || account.email?.toLowerCase() === 'staffadmin@gmail.com') {
+      return { ...account, isSuperUser: false };
+    }
+    return account;
+  }
   const customer = (await load('customers'))?.find(item => item.id === userId);
   if (customer) return customer;
   const provider = (await load('providers'))?.find(item => item.id === userId);
   return provider || null;
 }
 export async function getAccounts() {
-  return load('accounts');
+  const accounts = (await load('accounts')) || [];
+  return accounts.map(acc => {
+    if (acc.id === 'user-admin-1' || acc.email?.toLowerCase() === 'admin@gmail.com') {
+      return { ...acc, isSuperUser: true };
+    }
+    if (acc.id === 'user-admin-2' || acc.email?.toLowerCase() === 'staffadmin@gmail.com') {
+      return { ...acc, isSuperUser: false };
+    }
+    return acc;
+  });
 }
 export async function logActivity({ userId, userEmail, userName, role, type, description }) {
   return change(() => {
@@ -331,20 +381,27 @@ export async function authenticateUser(email, password, role) {
     throw new Error(`This account is registered as a ${account.role.toUpperCase()}, not ${role.toUpperCase()}. Please sign in under the correct role.`);
   }
 
+  const userToReturn = { ...account };
+  if (userToReturn.id === 'user-admin-1' || userToReturn.email?.toLowerCase() === 'admin@gmail.com') {
+    userToReturn.isSuperUser = true;
+  } else if (userToReturn.id === 'user-admin-2' || userToReturn.email?.toLowerCase() === 'staffadmin@gmail.com') {
+    userToReturn.isSuperUser = false;
+  }
+
   const activityLogs = read('activity_log') || [];
   activityLogs.unshift({
     id: id('act'),
-    userId: account.id,
-    userEmail: account.email,
-    userName: account.name,
-    role: account.role,
+    userId: userToReturn.id,
+    userEmail: userToReturn.email,
+    userName: userToReturn.name,
+    role: userToReturn.role,
     type: 'LOGIN',
-    description: `User signed in: ${account.name} (${account.role.toUpperCase()})`,
+    description: `User signed in: ${userToReturn.name} (${userToReturn.role.toUpperCase()})`,
     timestamp: stamp()
   });
   save({ activity_log: activityLogs });
 
-  return account;
+  return userToReturn;
 }
 export async function updateUserProfile(userId, updates = {}) {
   return change(() => {

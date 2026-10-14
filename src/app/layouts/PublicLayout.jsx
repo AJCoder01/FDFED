@@ -5,64 +5,16 @@ import { useApp } from '../context/AppContext';
 import { Button } from '../../design-system/primitives/Button';
 import { Toast } from '../../design-system/primitives/Toast';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
+import { DemoSwitcherBar } from './DemoSwitcherBar';
 
 export function PublicLayout() {
-  const { currentRole, isSuperUser, switchRole, logout, handleResetDemoData, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, logout, toast, clearToast, unreadCount } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
-      {isSuperUser && (
-      <div style={{ backgroundColor: '#090F1E', color: '#94A3B8', padding: '8px 24px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontWeight: '700', color: '#60A5FA', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
-            ServiceHub Demo Switcher:
-          </span>
-          <span style={{ color: '#E2E8F0' }}>Active Role: <strong style={{ color: '#93C5FD' }}>{currentRole.toUpperCase()}</strong></span>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {['guest', 'customer', 'provider', 'admin', 'arbitrator'].map((role) => (
-              <button
-                key={role}
-                onClick={async () => {
-                  if (role === 'guest') {
-                    await logout();
-                    navigate('/');
-                  } else if (role !== currentRole) {
-                    await logout();
-                    navigate(`/login?role=${role}`);
-                  } else {
-                    navigate(`/${role}`);
-                  }
-                }}
-                style={{
-                  padding: '3px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid',
-                  borderColor: currentRole === role ? 'var(--color-primary)' : 'rgba(255,255,255,0.12)',
-                  backgroundColor: currentRole === role ? 'var(--color-primary)' : 'rgba(255,255,255,0.05)',
-                  color: currentRole === role ? '#FFFFFF' : '#CBD5E1',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  textTransform: 'capitalize',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {role}
-              </button>
-            ))}
-          </div>
-        </div>
-        <button
-          onClick={handleResetDemoData}
-          style={{ background: '#EF4444', color: '#FFF', border: 'none', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
-        >
-          <RotateCcw size={12} /> Reset Demo Data
-        </button>
-      </div>
-      )}
+      <DemoSwitcherBar />
 
       {/* Main Navbar */}
       <header style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-xs)' }}>
