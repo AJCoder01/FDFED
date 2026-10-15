@@ -23,8 +23,7 @@ export function LoginPage() {
     { role: 'customer', label: 'Customer', description: 'Book and manage services', icon: UserRound },
     { role: 'provider', label: 'Provider', description: 'Manage services and jobs', icon: Wrench },
     { role: 'arbitrator', label: 'Arbitrator', description: 'Review and resolve disputes', icon: Scale },
-    { role: 'admin', label: 'Admin', description: 'Platform operations & compliance management', icon: Shield },
-    { role: 'superuser', label: 'SuperUser', description: 'Root platform access & multi-actor demo switcher', icon: ShieldCheck, isSuper: true }
+    { role: 'admin', label: 'Admin', description: 'Platform operations & compliance management', icon: Shield }
   ];
 
   const credentialRoles = ['customer', 'provider', 'arbitrator', 'admin', 'superuser'];
@@ -41,18 +40,18 @@ export function LoginPage() {
     demoAccount = DEMO_USERS[selectedRole];
   }
 
-  // Pre-fill credentials automatically when selecting or opening a role directly
+  // Reset credentials when selecting or changing roles (do not auto-enter credentials)
   useEffect(() => {
-    if (demoAccount) {
-      setEmail(demoAccount.email);
-      setPassword(DEFAULT_DEMO_PASSWORD);
-      setError('');
-    }
+    setEmail('');
+    setPassword('');
+    setError('');
   }, [selectedRole]);
 
   const chooseRole = (role) => {
     const query = new URLSearchParams({ role });
     if (redirectParam) query.set('redirect', redirectParam);
+    setEmail('');
+    setPassword('');
     setError('');
     navigate(`/login?${query.toString()}`);
   };
