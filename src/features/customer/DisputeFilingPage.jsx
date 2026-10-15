@@ -28,9 +28,6 @@ export function DisputeFilingPage() {
     getBookingById(bookingIdParam)
       .then(b => {
         setBooking(b);
-        if (b && Number.isFinite(Number(b.amount))) {
-          setClaimAmount(String(b.amount));
-        }
       })
       .catch(() => {})
       .finally(() => setLoadingBooking(false));
@@ -38,11 +35,23 @@ export function DisputeFilingPage() {
 
   const handleFileChange = (e) => {
     if (e.target.files) {
-      const filesArray = Array.from(e.target.files).map(f => ({
-        name: f.name,
-        size: (f.size / 1024).toFixed(1) + ' KB'
-      }));
-      setEvidenceFiles(prev => [...prev, ...filesArray]);
+      const files = Array.from(e.target.files);
+      files.forEach(f => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setEvidenceFiles(prev => [
+            ...prev,
+            {
+              name: f.name,
+              size: (f.size / 1024).toFixed(1) + ' KB',
+              fileData: event.target.result,
+              fileType: f.type
+            }
+          ]);
+        };
+        reader.readAsDataURL(f);
+      });
+      e.target.value = '';
     }
   };
 
@@ -71,6 +80,9 @@ export function DisputeFilingPage() {
         uploaderRole: 'customer',
         title: file.name,
         filename: file.name,
+        fileData: file.fileData || '',
+        fileType: file.fileType || '',
+        fileSize: file.size || '',
         uploadedAt: new Date().toISOString()
       }));
 
@@ -173,16 +185,30 @@ export function DisputeFilingPage() {
           <span>Dispute proceedings are binding. Please provide truthful statements and evidence files.</span>
         </div>
 
-        <TextField
-          label="Target Booking ID"
-          value={bookingIdParam}
-          disabled
-        />
+        <div>
+          <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: '700', color: 'var(--color-ink)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+            Target Booking ID (Locked)
+          </label>
+          <div style={{
+            padding: '10px 14px',
+            borderRadius: 'var(--radius-control)',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-page-bg)',
+            color: 'var(--color-ink)',
+            fontSize: 'var(--font-size-sm)',
+            fontWeight: '700',
+            cursor: 'not-allowed',
+            userSelect: 'none'
+          }}>
+            #{bookingIdParam}
+          </div>
+        </div>
 
         <TextField
-          label="Claim Amount / Compensation Requested (INR ₹)"
+          label="Claim Amount / Compensation Requested (INR ₹) *"
           type="number"
-          min="0"
+          min="1"
+          placeholder="e.g. 1500"
           value={claimAmount}
           onChange={(e) => setClaimAmount(e.target.value)}
           required

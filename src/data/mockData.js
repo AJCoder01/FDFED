@@ -31,11 +31,11 @@ export const DEMO_USERS = {
     role: 'provider',
     phone: '+91 91234 56789',
     avatar: DEFAULT_BLANK_AVATAR,
-    businessName: 'Apex Fix Services & Repairs',
+    businessName: 'UrbanFix Home Solutions',
     verificationStatus: 'approved', // draft, submitted, changes_requested, approved, suspended
     rating: 4.8,
     reviewCount: 34,
-    serviceArea: 'Bengaluru Urban (Bellandur, HSR Layout, Koramangala, Indiranagar)',
+    serviceArea: 'Bengaluru',
     location: 'Bengaluru',
     skills: ['AC Maintenance', 'Electrical Repair', 'Appliance Repair'],
     weeklyAvailability: {
@@ -97,7 +97,7 @@ export const INITIAL_SERVICES = [
     rating: 4.8,
     reviewCount: 28,
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80',
     description: 'Comprehensive high-pressure foam jet cleaning of indoor cooling coils, outdoor condenser unit cleaning, drain pipe flushing, and temperature check.',
     inclusions: ['Indoor unit foam jet wash', 'Outdoor unit jet spray', 'Drain pan & pipe flushing', 'Gas pressure & amp check'],
@@ -135,7 +135,7 @@ export const INITIAL_SERVICES = [
     rating: 4.9,
     reviewCount: 19,
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80',
     description: 'Complete inspection of main MCB board, earthing test, switchboard fixes, and replacement of burnt wiring sockets.',
     inclusions: ['Earthing check', 'MCB load audit', 'Fix up to 3 minor sockets'],
@@ -154,7 +154,7 @@ export const INITIAL_SERVICES = [
     rating: 4.6,
     reviewCount: 14,
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     image: DEFAULT_SERVICE_IMAGE,
     description: 'Diagnose noise, vibration, motor faults, water drain issues, and complete drum scaling treatment.',
     inclusions: ['Diagnosis fee included', 'Descaling treatment', 'Drain pump inspection'],
@@ -173,7 +173,7 @@ export const INITIAL_SERVICES = [
     rating: 4.8,
     reviewCount: 21,
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     image: DEFAULT_SERVICE_IMAGE,
     description: 'Wall drill hanging, curtain rod installation, door hinge tightening, bed assembly, and customized general handyman tasks.',
     inclusions: ['Up to 60 mins labor', 'Tool kit and screw fasteners', 'Debris clean-up'],
@@ -191,11 +191,11 @@ export const INITIAL_BOOKINGS = [
     serviceTitle: 'Split AC Servicing & Deep Foam Clean',
     categoryName: 'AC Maintenance',
     customerId: 'user-cust-1',
-    customerName: 'Aarav Sharma',
+    customerName: 'Aarav Mehta',
     customerPhone: '+91 98765 43210',
     address: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru - 560103',
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     providerPhone: '+91 91234 56789',
     scheduledDate: '2026-08-20',
     scheduledSlot: '11:30 AM',
@@ -209,7 +209,7 @@ export const INITIAL_BOOKINGS = [
     notes: 'Please call 10 mins before arrival.',
     timeline: [
       { time: '2026-08-16 14:20', title: 'Booking Confirmed', desc: 'Mock payment received via UPI.' },
-      { time: '2026-08-16 14:25', title: 'Assigned to Provider', desc: 'Apex Fix Services accepted the booking.' }
+      { time: '2026-08-16 14:25', title: 'Assigned to Provider', desc: 'UrbanFix Home Solutions accepted the booking.' }
     ]
   },
   {
@@ -218,11 +218,11 @@ export const INITIAL_BOOKINGS = [
     serviceTitle: 'Full House Electrical Safety Audit & Fix',
     categoryName: 'Electrical Repair',
     customerId: 'user-cust-1',
-    customerName: 'Aarav Sharma',
+    customerName: 'Aarav Mehta',
     customerPhone: '+91 98765 43210',
     address: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru - 560103',
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     providerPhone: '+91 91234 56789',
     scheduledDate: '2026-08-14',
     scheduledSlot: '03:00 PM',
@@ -236,7 +236,7 @@ export const INITIAL_BOOKINGS = [
     notes: 'Switchboard sparking in bedroom.',
     reviewSubmitted: true,
     reviewRating: 5,
-    reviewComment: 'Excellent work by Rajesh! Very professional and checked earthing thoroughly.',
+    reviewComment: 'Excellent work by technician! Very professional and checked earthing thoroughly.',
     timeline: [
       { time: '2026-08-12 10:15', title: 'Booking Confirmed', desc: 'Mock payment received.' },
       { time: '2026-08-14 15:00', title: 'Work Started', desc: 'Technician reached customer location.' },
@@ -249,11 +249,11 @@ export const INITIAL_BOOKINGS = [
     serviceTitle: 'Washing Machine Repair & Drum Sanitization',
     categoryName: 'Appliance Repair',
     customerId: 'user-cust-1',
-    customerName: 'Aarav Sharma',
+    customerName: 'Aarav Mehta',
     customerPhone: '+91 98765 43210',
     address: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru - 560103',
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     providerPhone: '+91 91234 56789',
     scheduledDate: '2026-08-10',
     scheduledSlot: '02:30 PM',
@@ -280,7 +280,7 @@ export const INITIAL_BOOKINGS = [
     serviceTitle: 'Complete Bathroom Deep Cleaning',
     categoryName: 'Home Cleaning',
     customerId: 'user-cust-1',
-    customerName: 'Aarav Sharma',
+    customerName: 'Aarav Mehta',
     customerPhone: '+91 98765 43210',
     address: '9th Floor, Prestage Tech Park, Marathahalli, Bengaluru',
     providerId: 'user-prov-2',
@@ -308,11 +308,11 @@ export const INITIAL_BOOKINGS = [
     serviceTitle: 'Split AC Servicing & Deep Foam Clean',
     categoryName: 'AC Maintenance',
     customerId: 'user-cust-1',
-    customerName: 'Aarav Sharma',
+    customerName: 'Aarav Mehta',
     customerPhone: '+91 98765 43210',
     address: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru - 560103',
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     providerPhone: '+91 91234 56789',
     scheduledDate: '2026-08-28',
     scheduledSlot: '04:30 PM',
@@ -337,8 +337,8 @@ export const INITIAL_TICKETS = [
     bookingId: 'BK-87102',
     serviceTitle: 'Washing Machine Repair',
     customerId: 'user-cust-1',
-    customerName: 'Aarav Sharma',
-    providerName: 'Apex Fix Services & Repairs',
+    customerName: 'Aarav Mehta',
+    providerName: 'UrbanFix Home Solutions',
     issueType: 'Service Quality Issue',
     severity: 'High',
     description: 'After the technician worked on the drum, water began leaking onto our wooden flooring during the spin cycle causing damage.',
@@ -354,20 +354,77 @@ export const INITIAL_DISPUTES = [
     bookingId: 'BK-87102',
     serviceTitle: 'Washing Machine Repair & Drum Sanitization',
     customerId: 'user-cust-1',
-    customerName: 'Aarav Sharma',
+    customerName: 'Aarav Mehta',
     providerId: 'user-prov-1',
-    providerName: 'Apex Fix Services & Repairs',
+    providerName: 'UrbanFix Home Solutions',
     amountInDispute: 649,
     claimAmount: 3500, // Claiming flooring damage compensation
-    status: 'pending_assignment', // pending_assignment, assigned, hearing_scheduled, ruled, closed
-    arbitratorId: null,
-    arbitratorName: null,
+    status: 'hearing_scheduled', // pending_assignment, assigned, hearing_scheduled, ruled, closed
+    arbitratorId: 'user-arbit-1',
+    arbitratorName: 'Kabir Malhotra',
     createdAt: '2026-08-12 14:00',
-    customerStatement: 'Technician left drain hose loose leading to ₹3500 water damage to wooden floor.',
+    customerStatement: 'Technician left drain hose loose leading to ₹3,500 water damage to wooden floor.',
     providerStatement: 'Hose was clamped properly. The customer moved the machine after service.',
     evidences: [
-      { id: 'ev-1', uploader: 'Aarav Sharma (Customer)', title: 'Flooring Water Damage Photo', filename: 'floor_damage.jpg', uploadedAt: '2026-08-12 14:15' },
-      { id: 'ev-2', uploader: 'Rajesh Kumar (Provider)', title: 'Post-Service Inspection Sheet', filename: 'inspection_signoff.pdf', uploadedAt: '2026-08-12 16:30' }
+      { id: 'ev-1', uploader: 'Aarav Mehta (Customer)', title: 'Flooring Water Damage Photo', filename: 'floor_damage.jpg', uploadedAt: '2026-08-12 14:15' },
+      { id: 'ev-2', uploader: 'Rohan Verma (Provider)', title: 'Post-Service Inspection Sheet', filename: 'inspection_signoff.pdf', uploadedAt: '2026-08-12 16:30' }
+    ],
+    hearingSchedule: {
+      scheduledDate: '2026-08-22',
+      scheduledTime: '11:00 AM',
+      meetUrl: 'https://meet.google.com/arb-disp-101'
+    },
+    ruling: null
+  },
+  {
+    id: 'DISP-102',
+    bookingId: 'BK-88410',
+    serviceTitle: 'Full House Electrical Safety Audit & Fix',
+    customerId: 'user-cust-1',
+    customerName: 'Aarav Mehta',
+    providerId: 'user-prov-1',
+    providerName: 'UrbanFix Home Solutions',
+    amountInDispute: 499,
+    claimAmount: 1200,
+    status: 'ruled',
+    arbitratorId: 'user-arbit-1',
+    arbitratorName: 'Kabir Malhotra',
+    createdAt: '2026-08-02 10:00',
+    customerStatement: 'Substandard replacement socket blew fuse in inverter.',
+    providerStatement: 'Replacement socket was ISI certified standard brand.',
+    evidences: [
+      { id: 'ev-3', uploader: 'Aarav Mehta (Customer)', title: 'Burnt Socket Photo', filename: 'socket_damage.jpg', uploadedAt: '2026-08-02 11:00' }
+    ],
+    hearingSchedule: {
+      scheduledDate: '2026-08-05',
+      scheduledTime: '02:00 PM',
+      meetUrl: 'https://meet.google.com/arb-disp-102'
+    },
+    ruling: {
+      verdict: 'In favour of Customer',
+      awardAmount: 1200,
+      reason: 'Technical inspection confirmed improper socket rating for inverter load. Partial refund and equipment compensation awarded.',
+      issuedAt: '2026-08-06 15:30'
+    }
+  },
+  {
+    id: 'DISP-103',
+    bookingId: 'BK-89450',
+    serviceTitle: 'Complete Bathroom Deep Cleaning',
+    customerId: 'user-cust-1',
+    customerName: 'Aarav Mehta',
+    providerId: 'user-prov-2',
+    providerName: 'Sparkle Clean India',
+    amountInDispute: 1299,
+    claimAmount: 1299,
+    status: 'pending_assignment',
+    arbitratorId: null,
+    arbitratorName: null,
+    createdAt: '2026-08-19 16:00',
+    customerStatement: 'Cleaner did not clean tile grout as advertised in package.',
+    providerStatement: 'Grout was stained permanently by hard water over 5 years.',
+    evidences: [
+      { id: 'ev-4', uploader: 'Aarav Mehta (Customer)', title: 'Uncleaned Bathroom Tile Photo', filename: 'tiles.jpg', uploadedAt: '2026-08-19 16:30' }
     ],
     hearingSchedule: null,
     ruling: null
@@ -378,20 +435,20 @@ export const INITIAL_NOTIFICATIONS = [
   {
     id: 'notif-1',
     userId: 'user-cust-1',
-    title: 'Dispute Case Filed',
-    message: 'Dispute Case #DISP-101 has been registered and is pending arbitrator assignment.',
+    title: 'Dispute Hearing Scheduled',
+    message: 'Arbitrator Kabir Malhotra scheduled a hearing for Case #DISP-101 on 2026-08-22 at 11:00 AM.',
     targetLink: '/customer/bookings/BK-87102',
     read: false,
-    createdAt: '2026-08-12 17:00'
+    createdAt: '2026-08-14 11:30'
   },
   {
     id: 'notif-2',
     userId: 'user-prov-1',
-    title: 'New Job Request',
-    message: 'You have a new booking #BK-89021 for Split AC Servicing.',
-    targetLink: '/provider/jobs/BK-89021',
-    read: true,
-    createdAt: '2026-08-16 14:25'
+    title: 'Dispute Hearing Scheduled',
+    message: 'Arbitrator Kabir Malhotra scheduled a hearing for Case #DISP-101 on 2026-08-22 at 11:00 AM.',
+    targetLink: '/provider/jobs/BK-87102',
+    read: false,
+    createdAt: '2026-08-14 11:30'
   }
 ];
 

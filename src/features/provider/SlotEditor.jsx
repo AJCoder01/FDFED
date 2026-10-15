@@ -4,7 +4,7 @@ import { TextField } from '../../design-system/primitives/TextField';
 import { formatSlot, slotMinutes } from './providerUtils';
 
 export function SlotEditor({ slots, onChange, disabled = false }) {
-  const [time, setTime] = useState('09:00');
+  const [time, setTime] = useState('');
   const slot = time ? formatSlot(time) : '';
 
   return (

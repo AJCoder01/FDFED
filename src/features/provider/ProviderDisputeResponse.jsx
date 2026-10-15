@@ -17,11 +17,21 @@ export function ProviderDisputeResponse({ dispute }) {
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    const mapped = files.map(f => ({
-      name: f.name,
-      size: `${(f.size / 1024).toFixed(1)} KB`
-    }));
-    setEvidenceFiles(prev => [...prev, ...mapped]);
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setEvidenceFiles(prev => [
+          ...prev,
+          {
+            name: f.name,
+            size: `${(f.size / 1024).toFixed(1)} KB`,
+            fileData: event.target.result,
+            type: f.type
+          }
+        ]);
+      };
+      reader.readAsDataURL(f);
+    });
     e.target.value = '';
   };
 
@@ -34,8 +44,7 @@ export function ProviderDisputeResponse({ dispute }) {
     if (busy) return;
     setBusy(true); setError('');
     try {
-      const filenames = evidenceFiles.map(f => f.name);
-      await saveDisputeResponse(dispute.id, currentUser.id, statement, filenames);
+      await saveDisputeResponse(dispute.id, currentUser.id, statement, evidenceFiles);
       setEvidenceFiles([]);
       showToast('Dispute response and evidence saved.');
     } catch (error) { setError(error.message); }

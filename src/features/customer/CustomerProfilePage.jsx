@@ -4,6 +4,7 @@ import { useApp } from '../../app/context/AppContext';
 import { updateUserProfile } from '../../data/mockRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
+import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
@@ -33,6 +34,14 @@ export function CustomerProfilePage() {
     if (!name.trim()) {
       showToast('Name cannot be empty.', 'warning');
       return;
+    }
+
+    if (phone) {
+      const phoneErr = validatePhoneNumber(phone);
+      if (phoneErr) {
+        showToast(phoneErr, 'warning');
+        return;
+      }
     }
 
     setSaving(true);
@@ -152,10 +161,10 @@ export function CustomerProfilePage() {
               onChange={(e) => setName(e.target.value)}
               required
             />
-            <TextField
+            <PhoneInputField
               label="Phone Number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={setPhone}
               required
             />
           </div>

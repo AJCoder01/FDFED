@@ -163,3 +163,34 @@ test('activities are logged for signup, login, and logout in activity_log', asyn
   assert.ok(logs.some(log => log.type === 'LOGIN' && log.userEmail === 'anita@example.com'));
   assert.ok(logs.some(log => log.type === 'LOGOUT' && log.userEmail === 'anita@example.com'));
 });
+
+test('provider mock profile has UrbanFix Home Solutions and simple Bengaluru serviceArea', async () => {
+  const provider = await repository.getProviderById('user-prov-1');
+  assert.equal(provider.businessName, 'UrbanFix Home Solutions');
+  assert.equal(provider.serviceArea, 'Bengaluru');
+});
+
+test('arbitrator mock disputes are standardized and coherent', async () => {
+  const disputes = await repository.getDisputes();
+  const d101 = disputes.find(d => d.id === 'DISP-101');
+  assert.ok(d101);
+  assert.equal(d101.status, 'hearing_scheduled');
+  assert.equal(d101.arbitratorId, 'user-arbit-1');
+  assert.equal(d101.arbitratorName, 'Kabir Malhotra');
+  assert.equal(d101.providerName, 'UrbanFix Home Solutions');
+  assert.equal(d101.customerName, 'Aarav Mehta');
+  assert.equal(d101.hearingSchedule.scheduledDate, '2026-08-22');
+  assert.equal(d101.hearingSchedule.scheduledTime, '11:00 AM');
+
+  const d102 = disputes.find(d => d.id === 'DISP-102');
+  assert.ok(d102);
+  assert.equal(d102.status, 'ruled');
+  assert.equal(d102.arbitratorId, 'user-arbit-1');
+  assert.ok(d102.ruling);
+  assert.equal(d102.ruling.verdict, 'In favour of Customer');
+
+  const d103 = disputes.find(d => d.id === 'DISP-103');
+  assert.ok(d103);
+  assert.equal(d103.status, 'pending_assignment');
+  assert.equal(d103.arbitratorId, null);
+});

@@ -23,7 +23,8 @@ export function LoginPage() {
     { role: 'customer', label: 'Customer', description: 'Book and manage services', icon: UserRound },
     { role: 'provider', label: 'Provider', description: 'Manage services and jobs', icon: Wrench },
     { role: 'arbitrator', label: 'Arbitrator', description: 'Review and resolve disputes', icon: Scale },
-    { role: 'admin', label: 'Admin', description: 'Platform operations & compliance management', icon: Shield }
+    { role: 'admin', label: 'Admin', description: 'Platform operations & compliance management', icon: Shield },
+    { role: 'superuser', label: 'SuperUser', description: 'Root demo controller with full actor switching', icon: ShieldCheck, isSuper: true }
   ];
 
   const credentialRoles = ['customer', 'provider', 'arbitrator', 'admin', 'superuser'];
@@ -33,9 +34,9 @@ export function LoginPage() {
 
   let demoAccount = null;
   if (selectedRole === 'superuser') {
-    demoAccount = DEMO_USERS.admin;
+    demoAccount = DEMO_USERS.admin; // Naina Kapoor (Root SuperUser)
   } else if (selectedRole === 'admin') {
-    demoAccount = DEMO_USERS.staffAdmin;
+    demoAccount = DEMO_USERS.staffAdmin; // Priya Nair (Standard Admin)
   } else if (selectedRole && DEMO_USERS[selectedRole]) {
     demoAccount = DEMO_USERS[selectedRole];
   }
@@ -290,8 +291,20 @@ export function LoginPage() {
             </div>
 
             {demoAccount && (
-              <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'var(--color-page-bg)', border: '1px solid var(--color-border)', fontSize: '11px', color: 'var(--color-muted)' }}>
-                <span>{selectedRoleLabel} Demo: <strong style={{ color: 'var(--color-ink)' }}>{demoAccount.email}</strong> / Password: <strong style={{ color: 'var(--color-ink)' }}>123456Ab@</strong></span>
+              <div
+                onClick={handleFillDemo}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: 'var(--color-page-bg)',
+                  border: '1px solid var(--color-border)',
+                  fontSize: '11px',
+                  color: 'var(--color-muted)',
+                  cursor: 'pointer'
+                }}
+                title="Click to fill mock credentials"
+              >
+                <span>{selectedRoleLabel} Demo: <strong style={{ color: 'var(--color-ink)' }}>{demoAccount.email}</strong> / Password: <strong style={{ color: 'var(--color-ink)' }}>123456Ab@</strong> <span style={{ color: 'var(--color-primary)', fontWeight: '600', marginLeft: '6px' }}>(Click to fill)</span></span>
               </div>
             )}
 

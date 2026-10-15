@@ -6,6 +6,7 @@ import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 import { DemoSwitcherBar } from './DemoSwitcherBar';
+import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function AdminLayout() {
   const { logout, currentUser, isSuperUser, isSuperUserDemoMode, toast, clearToast, unreadCount } = useApp();
@@ -25,7 +26,7 @@ export function AdminLayout() {
   const navItems = [
     { label: 'Ops Dashboard', path: '/admin', icon: BarChart2 },
     { label: 'Platform Services', path: '/admin/services', icon: Layers },
-    ...(isActualSuper ? [{ label: 'User Accounts', path: '/admin/accounts', icon: Users }] : []),
+    { label: 'User Accounts', path: '/admin/accounts', icon: Users },
     { label: 'Revenue & Ledger', path: '/admin/revenue', icon: DollarSign },
     { label: 'Arbitrator Applications', path: '/admin/arbitrator-applications', icon: CheckSquare },
     { label: 'Dispute Assignment', path: '/admin/disputes', icon: Gavel },
@@ -73,10 +74,15 @@ export function AdminLayout() {
                     backgroundColor: isActive ? 'var(--color-primary-light)' : 'transparent',
                     border: isActive ? '1px solid var(--color-primary-border)' : '1px solid transparent',
                     textDecoration: 'none',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    cursor: 'pointer',
+                    caretColor: 'transparent',
+                    outline: 'none'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', userSelect: 'none', caretColor: 'transparent', pointerEvents: 'none' }}>
                     <Icon size={18} color={isActive ? 'var(--color-primary)' : 'var(--color-muted)'} />
                     {item.label}
                   </div>
@@ -109,7 +115,7 @@ export function AdminLayout() {
               </button>
 
               <Link to="/admin/profile" style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--color-border)', textDecoration: 'none' }}>
-                <img src={currentUser?.avatar} alt={currentUser?.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-warning)' }} />
+                <img src={currentUser?.avatar || DEFAULT_BLANK_AVATAR} alt={currentUser?.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-warning)' }} />
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{currentUser?.name}</div>
                   <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>

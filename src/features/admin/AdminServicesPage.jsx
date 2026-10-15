@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getServices, getCategories, saveService } from '../../data/mockRepository';
+import { getServices, getCategories, saveService, deleteService } from '../../data/mockRepository';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
@@ -10,7 +10,7 @@ import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { Eye, Layers } from 'lucide-react';
+import { Eye, Layers, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function AdminServicesPage() {
@@ -39,6 +39,21 @@ export function AdminServicesPage() {
       showToast(`Listing status updated to ${status}.`);
     } catch (err) {
       showToast(err.message || 'Failed to update service status.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDeleteService = async (id, title) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}"? This will permanently remove the service across all actors.`)) return;
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      await deleteService(id, { role: 'admin' });
+      showToast(`Service "${title}" deleted successfully.`);
+      refresh();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete service.', 'error');
     } finally {
       setBusyId(null);
     }
@@ -156,6 +171,15 @@ export function AdminServicesPage() {
             onClick={() => handleToggleStatus(row.id, row.status)}
           >
             {row.status === 'published' ? 'Pause' : 'Publish'}
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={busyId === row.id}
+            icon={Trash2}
+            onClick={() => handleDeleteService(row.id, row.title)}
+          >
+            Delete
           </Button>
         </div>
       )

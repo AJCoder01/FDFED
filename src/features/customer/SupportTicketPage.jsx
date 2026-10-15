@@ -89,10 +89,9 @@ export function SupportTicketPage() {
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
             options={[
-              { value: 'Low', label: 'Low - Minor inconvenience' },
-              { value: 'Medium', label: 'Medium - Incomplete work' },
-              { value: 'High', label: 'High - Property damage / Urgent fix' },
-              { value: 'Other', label: 'Other' },
+              { value: 'Low', label: 'Low' },
+              { value: 'Medium', label: 'Medium' },
+              { value: 'High', label: 'High' }
             ]}
           />
 

@@ -369,3 +369,21 @@ input::-webkit-credentials-auto-fill-button {
     font-size: 26px;
   }
 }
+
+/* Sidebar Nav Links & Controls - Suppress text caret, cursor blink, or selection */
+aside nav a,
+aside nav a *,
+.sidebar-nav-item,
+.sidebar-nav-item * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  cursor: pointer !important;
+  caret-color: transparent !important;
+}
+
+aside nav a:focus,
+aside nav a:focus-visible {
+  outline: none !important;
+  caret-color: transparent !important;
+}
+

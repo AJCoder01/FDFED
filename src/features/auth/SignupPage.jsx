@@ -5,6 +5,7 @@ import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
+import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
 
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 import { ArbitratorSignupWizard } from './ArbitratorSignupWizard';
@@ -70,8 +71,14 @@ export function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    if (!password || password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    const phoneError = validatePhoneNumber(phone);
+    if (phoneError) {
+      setError(phoneError);
       return;
     }
 
@@ -192,12 +199,10 @@ export function SignupPage() {
               placeholder="e.g. Priya Sharma"
               required
             />
-            <TextField
+            <PhoneInputField
               label="Phone Number"
-              type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
+              onChange={setPhone}
               required
             />
           </div>
@@ -213,11 +218,11 @@ export function SignupPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <TextField
-              label="Password"
+              label="Password (Min 8 chars)"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 6 characters"
+              placeholder="Min 8 characters"
               required
             />
             <TextField

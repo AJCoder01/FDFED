@@ -30,6 +30,7 @@ import { DisputeFilingPage } from '../../features/customer/DisputeFilingPage';
 
 // Provider Pages
 import { ProviderDashboard } from '../../features/provider/ProviderDashboard';
+import { ProviderProfilePage } from '../../features/provider/ProviderProfilePage';
 import { ProviderOnboardingPage } from '../../features/provider/ProviderOnboardingPage';
 import { ListingManagerPage } from '../../features/provider/ListingManagerPage';
 import { JobInboxPage } from '../../features/provider/JobInboxPage';
@@ -51,6 +52,7 @@ import { AdminProfilePage } from '../../features/admin/AdminProfilePage';
 
 // Arbitrator Pages
 import { ArbitratorDashboard } from '../../features/arbitrator/ArbitratorDashboard';
+import { ArbitratorCasesPage } from '../../features/arbitrator/ArbitratorCasesPage';
 import { DisputeCaseDetailPage } from '../../features/arbitrator/DisputeCaseDetailPage';
 import { HearingSchedulerPage } from '../../features/arbitrator/HearingSchedulerPage';
 import { RulingIssuancePage } from '../../features/arbitrator/RulingIssuancePage';
@@ -93,7 +95,7 @@ export function AppRoutes() {
         <Route path="/provider/jobs/:jobId" element={<JobDetailPage />} />
         <Route path="/provider/earnings" element={<EarningsPage />} />
         <Route path="/provider/reviews" element={<ReviewsPage />} />
-        <Route path="/provider/profile" element={<ProviderOnboardingPage />} />
+        <Route path="/provider/profile" element={<ProviderProfilePage />} />
       </Route>
 
       {/* Admin Protected Routes */}
@@ -115,7 +117,7 @@ export function AppRoutes() {
       {/* Arbitrator Protected Routes */}
       <Route element={<AuthGuard allowedRoles={['arbitrator']}><ArbitratorLayout /></AuthGuard>}>
         <Route path="/arbitrator" element={<ArbitratorDashboard />} />
-        <Route path="/arbitrator/cases" element={<ArbitratorDashboard />} />
+        <Route path="/arbitrator/cases" element={<ArbitratorCasesPage />} />
         <Route path="/arbitrator/cases/:caseId" element={<DisputeCaseDetailPage />} />
         <Route path="/arbitrator/hearings" element={<HearingSchedulerPage />} />
         <Route path="/arbitrator/rulings" element={<RulingIssuancePage />} />

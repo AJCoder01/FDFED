@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Plus } from 'lucide-react';
-import { getCategories } from '../../data/mockRepository';
+import { Layers } from 'lucide-react';
+import { getCategories, getServices } from '../../data/mockRepository';
 import { DataTable } from '../../design-system/primitives/DataTable';
-import { Button } from '../../design-system/primitives/Button';
 
 export function CategoryManagerPage() {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     async function loadData() {
-      const list = await getCategories();
-      setCategories(list);
+      const [list, services] = await Promise.all([
+        getCategories(),
+        getServices({ role: 'admin' })
+      ]);
+      const servicesList = services || [];
+      const updated = (list || []).map(cat => ({
+        ...cat,
+        serviceCount: servicesList.filter(s => s.categoryId === cat.id || s.categoryName?.toLowerCase() === cat.name?.toLowerCase()).length
+      }));
+      setCategories(updated);
     }
     loadData();
   }, []);
@@ -19,7 +26,7 @@ export function CategoryManagerPage() {
     { header: 'Category Name', accessor: 'name', render: (row) => <strong>{row.name}</strong> },
     { header: 'Slug', accessor: 'slug' },
     { header: 'Description', accessor: 'description' },
-    { header: 'Active Services', accessor: 'serviceCount' }
+    { header: 'Active Services', accessor: 'serviceCount', render: (row) => <span>{row.serviceCount} listed</span> }
   ];
 
   return (

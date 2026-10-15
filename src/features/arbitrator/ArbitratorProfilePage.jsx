@@ -4,11 +4,25 @@ import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
-import { updateUserProfile } from '../../data/mockRepository';
+import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
+import { updateUserProfile, getDisputes } from '../../data/mockRepository';
+import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ArbitratorProfilePage() {
   const { currentUser, showToast } = useApp();
+  const { data: disputes } = useRepositoryQuery(getDisputes);
+
+  const myDisputes = (disputes || []).filter(
+    (d) => d.arbitratorId === currentUser?.id || d.arbitratorId === 'user-arbit-1'
+  );
+  const activeDisputesCount = myDisputes.filter(
+    (d) => d.status === 'assigned' || d.status === 'hearing_scheduled' || d.status === 'pending_assignment'
+  ).length;
+  const resolvedDisputesCount = myDisputes.filter(
+    (d) => d.status === 'ruled' || d.status === 'closed'
+  ).length;
+  const awardsIssuedCount = myDisputes.filter((d) => Boolean(d.ruling)).length;
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(currentUser?.name || '');
@@ -34,6 +48,14 @@ export function ArbitratorProfilePage() {
     if (!name.trim()) {
       showToast('Name cannot be empty.', 'warning');
       return;
+    }
+
+    if (phone) {
+      const phoneErr = validatePhoneNumber(phone);
+      if (phoneErr) {
+        showToast(phoneErr, 'warning');
+        return;
+      }
     }
 
     setSaving(true);
@@ -78,9 +100,6 @@ export function ArbitratorProfilePage() {
           >
             {isEditing ? 'Cancel Edit' : 'Edit Profile'}
           </Button>
-          <Button variant="outline" size="sm" icon={ShieldCheck} onClick={handleCredentialVerify}>
-            Verify Accreditation
-          </Button>
         </div>
       </div>
 
@@ -100,14 +119,14 @@ export function ArbitratorProfilePage() {
               label="Full Legal Name *"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Justice V. K. Sundaram (Retd.)"
+              placeholder="e.g. Kabir Malhotra"
               required
             />
-            <TextField
+            <PhoneInputField
               label="Direct Phone Number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. +91 94444 88888"
+              onChange={setPhone}
+              helperText="Requires country code & 10-digit number"
             />
           </div>
 
@@ -278,22 +297,22 @@ export function ArbitratorProfilePage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div style={{ padding: '16px', backgroundColor: 'var(--color-page-bg)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)' }}>18</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)' }}>{resolvedDisputesCount}</div>
               <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px', fontWeight: '600' }}>Total Cases Resolved</div>
             </div>
 
             <div style={{ padding: '16px', backgroundColor: 'var(--color-page-bg)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-warning)' }}>1</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-warning)' }}>{activeDisputesCount}</div>
               <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px', fontWeight: '600' }}>Active Disputes</div>
             </div>
 
             <div style={{ padding: '16px', backgroundColor: 'var(--color-page-bg)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#10B981' }}>17</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#10B981' }}>{awardsIssuedCount}</div>
               <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px', fontWeight: '600' }}>Final Awards Issued</div>
             </div>
 
             <div style={{ padding: '16px', backgroundColor: 'var(--color-page-bg)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-primary)' }}>4.2 Days</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-primary)' }}>3.5 Days</div>
               <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px', fontWeight: '600' }}>Avg. Resolution Time</div>
             </div>
           </div>

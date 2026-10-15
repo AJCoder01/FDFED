@@ -4,6 +4,7 @@ import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
+import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
 import { updateUserProfile } from '../../data/mockRepository';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
@@ -34,6 +35,14 @@ export function AdminProfilePage() {
     if (!name.trim()) {
       showToast('Name cannot be empty.', 'warning');
       return;
+    }
+
+    if (phone) {
+      const phoneErr = validatePhoneNumber(phone);
+      if (phoneErr) {
+        showToast(phoneErr, 'warning');
+        return;
+      }
     }
 
     setSaving(true);
@@ -78,9 +87,6 @@ export function AdminProfilePage() {
           >
             {isEditing ? 'Cancel Edit' : 'Edit Profile'}
           </Button>
-          <Button variant="outline" size="sm" icon={Key} onClick={handleSecurityCheck}>
-            Verify Security
-          </Button>
         </div>
       </div>
 
@@ -103,11 +109,10 @@ export function AdminProfilePage() {
               placeholder="e.g. Priya Nair"
               required
             />
-            <TextField
+            <PhoneInputField
               label="Contact Phone Number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. +91 99000 11223"
+              onChange={setPhone}
             />
           </div>
 

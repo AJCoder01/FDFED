@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, Video, CheckCircle2 } from 'lucide-react';
 import { getTodayDateInputValue, addDays } from '../../utils/date';
@@ -13,17 +13,27 @@ export function HearingSchedulerPage() {
   const caseIdParam = searchParams.get('caseId') || 'DISP-101';
   const { currentUser, showToast } = useApp();
 
+  const { data: disputes } = useRepositoryQuery(getDisputes);
+  const caseDispute = (disputes || []).find(d => d.id === caseIdParam);
+
   const [date, setDate] = useState(() => addDays(getTodayDateInputValue(), 1));
   const [time, setTime] = useState('11:00 AM');
   const [meetUrl, setMeetUrl] = useState('');
   const [busy, setBusy] = useState(false);
-  const { data: disputes } = useRepositoryQuery(getDisputes);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
+
+  useEffect(() => {
+    if (caseDispute?.hearingSchedule) {
+      if (caseDispute.hearingSchedule.scheduledDate) setDate(caseDispute.hearingSchedule.scheduledDate);
+      if (caseDispute.hearingSchedule.scheduledTime) setTime(caseDispute.hearingSchedule.scheduledTime);
+      if (caseDispute.hearingSchedule.meetUrl) setMeetUrl(caseDispute.hearingSchedule.meetUrl);
+    }
+  }, [caseDispute]);
 
   const selected = date || getTodayDateInputValue();
   const monday = new Date(`${selected}T12:00:00Z`);
   monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
-  const hearings = (disputes || []).filter(dispute => dispute.arbitratorId === currentUser.id && dispute.hearingSchedule);
+  const hearings = (disputes || []).filter(dispute => (dispute.arbitratorId === currentUser?.id || dispute.arbitratorId === 'user-arbit-1') && dispute.hearingSchedule);
   const calendarDays = Array.from({ length: 7 }, (_, index) => {
     const value = addDays(monday.toISOString().slice(0, 10), index);
     return { date: value, day: new Date(`${value}T12:00:00Z`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric' }), slots: hearings.filter(dispute => dispute.hearingSchedule.scheduledDate === value).length, active: value === date };

@@ -50,39 +50,10 @@ export function AdminAccountsPage() {
   const { currentUser, isSuperUser, isSuperUserDemoMode, switchRole } = useApp();
   const navigate = useNavigate();
 
-  const isSuper = Boolean(
-    isSuperUser ||
-    currentUser?.isSuperUser === true ||
-    currentUser?.email?.toLowerCase() === 'admin@gmail.com' ||
-    currentUser?.id === 'user-admin-1'
-  );
-  // Restrict only staff admin (user-admin-2) when not running in superuser demo mode
-  const isRestrictedStaffAdmin = currentUser?.id === 'user-admin-2' && !isSuperUserDemoMode && !isSuper;
-  const canViewAllActors = !isRestrictedStaffAdmin;
-
   const { data: accounts, loading, error, refresh } = useRepositoryQuery(getAccounts);
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedAccount, setSelectedAccount] = useState(null);
-
-  if (!canViewAllActors) {
-    return (
-      <div className="card" style={{ padding: '48px 32px', textAlign: 'center', maxWidth: '600px', margin: '40px auto' }}>
-        <div style={{ width: '56px', height: '56px', borderRadius: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <Shield size={28} />
-        </div>
-        <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-ink)', marginBottom: '8px' }}>
-          SuperUser Access Required
-        </h2>
-        <p style={{ fontSize: '14px', color: 'var(--color-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
-          Viewing all platform actor accounts and inspecting account details is restricted to the SuperUser (Naina Kapoor). Admin accounts can access operational platform features such as Services, Bookings, Tickets, Disputes, and Ledger.
-        </p>
-        <Link to="/admin" style={{ textDecoration: 'none' }}>
-          <Button variant="primary">Return to Ops Dashboard</Button>
-        </Link>
-      </div>
-    );
-  }
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="400px" borderRadius="12px" />;

@@ -25,16 +25,16 @@ export function DemoSwitcherBar() {
     { key: 'arbitrator', label: 'Arbitrator', name: 'Kabir Malhotra' },
     { key: 'admin', label: 'Admin', name: 'Priya Nair' },
     { key: 'superuser', label: 'SuperUser', name: 'Naina Kapoor' },
-    { key: 'guest', label: 'Guest', name: 'Sign Out' },
+    { key: 'guest', label: 'Guest', name: 'Public Visitor' },
   ];
 
   const getActiveRoleLabel = () => {
     if (activeKey === 'admin') return 'ADMIN (Priya Nair)';
     if (activeKey === 'superuser') return 'SUPERUSER (Naina Kapoor)';
     if (activeKey === 'customer') return `CUSTOMER (${currentUser?.name || 'Aarav Mehta'})`;
-    if (activeKey === 'provider') return `PROVIDER (${currentUser?.businessName || currentUser?.name || 'Rohan Verma'})`;
+    if (activeKey === 'provider') return `PROVIDER (${currentUser?.businessName || currentUser?.name || 'UrbanFix Home Solutions'})`;
     if (activeKey === 'arbitrator') return `ARBITRATOR (${currentUser?.name || 'Kabir Malhotra'})`;
-    return 'GUEST';
+    return 'GUEST (Public Visitor)';
   };
 
   const handleActorClick = async (key) => {

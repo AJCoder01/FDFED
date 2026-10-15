@@ -19,7 +19,7 @@ export function PostAJobPage() {
     location: currentUser?.addresses?.[0]?.city || '',
     description: '',
     preferredDate: getTodayDateInputValue(),
-    budget: '2000',
+    budget: '',
     contactName: currentUser?.name || '',
     contactPhone: currentUser?.phone || ''
   });
@@ -168,6 +168,7 @@ export function PostAJobPage() {
             label="Estimated Budget (INR ₹)"
             name="budget"
             type="number"
+            placeholder="e.g. 2000"
             value={formData.budget}
             onChange={handleChange}
             required

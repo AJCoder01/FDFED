@@ -61,12 +61,17 @@ export function CustomerLayout() {
                     backgroundColor: isActive ? 'var(--color-primary-light)' : 'transparent',
                     border: isActive ? '1px solid var(--color-primary-border)' : '1px solid transparent',
                     textDecoration: 'none',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    cursor: 'pointer',
+                    caretColor: 'transparent',
+                    outline: 'none'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', userSelect: 'none', caretColor: 'transparent', pointerEvents: 'none' }}>
                     <Icon size={18} color={isActive ? 'var(--color-primary)' : 'var(--color-muted)'} />
-                    {item.label}
+                    <span>{item.label}</span>
                   </div>
                   {isActive && <ChevronRight size={16} color="var(--color-primary)" />}
                 </Link>

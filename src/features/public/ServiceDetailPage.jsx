@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Star, Shield, Clock, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { Star, Shield, Clock, ArrowLeft } from 'lucide-react';
 import { getAvailableSlots, getServiceById, getServiceReviews } from '../../data/mockRepository';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { useApp } from '../../app/context/AppContext';
@@ -107,39 +107,6 @@ export function ServiceDetailPage() {
               </div>
 
               <p style={{ fontSize: '15px', color: 'var(--color-ink)', marginTop: '16px', lineHeight: '1.6' }}>{service.description}</p>
-            </div>
-          </div>
-
-          {/* Inclusions & Exclusions */}
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-ink)', marginBottom: '16px' }}>Service Scope & Details</h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="grid-cols-2">
-              <div>
-                <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-success)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle2 size={16} /> What is Included
-                </h4>
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: 'var(--color-ink)' }}>
-                  {service.inclusions?.map((inc, i) => (
-                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                      <span style={{ color: 'var(--color-success)', fontWeight: 'bold' }}>✓</span> {inc}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-danger)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <XCircle size={16} /> What is Excluded
-                </h4>
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: 'var(--color-ink)' }}>
-                  {service.exclusions?.map((exc, i) => (
-                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                      <span style={{ color: 'var(--color-danger)', fontWeight: 'bold' }}>✕</span> {exc}
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
           </div>
 

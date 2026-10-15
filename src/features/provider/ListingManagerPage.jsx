@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Upload, Image as ImageIcon } from 'lucide-react';
-import { getCategories, getServices, saveService } from '../../data/mockRepository';
+import { Plus, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { getCategories, getServices, saveService, deleteService } from '../../data/mockRepository';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -16,7 +16,7 @@ import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { money, validateSlots } from './providerUtils';
 
 const emptyForm = {
-  id: '', title: '', categoryId: '', price: '', duration: 60, description: '',
+  id: '', title: '', categoryId: '', price: '', duration: '', description: '',
   availableSlots: [], image: ''
 };
 
@@ -133,6 +133,21 @@ export function ListingManagerPage() {
     }
   };
 
+  const handleDeleteService = async (service) => {
+    if (!window.confirm(`Are you sure you want to remove "${service.title}" from your listings?`)) return;
+    if (busy || !approved) return;
+    setBusy(true);
+    try {
+      await deleteService(service.id, { role: 'provider', userId: currentUser.id });
+      showToast('Service removed from listing.');
+      refresh();
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="300px" borderRadius="12px" />;
 
@@ -157,10 +172,11 @@ export function ListingManagerPage() {
             <div className="provider-stack" style={{ padding: '16px' }}>
               <div className="provider-row provider-between"><span className="provider-hint">{service.categoryName}</span><StatusBadge status={service.status} /></div>
               <h3>{service.title}</h3><strong>{money(service.price)} · {service.duration}</strong>
-              <div className="provider-row">
+              <div className="provider-row" style={{ flexWrap: 'wrap', gap: '8px' }}>
                 <Button variant="outline" size="sm" onClick={() => navigate(`/services/${service.id}`)}>Preview</Button>
                 <Button variant="secondary" size="sm" disabled={busy || !approved} onClick={() => edit(service)}>Edit</Button>
                 <Button variant="secondary" size="sm" disabled={busy || !approved} onClick={() => changeStatus(service, service.status === 'published' ? 'paused' : 'published')}>{service.status === 'published' ? 'Pause' : 'Publish'}</Button>
+                <Button variant="danger" size="sm" disabled={busy || !approved} icon={Trash2} onClick={() => handleDeleteService(service)}>Delete</Button>
               </div>
             </div>
           </div>
@@ -172,12 +188,33 @@ export function ListingManagerPage() {
           onClose={close}
           title={form.id ? 'Edit Service Listing' : 'Create Service Listing'}
           footer={(
-            <>
-              <Button variant="secondary" disabled={busy} onClick={close}>Cancel</Button>
-              <Button type="submit" disabled={busy || !approved}>
-                {busy ? 'Saving…' : form.id ? 'Save Changes' : draft ? 'Save Draft' : 'Save & Publish'}
-              </Button>
-            </>
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <div>
+                {form.id && (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    disabled={busy || !approved}
+                    onClick={() => {
+                      const s = data.services.find(item => item.id === form.id);
+                      if (s) {
+                        close();
+                        handleDeleteService(s);
+                      }
+                    }}
+                  >
+                    Delete Listing
+                  </Button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button variant="secondary" disabled={busy} onClick={close}>Cancel</Button>
+                <Button type="submit" disabled={busy || !approved}>
+                  {busy ? 'Saving…' : form.id ? 'Save Changes' : draft ? 'Save Draft' : 'Save & Publish'}
+                </Button>
+              </div>
+            </div>
           )}
         >
           <div className="provider-stack">
@@ -186,7 +223,7 @@ export function ListingManagerPage() {
             <Select name="categoryId" label="Service Category" value={form.categoryId} onChange={change} disabled={busy} required options={categoryOptions} />
             <div className="grid-cols-2">
               <TextField name="price" label="Fixed Price (INR)" type="number" min="1" value={form.price} onChange={change} disabled={busy} required />
-              <TextField name="duration" label="Duration (Minutes)" type="number" min="1" value={form.duration} onChange={change} disabled={busy} required />
+              <TextField name="duration" label="Duration (Minutes)" type="number" min="1" placeholder="e.g. 60" value={form.duration} onChange={change} disabled={busy} required />
             </div>
             <TextField name="description" label="Detailed Description" value={form.description} onChange={change} disabled={busy} multiline required />
 

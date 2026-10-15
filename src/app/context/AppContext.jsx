@@ -51,7 +51,9 @@ const isSuperUserModeActive = () => {
 export const isSuperUserAccount = user => Boolean(
   user &&
   user.role === 'admin' &&
-  (user.isSuperUser === true || user.email?.toLowerCase() === 'admin@gmail.com' || user.id === 'user-admin-1')
+  (user.isSuperUser === true || user.email?.toLowerCase() === 'admin@gmail.com' || user.id === 'user-admin-1') &&
+  user.id !== 'user-admin-2' &&
+  user.email?.toLowerCase() !== 'staffadmin@gmail.com'
 );
 
 const getInitialSessionUser = () => {
@@ -200,7 +202,29 @@ export function AppProvider({ children }) {
 
   const switchRole = async (targetRole) => {
     if (targetRole === 'guest') {
-      await logout();
+      if (currentUser) {
+        try {
+          await logActivity({
+            userId: currentUser.id,
+            userEmail: currentUser.email,
+            userName: currentUser.name,
+            role: currentRole,
+            type: 'ROLE_SWITCH',
+            description: `Switched demo persona to: Guest (Public Visitor)`
+          });
+        } catch {
+          // Safe fallback
+        }
+      }
+      localStorage.removeItem(SESSION_USER_KEY);
+      localStorage.setItem(ROLE_KEY, 'guest');
+      // Keep superuser demo mode active so the DemoSwitcherBar stays visible for switching later
+      localStorage.setItem(SUPERUSER_MODE_KEY, 'true');
+      setCurrentRole('guest');
+      setCurrentUser(null);
+      setIsSuperUser(false);
+      setIsSuperUserDemoMode(true);
+      setNotifications([]);
       return { success: true, path: '/' };
     }
 

@@ -4,6 +4,7 @@ import { CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText, Scale, Check } f
 import { submitArbitratorApplication } from '../../data/mockRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
+import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
 import { useApp } from '../../app/context/AppContext';
 
 export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
@@ -68,9 +69,9 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
       return;
     }
 
-    const rawPhone = phone.replace(/[\s\-()+]/g, '');
-    if (!phone || !/^\d{10}$/.test(rawPhone)) {
-      setError('Please enter a valid 10-digit phone number.');
+    const phoneErr = validatePhoneNumber(phone);
+    if (phoneErr) {
+      setError(phoneErr);
       return;
     }
 
@@ -143,7 +144,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
       await submitArbitratorApplication({
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        phone: phone.replace(/[\s\-()+]/g, ''),
+        phone: phone.trim(),
         country: country.trim(),
         linkedin: linkedin.trim(),
         title: title.trim() || 'Arbitrator',
@@ -302,12 +303,10 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <TextField
-              label="Phone Number (10 digits) *"
-              type="tel"
+            <PhoneInputField
+              label="Phone Number *"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. 9876543210"
+              onChange={setPhone}
               required
             />
             <TextField

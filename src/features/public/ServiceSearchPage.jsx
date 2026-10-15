@@ -107,7 +107,6 @@ export function ServiceSearchPage() {
                 { value: 'rating', label: 'Top Rated' },
                 { value: 'price_low', label: 'Price: Low to High' },
                 { value: 'price_high', label: 'Price: High to Low' },
-                { value: 'other', label: 'Other' },
               ]}
             />
           </div>
@@ -122,7 +121,6 @@ export function ServiceSearchPage() {
                 { value: '500', label: 'Under ₹500' },
                 { value: '1000', label: 'Under ₹1,000' },
                 { value: '1500', label: 'Under ₹1,500' },
-                { value: 'other', label: 'Other' },
               ]}
             />
           </div>

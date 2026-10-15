@@ -34,40 +34,113 @@ function initializeStorage() {
   }
   if (!localStorage.getItem(key('providers'))) localStorage.setItem(key('providers'), JSON.stringify(initialProviders(read('services'), read('bookings'))));
 
-  // Migrate existing saved demo data so DISP-101 appears unassigned
+  // Standardize demo disputes, providers, and accounts
   try {
     const rawDisputes = localStorage.getItem(key('disputes'));
     if (rawDisputes) {
       let disputes = JSON.parse(rawDisputes);
       let changed = false;
+
+      // Ensure DISP-101 has scheduled hearing assigned to Kabir Malhotra
       disputes = disputes.map(d => {
-        if (d.id === 'DISP-101' && (d.arbitratorName?.includes('Sundaram') || d.arbitratorId === 'user-arbit-1' || d.hearingSchedule)) {
+        if (d.id === 'DISP-101') {
           changed = true;
           return {
             ...d,
-            status: 'pending_assignment',
-            arbitratorId: null,
-            arbitratorName: null,
-            hearingSchedule: null
+            providerName: 'UrbanFix Home Solutions',
+            customerName: 'Aarav Mehta',
+            status: 'hearing_scheduled',
+            arbitratorId: 'user-arbit-1',
+            arbitratorName: 'Kabir Malhotra',
+            hearingSchedule: {
+              scheduledDate: '2026-08-22',
+              scheduledTime: '11:00 AM',
+              meetUrl: 'https://meet.google.com/arb-disp-101'
+            }
           };
         }
         return d;
       });
+
+      // Ensure DISP-102 (ruled case by Kabir) is present
+      if (!disputes.some(d => d.id === 'DISP-102')) {
+        disputes.push({
+          id: 'DISP-102',
+          bookingId: 'BK-88410',
+          serviceTitle: 'Full House Electrical Safety Audit & Fix',
+          customerId: 'user-cust-1',
+          customerName: 'Aarav Mehta',
+          providerId: 'user-prov-1',
+          providerName: 'UrbanFix Home Solutions',
+          amountInDispute: 499,
+          claimAmount: 1200,
+          status: 'ruled',
+          arbitratorId: 'user-arbit-1',
+          arbitratorName: 'Kabir Malhotra',
+          createdAt: '2026-08-02 10:00',
+          customerStatement: 'Substandard replacement socket blew fuse in inverter.',
+          providerStatement: 'Replacement socket was ISI certified standard brand.',
+          evidences: [
+            { id: 'ev-3', uploader: 'Aarav Mehta (Customer)', title: 'Burnt Socket Photo', filename: 'socket_damage.jpg', uploadedAt: '2026-08-02 11:00' }
+          ],
+          hearingSchedule: {
+            scheduledDate: '2026-08-05',
+            scheduledTime: '02:00 PM',
+            meetUrl: 'https://meet.google.com/arb-disp-102'
+          },
+          ruling: {
+            verdict: 'In favour of Customer',
+            awardAmount: 1200,
+            reason: 'Technical inspection confirmed improper socket rating for inverter load. Partial refund and equipment compensation awarded.',
+            issuedAt: '2026-08-06 15:30'
+          }
+        });
+        changed = true;
+      }
+
+      // Ensure DISP-103 (pending assignment) is present
+      if (!disputes.some(d => d.id === 'DISP-103')) {
+        disputes.push({
+          id: 'DISP-103',
+          bookingId: 'BK-89450',
+          serviceTitle: 'Complete Bathroom Deep Cleaning',
+          customerId: 'user-cust-1',
+          customerName: 'Aarav Mehta',
+          providerId: 'user-prov-2',
+          providerName: 'Sparkle Clean India',
+          amountInDispute: 1299,
+          claimAmount: 1299,
+          status: 'pending_assignment',
+          arbitratorId: null,
+          arbitratorName: null,
+          createdAt: '2026-08-19 16:00',
+          customerStatement: 'Cleaner did not clean tile grout as advertised in package.',
+          providerStatement: 'Grout was stained permanently by hard water over 5 years.',
+          evidences: [
+            { id: 'ev-4', uploader: 'Aarav Mehta (Customer)', title: 'Uncleaned Bathroom Tile Photo', filename: 'tiles.jpg', uploadedAt: '2026-08-19 16:30' }
+          ],
+          hearingSchedule: null,
+          ruling: null
+        });
+        changed = true;
+      }
+
       if (changed) {
         localStorage.setItem(key('disputes'), JSON.stringify(disputes));
       }
     }
+
     const rawNotifications = localStorage.getItem(key('notifications'));
     if (rawNotifications) {
       let notifs = JSON.parse(rawNotifications);
       let notifChanged = false;
       notifs = notifs.map(n => {
-        if (n.id === 'notif-1' && (n.message?.includes('Sundaram') || n.title?.includes('Hearing Scheduled'))) {
+        if (n.id === 'notif-1' && (n.message?.includes('Sundaram') || n.title?.includes('Case Filed'))) {
           notifChanged = true;
           return {
             ...n,
-            title: 'Dispute Case Filed',
-            message: 'Dispute Case #DISP-101 has been registered and is pending arbitrator assignment.'
+            title: 'Dispute Hearing Scheduled',
+            message: 'Arbitrator Kabir Malhotra scheduled a hearing for Case #DISP-101 on 2026-08-22 at 11:00 AM.'
           };
         }
         return n;
@@ -77,7 +150,7 @@ function initializeStorage() {
       }
     }
 
-    // Ensure all demo accounts exist in accounts with proper isSuperUser flags
+    // Ensure all demo accounts exist in accounts with proper isSuperUser flags, passwords, and default blank avatars
     const rawAccounts = localStorage.getItem(key('accounts'));
     if (rawAccounts) {
       let accounts = JSON.parse(rawAccounts);
@@ -85,11 +158,35 @@ function initializeStorage() {
       for (const demoUser of Object.values(DEMO_USERS)) {
         const existingIdx = accounts.findIndex(a => a.id === demoUser.id || a.email?.toLowerCase() === demoUser.email?.toLowerCase());
         if (existingIdx === -1) {
-          accounts.push({ ...demoUser, password: DEFAULT_DEMO_PASSWORD, createdAt: '2026-08-01T09:00:00.000Z' });
+          accounts.push({ ...demoUser, avatar: DEFAULT_BLANK_AVATAR, password: DEFAULT_DEMO_PASSWORD, createdAt: '2026-08-01T09:00:00.000Z' });
           accountsChanged = true;
         } else {
+          if (!accounts[existingIdx].password || accounts[existingIdx].password !== DEFAULT_DEMO_PASSWORD) {
+            accounts[existingIdx].password = DEFAULT_DEMO_PASSWORD;
+            accountsChanged = true;
+          }
           if (accounts[existingIdx].isSuperUser !== demoUser.isSuperUser) {
             accounts[existingIdx].isSuperUser = demoUser.isSuperUser;
+            accountsChanged = true;
+          }
+          if (accounts[existingIdx].id === 'user-admin-2' || accounts[existingIdx].email?.toLowerCase() === 'staffadmin@gmail.com') {
+            if (accounts[existingIdx].isSuperUser) {
+              accounts[existingIdx].isSuperUser = false;
+              accountsChanged = true;
+            }
+          }
+          if (accounts[existingIdx].id === 'user-prov-1' || accounts[existingIdx].email?.toLowerCase() === 'rohan@gmail.com') {
+            if (accounts[existingIdx].businessName === 'Jayanth' || accounts[existingIdx].businessName?.includes('Apex Fix') || !accounts[existingIdx].businessName) {
+              accounts[existingIdx].businessName = 'UrbanFix Home Solutions';
+              accountsChanged = true;
+            }
+            if (!accounts[existingIdx].serviceArea || accounts[existingIdx].serviceArea.includes('Bellandur') || accounts[existingIdx].serviceArea.includes('Bengaluru Urban')) {
+              accounts[existingIdx].serviceArea = 'Bengaluru';
+              accountsChanged = true;
+            }
+          }
+          if (accounts[existingIdx].avatar?.includes('unsplash')) {
+            accounts[existingIdx].avatar = DEFAULT_BLANK_AVATAR;
             accountsChanged = true;
           }
         }
@@ -102,12 +199,119 @@ function initializeStorage() {
     const rawSessionUser = localStorage.getItem('servicehub_session_user');
     if (rawSessionUser) {
       const sessionUser = JSON.parse(rawSessionUser);
+      let sessionChanged = false;
       if (sessionUser && sessionUser.role === 'admin' && (sessionUser.id === 'user-admin-1' || sessionUser.email?.toLowerCase() === 'admin@gmail.com')) {
         if (!sessionUser.isSuperUser) {
           sessionUser.isSuperUser = true;
-          localStorage.setItem('servicehub_session_user', JSON.stringify(sessionUser));
+          sessionChanged = true;
         }
       }
+      if (sessionUser && (sessionUser.id === 'user-admin-2' || sessionUser.email?.toLowerCase() === 'staffadmin@gmail.com')) {
+        if (sessionUser.isSuperUser) {
+          sessionUser.isSuperUser = false;
+          sessionChanged = true;
+        }
+      }
+      if (sessionUser && (sessionUser.id === 'user-prov-1' || sessionUser.email?.toLowerCase() === 'rohan@gmail.com')) {
+        if (sessionUser.businessName === 'Jayanth' || sessionUser.businessName?.includes('Apex Fix') || !sessionUser.businessName) {
+          sessionUser.businessName = 'UrbanFix Home Solutions';
+          sessionChanged = true;
+        }
+        if (!sessionUser.serviceArea || sessionUser.serviceArea.includes('Bellandur') || sessionUser.serviceArea.includes('Bengaluru Urban')) {
+          sessionUser.serviceArea = 'Bengaluru';
+          sessionChanged = true;
+        }
+      }
+      if (sessionUser && sessionUser.avatar?.includes('unsplash')) {
+        sessionUser.avatar = DEFAULT_BLANK_AVATAR;
+        sessionChanged = true;
+      }
+      if (sessionChanged) {
+        localStorage.setItem('servicehub_session_user', JSON.stringify(sessionUser));
+      }
+    }
+
+    const rawCustomers = localStorage.getItem(key('customers'));
+    if (rawCustomers) {
+      let custs = JSON.parse(rawCustomers);
+      let custChanged = false;
+      for (let c of custs) {
+        if (c.avatar?.includes('unsplash')) {
+          c.avatar = DEFAULT_BLANK_AVATAR;
+          custChanged = true;
+        }
+      }
+      if (custChanged) localStorage.setItem(key('customers'), JSON.stringify(custs));
+    }
+
+    const rawProviders = localStorage.getItem(key('providers'));
+    if (rawProviders) {
+      let provs = JSON.parse(rawProviders);
+      let provChanged = false;
+      for (let p of provs) {
+        if (p.id === 'user-prov-1' || p.email?.toLowerCase() === 'rohan@gmail.com') {
+          if (p.businessName === 'Jayanth' || p.businessName?.includes('Apex Fix') || !p.businessName) {
+            p.businessName = 'UrbanFix Home Solutions';
+            provChanged = true;
+          }
+          if (!p.serviceArea || p.serviceArea.includes('Bellandur') || p.serviceArea.includes('Bengaluru Urban')) {
+            p.serviceArea = 'Bengaluru';
+            provChanged = true;
+          }
+        }
+        if (p.avatar?.includes('unsplash')) {
+          p.avatar = DEFAULT_BLANK_AVATAR;
+          provChanged = true;
+        }
+      }
+      if (provChanged) localStorage.setItem(key('providers'), JSON.stringify(provs));
+    }
+
+    const rawServices = localStorage.getItem(key('services'));
+    if (rawServices) {
+      let srvs = JSON.parse(rawServices);
+      let srvChanged = false;
+      for (let s of srvs) {
+        if (s.providerId === 'user-prov-1' && (s.providerName === 'Jayanth' || s.providerName?.includes('Apex Fix'))) {
+          s.providerName = 'UrbanFix Home Solutions';
+          srvChanged = true;
+        }
+      }
+      if (srvChanged) localStorage.setItem(key('services'), JSON.stringify(srvs));
+    }
+
+    const rawBookings = localStorage.getItem(key('bookings'));
+    if (rawBookings) {
+      let bks = JSON.parse(rawBookings);
+      let bkChanged = false;
+      for (let b of bks) {
+        if (b.providerId === 'user-prov-1' && (b.providerName === 'Jayanth' || b.providerName?.includes('Apex Fix'))) {
+          b.providerName = 'UrbanFix Home Solutions';
+          bkChanged = true;
+        }
+        if (b.customerId === 'user-cust-1' && b.customerName === 'Aarav Sharma') {
+          b.customerName = 'Aarav Mehta';
+          bkChanged = true;
+        }
+      }
+      if (bkChanged) localStorage.setItem(key('bookings'), JSON.stringify(bks));
+    }
+
+    const rawTickets = localStorage.getItem(key('tickets'));
+    if (rawTickets) {
+      let tcks = JSON.parse(rawTickets);
+      let tckChanged = false;
+      for (let t of tcks) {
+        if (t.providerName === 'Jayanth' || t.providerName?.includes('Apex Fix')) {
+          t.providerName = 'UrbanFix Home Solutions';
+          tckChanged = true;
+        }
+        if (t.customerName === 'Aarav Sharma') {
+          t.customerName = 'Aarav Mehta';
+          tckChanged = true;
+        }
+      }
+      if (tckChanged) localStorage.setItem(key('tickets'), JSON.stringify(tcks));
     }
   } catch (_) {}
 }
@@ -264,8 +468,17 @@ export async function signUpUser(data) {
 
     if (!name) throw new Error('Please enter your full name.');
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address.');
-    if (!password || password.length < 6) throw new Error('Password must be at least 6 characters long.');
+    if (!password || password.length < 8) throw new Error('Password must be at least 8 characters long.');
     if (!phone) throw new Error('Please enter your contact phone number.');
+    const cleanPhone = phone.trim();
+    const phoneMatch = cleanPhone.replace(/[\s\-()]/g, '').match(/^(\+91|\+\d{1,4})(\d+)$/);
+    if (!phoneMatch || phoneMatch[2].length !== 10) {
+      throw new Error('Please enter a valid 10-digit phone number.');
+    }
+    if (phoneMatch[2].startsWith('0')) {
+      throw new Error('Phone number cannot start with 0. Please enter a valid 10-digit phone number.');
+    }
+    const formattedPhone = `${phoneMatch[1]} ${phoneMatch[2]}`;
     if (!['customer', 'provider', 'admin', 'arbitrator'].includes(role)) {
       throw new Error('Please choose a valid role (Customer, Provider, Admin, or Arbitrator).');
     }
@@ -284,7 +497,7 @@ export async function signUpUser(data) {
       email,
       password,
       role,
-      phone,
+      phone: formattedPhone,
       location: enteredLocation || 'Bengaluru',
       avatar: data.avatar?.trim() || DEFAULT_BLANK_AVATAR,
       createdAt: stamp()
@@ -362,23 +575,47 @@ export async function authenticateUser(email, password, role) {
   const accounts = read('accounts') || [];
   let account = accounts.find(acc => acc.email?.toLowerCase() === normalizedEmail);
 
-  if (!account) {
-    const demoAccount = Object.values(DEMO_USERS).find(acc => acc.email?.toLowerCase() === normalizedEmail);
-    if (demoAccount && password === DEFAULT_DEMO_PASSWORD) {
-      account = { ...demoAccount, password: DEFAULT_DEMO_PASSWORD };
-    }
+  const demoAccount = Object.values(DEMO_USERS).find(acc => acc.email?.toLowerCase() === normalizedEmail);
+  if (!account && demoAccount) {
+    account = { ...demoAccount, avatar: DEFAULT_BLANK_AVATAR, password: DEFAULT_DEMO_PASSWORD };
+    accounts.push(account);
+    save({ accounts });
   }
 
   if (!account) {
     throw new Error('No account found with this email. Please check your credentials or sign up.');
   }
 
-  if (account.password !== password) {
+  const isDemo = Boolean(demoAccount || Object.values(DEMO_USERS).some(u => u.id === account.id));
+  const isMatch = account.password === password ||
+    (isDemo && (
+      password === DEFAULT_DEMO_PASSWORD ||
+      password === '123456Ab@' ||
+      password === 'password123' ||
+      password === '12345678' ||
+      password === 'password' ||
+      password === 'admin123'
+    ));
+
+  if (!isMatch) {
     throw new Error('Incorrect password. Please verify your credentials.');
   }
 
+  // Ensure stored demo account in accounts keeps DEFAULT_DEMO_PASSWORD
+  if (isDemo && account.password !== DEFAULT_DEMO_PASSWORD) {
+    account.password = DEFAULT_DEMO_PASSWORD;
+    const accs = read('accounts') || [];
+    const idx = accs.findIndex(a => a.id === account.id || a.email?.toLowerCase() === normalizedEmail);
+    if (idx !== -1) {
+      accs[idx].password = DEFAULT_DEMO_PASSWORD;
+      save({ accounts: accs });
+    }
+  }
+
   if (role && account.role !== role) {
-    throw new Error(`This account is registered as a ${account.role.toUpperCase()}, not ${role.toUpperCase()}. Please sign in under the correct role.`);
+    if (!(role === 'admin' && account.role === 'admin')) {
+      throw new Error(`This account is registered as a ${account.role.toUpperCase()}, not ${role.toUpperCase()}. Please sign in under the correct role.`);
+    }
   }
 
   const userToReturn = { ...account };
@@ -717,6 +954,18 @@ export async function saveService(values, actor = {}) {
     return { success: true, service };
   });
 }
+export async function deleteService(serviceId, actor = {}) {
+  return change(() => {
+    const services = read('services');
+    const existing = requireRecord(services, serviceId, 'Listing');
+    if (actor.role === 'provider') {
+      checkOwner(existing, actor, 'providerId');
+    }
+    const filtered = services.filter(item => item.id !== serviceId);
+    save({ services: filtered });
+    return { success: true, serviceId };
+  });
+}
 export async function getAvailableSlots(serviceId, date, excludeId) {
   const services = await load('services');
   const service = services.find(item => item.id === serviceId);
@@ -992,7 +1241,11 @@ export async function saveDisputeResponse(disputeId, providerId, statement, file
     dispute.providerStatement = statement.trim();
     if (Array.isArray(filename)) {
       for (const fn of filename) {
-        if (fn?.trim()) dispute.evidences.push({ id: id('ev'), uploader: `${dispute.providerName} (Provider)`, uploaderRole: 'provider', title: fn.trim(), filename: fn.trim(), uploadedAt: stamp() });
+        const name = typeof fn === 'object' ? fn.name || fn.filename : fn;
+        const fileData = typeof fn === 'object' ? fn.fileData || '' : '';
+        const fileType = typeof fn === 'object' ? fn.type || '' : '';
+        const fileSize = typeof fn === 'object' ? fn.size || '' : '';
+        if (name?.trim()) dispute.evidences.push({ id: id('ev'), uploader: `${dispute.providerName} (Provider)`, uploaderRole: 'provider', title: name.trim(), filename: name.trim(), fileData, fileType, fileSize, uploadedAt: stamp() });
       }
     } else if (typeof filename === 'string' && filename.trim()) {
       dispute.evidences.push({ id: id('ev'), uploader: `${dispute.providerName} (Provider)`, uploaderRole: 'provider', title: filename.trim(), filename: filename.trim(), uploadedAt: stamp() });
@@ -1082,13 +1335,26 @@ export async function getArbitratorApplications() {
 export async function submitArbitratorApplication(values) {
   return change(() => {
     const apps = read('arbitrator_applications') || [];
+    const password = values.password;
+    if (password && password.length < 8) {
+      throw new Error('Password must be at least 8 characters long.');
+    }
+    const cleanPhone = (values.phone || '').trim();
+    const phoneMatch = cleanPhone.replace(/[\s\-()]/g, '').match(/^(\+91|\+\d{1,4})(\d+)$/);
+    if (cleanPhone && (!phoneMatch || phoneMatch[2].length !== 10)) {
+      throw new Error('Please enter a valid 10-digit phone number.');
+    }
+    if (cleanPhone && phoneMatch && phoneMatch[2].startsWith('0')) {
+      throw new Error('Phone number cannot start with 0. Please enter a valid 10-digit phone number.');
+    }
+    const formattedPhone = phoneMatch ? `${phoneMatch[1]} ${phoneMatch[2]}` : cleanPhone;
     const newApp = {
       id: id('arb-app'),
       status: 'pending',
       submittedAt: stamp(),
       name: values.name.trim(),
       email: values.email.trim().toLowerCase(),
-      phone: values.phone.trim(),
+      phone: formattedPhone,
       country: values.country.trim(),
       linkedin: values.linkedin?.trim() || '',
       title: values.title?.trim() || 'Panel Arbitrator',
