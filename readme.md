@@ -16,8 +16,6 @@ npm run dev
 
 Open the local URL printed in the terminal, usually [http://localhost:5173](http://localhost:5173). If that port is busy, Vite will print a different URL.
 
-The app uses mock data stored in your browser's local storage. No backend, database, or `.env` file is required.
-
 Press `Ctrl+C` in the terminal to stop the app.
 
 ## Build and preview
