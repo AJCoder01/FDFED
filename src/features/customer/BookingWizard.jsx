@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { createBooking, saveCustomerAddresses } from '../../data/mockRepository';
+import { createBooking, saveCustomerAddresses } from '../../data/apiRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
@@ -17,6 +17,7 @@ export function BookingWizard() {
   const defaultAddress = addresses.find(address => address.isDefault) || addresses[0];
 
   const [step, setStep] = useState(1);
+  const [requestKey] = useState(() => crypto.randomUUID());
   const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
   const [newAddressOpen, setNewAddressOpen] = useState(false);
   const [newAddress, setNewAddress] = useState({ label: 'Home', addressLine: '', city: '', pincode: '' });
@@ -55,6 +56,7 @@ export function BookingWizard() {
     setLoading(true);
     try {
       const newBooking = await createBooking({
+        requestKey,
         serviceId: bookingData.serviceId,
         serviceTitle: bookingData.serviceTitle,
         categoryName: 'Home Services',
@@ -110,7 +112,7 @@ export function BookingWizard() {
             <div><strong>Booking Amount:</strong> ₹{confirmedBooking.amount} ({confirmedBooking.paymentMethod})</div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+          <div className="checkout-actions" style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
             <Button variant="primary" onClick={() => navigate(`/customer/bookings/${confirmedBooking.id}`)}>
               Track Booking Timeline
             </Button>
@@ -247,7 +249,7 @@ export function BookingWizard() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="checkout-actions" style={{ display: 'flex', gap: '12px' }}>
             <Button variant="secondary" onClick={() => setStep(1)}>
               ← Back
             </Button>
@@ -276,11 +278,11 @@ export function BookingWizard() {
             ]}
           />
 
-          <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+          <div className="checkout-actions" style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
             <Button variant="secondary" onClick={() => setStep(2)}>
               ← Back
             </Button>
-            <Button variant="primary" style={{ flex: 1 }} size="lg" disabled={loading} onClick={handleConfirmOrder}>
+            <Button variant="primary" style={{ flex: 1, whiteSpace: 'normal', height: 'auto', minHeight: '48px' }} size="lg" disabled={loading} onClick={handleConfirmOrder}>
               {loading ? 'Processing...' : paymentMethod === 'Cash After Service' ? 'Confirm Booking (Pay After Service)' : `Confirm & Pay ₹${bookingData.price}`}
             </Button>
           </div>

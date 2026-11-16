@@ -5,7 +5,7 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
-import { updateUserProfile, getDisputes } from '../../data/mockRepository';
+import { updateUserProfile, getDisputes } from '../../data/apiRepository';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
@@ -14,7 +14,7 @@ export function ArbitratorProfilePage() {
   const { data: disputes } = useRepositoryQuery(getDisputes);
 
   const myDisputes = (disputes || []).filter(
-    (d) => d.arbitratorId === currentUser?.id || d.arbitratorId === 'user-arbit-1'
+    (d) => d.arbitratorId === currentUser?.id
   );
   const activeDisputesCount = myDisputes.filter(
     (d) => d.status === 'assigned' || d.status === 'hearing_scheduled' || d.status === 'pending_assignment'
@@ -227,7 +227,7 @@ export function ArbitratorProfilePage() {
         <div style={{ flex: 1, minWidth: '240px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{currentUser?.name || 'Kabir Malhotra'}</h2>
-            <StatusBadge status="approved" label="Empaneled Arbitrator" />
+            <StatusBadge status="approved" label="Arbitrator" />
           </div>
           <p style={{ fontSize: '14px', color: 'var(--color-conflict)', fontWeight: '700', marginTop: '2px' }}>
             {currentUser?.title || 'Senior Independent Arbitrator'} • Indian Arbitration Panel
@@ -268,7 +268,7 @@ export function ArbitratorProfilePage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px dashed var(--color-border)' }}>
               <span style={{ color: 'var(--color-muted)' }}>Specialization</span>
-              <strong style={{ color: 'var(--color-ink)' }}>Contractual & Escrow Disputes</strong>
+              <strong style={{ color: 'var(--color-ink)' }}>Service & Booking Disputes</strong>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px dashed var(--color-border)' }}>

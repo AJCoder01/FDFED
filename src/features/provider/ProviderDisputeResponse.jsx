@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../../app/context/AppContext';
-import { saveDisputeResponse } from '../../data/mockRepository';
+import { saveDisputeResponse } from '../../data/apiRepository';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Upload, FileText, X } from 'lucide-react';

@@ -5,7 +5,7 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
-import { updateUserProfile } from '../../data/mockRepository';
+import { updateUserProfile, getUserProfile } from '../../data/apiRepository';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function AdminProfilePage() {
@@ -26,8 +26,9 @@ export function AdminProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSecurityCheck = () => {
-    showToast('Admin security session verified cleanly.', 'success');
+  const handleSecurityCheck = async () => {
+    try { await getUserProfile(); showToast('Your server session is active.'); }
+    catch (error) { showToast(error.message, 'error'); }
   };
 
   const handleSaveProfile = async (e) => {
@@ -268,7 +269,7 @@ export function AdminProfilePage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--color-muted)' }}>Last Session Login</span>
-              <strong style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <strong style={{ color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
                 Active Now
               </strong>
@@ -292,7 +293,7 @@ export function AdminProfilePage() {
             {[
               'Provider Onboarding Verification & Approval',
               'Catalog Listing Inspection & Moderation',
-              'Escrow Payment & Booking Audit Access',
+              'Simulated Payment & Booking Audit Access',
               'Support Ticket Triage & Escalation',
               'Dispute Assignment to Arbitrator Roster',
               'System Category & Sub-category Management'
@@ -315,7 +316,7 @@ export function AdminProfilePage() {
           <div>
             <h4 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-ink)' }}>Security & Compliance Status</h4>
             <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '2px' }}>
-              Multi-factor Hardware Key Enabled • 256-Bit SSL Encrypted Admin Control Panel
+              Authenticated administrator access • Server-enforced permissions
             </p>
           </div>
         </div>

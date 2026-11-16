@@ -98,9 +98,9 @@ export function SignupPage() {
         role: selectedRole,
         avatar: DEFAULT_BLANK_AVATAR,
         ...(selectedRole === 'customer' && {
-          addressLine: addressLine || '123 Main Road',
-          city: city || 'Bengaluru',
-          pincode: pincode || '560001',
+          addressLine: addressLine || undefined,
+          city: city || undefined,
+          pincode: pincode || undefined,
           addressLabel: 'Home'
         }),
         ...(selectedRole === 'provider' && {

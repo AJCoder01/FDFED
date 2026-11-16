@@ -15,7 +15,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '50
         closeRef.current();
       }
       if (event.key !== 'Tab') return;
-      const controls = panel.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]');
+      const controls = [...panel.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]')].filter(control => control.getClientRects().length);
       const first = controls[0];
       const last = controls[controls.length - 1];
       const outside = document.activeElement === panel.current || !panel.current.contains(document.activeElement);
@@ -60,7 +60,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '50
     boxShadow: 'var(--shadow-modal)',
     width: '100%',
     maxWidth: maxWidth,
-    maxHeight: '90vh',
+    maxHeight: '90dvh',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
@@ -98,14 +98,14 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '50
   return (
     <div style={overlayStyle} onClick={onClose}>
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} style={modalStyle} onClick={(e) => e.stopPropagation()}>
-        <div style={headerStyle}>
+        <div className="modal-header" style={headerStyle}>
           <h3 id={titleId} style={titleStyle}>{title}</h3>
           <Button variant="ghost" size="sm" aria-label="Close dialog" onClick={onClose}>
             <X size={18} />
           </Button>
         </div>
-        <div style={bodyStyle}>{children}</div>
-        {footer && <div style={footerStyle}>{footer}</div>}
+        <div className="modal-body" style={bodyStyle}>{children}</div>
+        {footer && <div className="modal-footer" style={footerStyle}>{footer}</div>}
       </div>
     </div>
   );

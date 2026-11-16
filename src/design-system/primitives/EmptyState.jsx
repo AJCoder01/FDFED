@@ -17,7 +17,7 @@ export function EmptyState({
     padding: 'var(--space-12) var(--space-6)',
     textAlign: 'center',
     backgroundColor: 'var(--color-surface)',
-    border: '1px border-dashed var(--color-border)',
+    border: '1px dashed var(--color-border)',
     borderRadius: 'var(--radius-card)',
   };
 

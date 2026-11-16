@@ -2,7 +2,7 @@
 
 :root {
   /* Brand Primary Colors */
-  --color-primary: #2563EB;
+  --color-primary: #1D4ED8;
   --color-primary-hover: #1D4ED8;
   --color-primary-active: #1E40AF;
   --color-primary-light: #EFF6FF;
@@ -18,22 +18,23 @@
   /* Neutral Slate Palette */
   --color-ink: #0F172A;
   --color-ink-secondary: #334155;
-  --color-muted: #64748B;
+  --color-muted: #52627A;
   --color-surface: #FFFFFF;
   --color-page-bg: #F8FAFC;
   --color-border: #E2E8F0;
   --color-border-subtle: #F1F5F9;
 
   /* Status Colors */
-  --color-success: #10B981;
+  --color-success: #047857;
   --color-success-bg: #ECFDF5;
-  --color-warning: #F59E0B;
+  --color-warning: #92400E;
   --color-warning-bg: #FEF3C7;
-  --color-danger: #EF4444;
+  --color-danger: #B91C1C;
   --color-danger-bg: #FEF2F2;
-  --color-conflict: #D97706;
+  --color-conflict: #92400E;
   --color-conflict-bg: #FFFBEB;
-  --color-info: #3B82F6;
+  --color-info: #1D4ED8;
+  --color-purple: #6D28D9;
   --color-info-bg: #EFF6FF;
 
   --color-success-text: #065F46;
@@ -119,3 +120,15 @@
   --shadow-xl: 0 20px 32px -8px rgba(0, 0, 0, 0.42);
   --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
 }
+
+:root { --color-on-primary: #FFFFFF; }
+:root[data-theme='dark'] { --color-on-primary: #0B1220; }
+:root {
+  --color-success-action: #047857;
+  --color-danger-action: #B91C1C;
+  --color-warning-action: #92400E;
+  --color-info-action: #1D4ED8;
+}
+
+:root[data-theme='dark'] { --color-success: #34D399; --color-warning: #FBBF24; --color-danger: #FCA5A5; --color-conflict: #FBBF24; --color-info: #93C5FD;
+  --color-purple: #C4B5FD; }

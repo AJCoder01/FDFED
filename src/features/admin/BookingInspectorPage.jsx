@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
-import { getBookings } from '../../data/mockRepository';
+import { getBookings } from '../../data/apiRepository';
 import { netPayout, platformFee } from '../../data/bookingRules';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -24,7 +24,7 @@ export function BookingInspectorPage() {
       header: '5% Platform Fee', 
       accessor: 'platformFee', 
       render: (row) => {
-        return <span style={{ color: '#059669', fontWeight: '700' }}>+₹{platformFee(row)}</span>;
+        return <span style={{ color: 'var(--color-success)', fontWeight: '700' }}>+₹{platformFee(row)}</span>;
       }
     },
     { 

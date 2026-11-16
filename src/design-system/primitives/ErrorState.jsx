@@ -31,7 +31,7 @@ export function ErrorState({
 
   const descStyle = {
     fontSize: 'var(--font-size-sm)',
-    color: '#8C1D18',
+    color: 'var(--color-danger)',
     marginBottom: 'var(--space-4)',
   };
 

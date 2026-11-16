@@ -1,9 +1,10 @@
+import { ServiceImage } from '../../design-system/primitives/ServiceImage';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Shield, Star, Wrench, Sparkles, Zap, Tv, Wind, ArrowRight, X } from 'lucide-react';
-import { getCategories, getServices } from '../../data/mockRepository';
+import { getCategories, getServices } from '../../data/apiRepository';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 import { useApp } from '../../app/context/AppContext';
@@ -12,12 +13,6 @@ export function LandingPage() {
   const { currentRole, logout } = useApp();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // When on the landing page, ensure any stale session is cleared so user is guest and must log in / sign up
-    if (currentRole && currentRole !== 'guest') {
-      logout();
-    }
-  }, [currentRole, logout]);
 
   const load = useCallback(async () => {
     const [categories, services] = await Promise.all([getCategories(), getServices()]);
@@ -27,6 +22,8 @@ export function LandingPage() {
   const categories = data?.categories || [];
   const allServices = data?.services || [];
 
+  const reviewCount = allServices.reduce((count, service) => count + service.reviewCount, 0);
+  const averageRating = reviewCount ? (allServices.reduce((total, service) => total + (service.rating || 0) * service.reviewCount, 0) / reviewCount).toFixed(1) : '—';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
@@ -99,7 +96,7 @@ export function LandingPage() {
         
         <div className="app-container" style={{ textAlign: 'center', maxWidth: '880px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: 'var(--radius-full)', backgroundColor: 'rgba(37, 99, 235, 0.15)', border: '1px solid rgba(96, 165, 250, 0.3)', color: '#93C5FD', fontSize: '13px', fontWeight: '700', marginBottom: '24px' }}>
-            <Shield size={16} color="#60A5FA" /> 100% Verified Background-Checked Pros Across India
+            <Shield size={16} color="#60A5FA" /> Discover Admin-Reviewed Service Providers
           </div>
           
           <h1 style={{ fontSize: '3.25rem', fontWeight: '800', color: '#FFFFFF', lineHeight: '1.15', letterSpacing: '-0.03em', marginBottom: '20px' }}>
@@ -110,11 +107,11 @@ export function LandingPage() {
           </h1>
           
           <p style={{ fontSize: '1.2rem', color: '#94A3B8', marginBottom: '40px', lineHeight: '1.6', maxWidth: '720px', margin: '0 auto 40px auto' }}>
-            ServiceHub connects you with verified professionals for home services. Fixed INR prices, 256-bit escrow payment protection, and total peace of mind.
+            ServiceHub connects you with professionals for home services. Browse fixed INR prices, book appointments, and track simulated payments.
           </p>
 
           {/* Integrated Search Bar Box - Filters directly on landing page */}
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', maxWidth: '760px', margin: '0 auto', padding: '8px', borderRadius: '16px', backgroundColor: 'var(--color-surface)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <form className="landing-search" onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', maxWidth: '760px', margin: '0 auto', padding: '8px', borderRadius: '16px', backgroundColor: 'var(--color-surface)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 2, paddingLeft: '14px', minWidth: '220px' }}>
               <Search size={20} color="#64748B" />
               <input
@@ -138,7 +135,7 @@ export function LandingPage() {
             
             <div style={{ width: '1px', height: '32px', backgroundColor: '#E2E8F0' }} className="desktop-nav" />
 
-            <select
+            <select aria-label="Service category"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               style={{ border: 'none', outline: 'none', fontSize: '14px', color: 'var(--color-ink-secondary)', fontWeight: '600', backgroundColor: 'transparent', cursor: 'pointer', padding: '0 12px', minWidth: '150px' }}
@@ -173,23 +170,23 @@ export function LandingPage() {
         <div className="app-container">
           <div style={{ backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', padding: '24px 32px', boxShadow: 'var(--shadow-lg)', color: '#FFFFFF', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px', textAlign: 'center' }} className="grid-cols-5">
             <div>
-              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>100%</div>
-              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Verified Providers</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>{new Set(allServices.map(service => service.providerId)).size}</div>
+              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Listed Providers</div>
             </div>
             <div>
-              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>100,000+</div>
-              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Happy Clients</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>{allServices.length}</div>
+              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Available Services</div>
             </div>
             <div>
-              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>250,000+</div>
-              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Projects Completed</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>{categories.length}</div>
+              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Service Categories</div>
             </div>
             <div>
-              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>₹50Cr+</div>
-              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Escrow Protected</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#60A5FA' }}>{allServices.length ? `₹${Math.min(...allServices.map(service => service.price))}` : '—'}</div>
+              <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Starting Price</div>
             </div>
             <div>
-              <div style={{ fontSize: '22px', fontWeight: '800', color: '#F59E0B' }}>4.9 / 5</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#F59E0B' }}>{averageRating}{reviewCount ? ' / 5' : ''}</div>
               <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '600', marginTop: '2px' }}>Average Rating</div>
             </div>
           </div>
@@ -297,7 +294,7 @@ export function LandingPage() {
             {displayedServices.map((srv) => (
               <div key={srv.id} className="card card-hover" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden', borderRadius: 'var(--radius-card)' }}>
                 <div style={{ position: 'relative', height: '170px' }}>
-                  <img src={srv.image} alt={srv.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <ServiceImage src={srv.image} alt={srv.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   <span style={{ position: 'absolute', top: '12px', left: '12px', backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', color: '#FFFFFF', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: 'var(--radius-full)', textTransform: 'uppercase' }}>
                     {srv.categoryName}
                   </span>
@@ -332,13 +329,13 @@ export function LandingPage() {
         )}
       </section>
 
-      {/* 5. ESCROW PAYMENT PROTECTION (Matching UI Reference 1 & 2 & 3) */}
+      {/* 5. SIMULATED PAYMENT WORKFLOW */}
       <section className="app-container">
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-panel)', padding: '40px', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 36px auto' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Escrow Guarantee</span>
-            <h2 className="section-title" style={{ marginTop: '4px' }}>Secure Payments with Escrow Protection</h2>
-            <p className="section-subtitle">Your funds are held safely in escrow and only released when you approve the completed work.</p>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Simulation</span>
+            <h2 className="section-title" style={{ marginTop: '4px' }}>Track Payments from Booking to Completion</h2>
+            <p className="section-subtitle">Explore the booking and refund workflow with simulated transactions. No real money is charged, held, or transferred.</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', gap: '16px', alignItems: 'center' }}>
@@ -346,8 +343,8 @@ export function LandingPage() {
               <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', fontWeight: '800', fontSize: '18px' }}>
                 1
               </div>
-              <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>Book & Pay to Escrow</h4>
-              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>Funds are safely held in ServiceHub escrow account before work starts.</p>
+              <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>Book & Record Demo Payment</h4>
+              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>Your selected payment method creates a simulated transaction record.</p>
             </div>
 
             <ArrowRight size={24} color="var(--color-muted)" className="desktop-nav" />
@@ -366,8 +363,8 @@ export function LandingPage() {
               <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', fontWeight: '800', fontSize: '18px' }}>
                 3
               </div>
-              <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>Approve & Release</h4>
-              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>Review the job result and release the funds to provider seamlessly.</p>
+              <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>Review & Track</h4>
+              <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>Review the completed job and view the recorded simulated payment.</p>
             </div>
           </div>
         </div>
@@ -381,7 +378,7 @@ export function LandingPage() {
               Ready to get started?
             </h2>
             <p style={{ fontSize: '1.1rem', color: '#94A3B8', marginBottom: '32px' }}>
-              Join thousands of satisfied clients and verified professionals on ServiceHub today.
+              Browse available services and connect with local professionals on ServiceHub.
             </p>
             
             <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>

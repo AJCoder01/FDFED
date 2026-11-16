@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createCustomJobRequest, getCustomJobRequests } from '../../data/apiRepository';
 import { useNavigate, Link } from 'react-router-dom';
 import { Briefcase, CheckCircle2, ArrowRight, Lock, UserPlus, LogIn } from 'lucide-react';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -25,14 +26,26 @@ export function PostAJobPage() {
   });
 
   const [submittedRequest, setSubmittedRequest] = useState(null);
+  useEffect(() => {
+    if (currentUser) setFormData((previous) => ({
+      ...previous,
+      location: previous.location || currentUser.addresses?.[0]?.city || '',
+      contactName: previous.contactName || currentUser.name || '',
+      contactPhone: previous.contactPhone || currentUser.phone || '',
+    }));
+  }, [currentUser?.id]);
+  const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState([]);
+  useEffect(() => { if (isCustomer) getCustomJobRequests().then(setHistory).catch(e => showToast(e.message, 'error')); }, [currentUser?.id]);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
 
     if (!isCustomer) {
       setAuthModalOpen(true);
@@ -45,14 +58,10 @@ export function PostAJobPage() {
       return;
     }
 
-    const reqId = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
-    setSubmittedRequest({
-      id: reqId,
-      ...formData,
-      customerId: currentUser.id,
-      createdAt: new Date().toLocaleDateString('en-GB')
-    });
-    showToast('Custom job request submitted successfully!', 'success');
+    setBusy(true);
+    try { const saved = await createCustomJobRequest(formData); setHistory(previous => [saved, ...previous]); setSubmittedRequest(saved); showToast('Custom job request saved.'); }
+    catch (error) { showToast(error.message, 'error'); }
+    finally { setBusy(false); }
   };
 
   if (submittedRequest) {
@@ -76,7 +85,7 @@ export function PostAJobPage() {
           </div>
 
           <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
-            Local providers matching your criteria will review your request and contact you shortly.
+            Your request is saved in your account. Provider dispatch and quotations are not available yet.
           </p>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
@@ -96,7 +105,7 @@ export function PostAJobPage() {
     <div className="app-container" style={{ padding: '32px 16px', maxWidth: '700px', margin: '0 auto' }}>
       <div className="page-header">
         <h1 className="page-title">Post a Custom Job Request</h1>
-        <p className="page-subtitle">Get quotes from verified professionals for custom home service needs</p>
+        <p className="page-subtitle">Save a custom home service request for follow-up</p>
       </div>
 
       {!isCustomer && (
@@ -118,6 +127,7 @@ export function PostAJobPage() {
         </div>
       )}
 
+      {history.length > 0 && <div className="card" style={{ marginBottom: '20px' }}><h2>Your submitted requests</h2>{history.map(job => <p key={job.id}>{job.title} — {job.preferredDate} — #{job.id}</p>)}</div>}
       <form onSubmit={handleSubmit} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <Select
           label="Service Category"
@@ -195,7 +205,7 @@ export function PostAJobPage() {
           />
         </div>
 
-        <Button type="submit" variant="primary" size="lg" fullWidth style={{ marginTop: '8px' }}>
+        <Button type="submit" disabled={busy} variant="primary" size="lg" fullWidth style={{ marginTop: '8px' }}>
           Submit Job Request
         </Button>
       </form>
@@ -208,7 +218,7 @@ export function PostAJobPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <p style={{ fontSize: '14px', color: 'var(--color-ink-secondary)', lineHeight: 1.5, margin: 0 }}>
-            To ensure secure order dispatch and direct communication with verified service professionals, you must be signed in as a <strong>Customer</strong> to post a custom job request.
+            Sign in as a <strong>Customer</strong> to save a custom job request and view it in your account.
           </p>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
             <Button variant="outline" onClick={() => setAuthModalOpen(false)}>

@@ -1,3 +1,5 @@
+import { AvailabilityPage } from '../../features/provider/AvailabilityPage';
+import { ProviderModerationPage } from '../../features/admin/ProviderModerationPage';
 import { lazy, Suspense } from 'react';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -95,6 +97,7 @@ export function AppRoutes() {
         <Route path="/provider/jobs/:jobId" element={<JobDetailPage />} />
         <Route path="/provider/earnings" element={<EarningsPage />} />
         <Route path="/provider/reviews" element={<ReviewsPage />} />
+        <Route path="/provider/availability" element={<AvailabilityPage />} />
         <Route path="/provider/profile" element={<ProviderProfilePage />} />
       </Route>
 
@@ -110,7 +113,7 @@ export function AppRoutes() {
         <Route path="/admin/categories" element={<CategoryManagerPage />} />
         <Route path="/admin/disputes" element={<DisputeAssignmentPage />} />
         <Route path="/admin/profile" element={<AdminProfilePage />} />
-        <Route path="/admin/providers" element={<Navigate to="/admin/accounts" replace />} />
+        <Route path="/admin/providers" element={<ProviderModerationPage />} />
         <Route path="/admin/listings" element={<Navigate to="/admin/services" replace />} />
       </Route>
 

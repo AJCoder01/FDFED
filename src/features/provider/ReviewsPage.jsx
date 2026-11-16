@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Star } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings, replyToReview } from '../../data/mockRepository';
+import { getBookings, replyToReview } from '../../data/apiRepository';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
@@ -50,7 +50,7 @@ export function ReviewsPage() {
             <div><strong>{job.customerName}</strong><p className="provider-hint">{job.serviceTitle} · #{job.id}</p></div>
             <span className="provider-hint">Service date: {formatDate(job.scheduledDate)}</span>
           </div>
-          <div className="provider-row" aria-label={`Rating: ${job.reviewRating} out of 5`}>
+          <div className="provider-row" role="img" aria-label={`Rating: ${job.reviewRating} out of 5`}>
             {[1, 2, 3, 4, 5].map(star => <Star key={star} size={16} fill={star <= Number(job.reviewRating) ? '#F59E0B' : 'none'} color="#F59E0B" />)}
           </div>
           <p>{job.reviewComment}</p>

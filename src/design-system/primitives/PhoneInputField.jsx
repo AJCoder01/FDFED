@@ -6,11 +6,11 @@ import { useId, useState, useEffect } from 'react';
 export function parsePhoneNumber(raw = '') {
   const str = String(raw || '').trim();
   if (!str) return { countryCode: '+91', phoneNumber: '' };
-  const match = str.match(/^(\+\d{1,4})[\s\-.]*(.*)$/);
+  const match = str.match(/^\+91[\s\-.]*(.*)$/);
   if (match) {
     return {
       countryCode: '+91',
-      phoneNumber: match[2].replace(/\D/g, ''),
+      phoneNumber: match[1].replace(/\D/g, ''),
     };
   }
   return {

@@ -14,10 +14,10 @@ export function Toast({ message, type = 'success', onClose, duration = 4000 }) {
   if (!message) return null;
 
   const bgColors = {
-    success: 'var(--color-success)',
-    error: 'var(--color-danger)',
-    warning: 'var(--color-warning)',
-    info: 'var(--color-primary)',
+    success: 'var(--color-success-action)',
+    error: 'var(--color-danger-action)',
+    warning: 'var(--color-warning-action)',
+    info: 'var(--color-info-action)',
   };
 
   const icons = {
@@ -32,7 +32,9 @@ export function Toast({ message, type = 'success', onClose, duration = 4000 }) {
   const style = {
     position: 'fixed',
     bottom: '24px',
-    right: '24px',
+    right: '16px',
+    maxWidth: 'calc(100% - 32px)',
+    overflowWrap: 'anywhere',
     backgroundColor: bgColors[type] || bgColors.info,
     color: '#FFFFFF',
     padding: '12px 18px',
@@ -47,10 +49,11 @@ export function Toast({ message, type = 'success', onClose, duration = 4000 }) {
   };
 
   return (
-    <div style={style}>
+    <div role={type === 'error' ? 'alert' : 'status'} style={style}>
       <Icon size={18} />
       <span>{message}</span>
       <button
+        aria-label="Dismiss notification"
         onClick={onClose}
         style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', marginLeft: '8px' }}
       >

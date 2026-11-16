@@ -15,7 +15,7 @@ export function SlotEditor({ slots, onChange, disabled = false }) {
           Add Slot
         </Button>
       </div>
-      <div className="provider-row" aria-label="Configured time slots">
+      <div className="provider-row" role="group" aria-label="Configured time slots">
         {slots.map(slot => (
           <button key={slot} type="button" className="provider-slot" aria-label={`Remove ${slot}`} disabled={disabled} onClick={() => onChange(slots.filter(value => value !== slot))}>
             {slot} ×

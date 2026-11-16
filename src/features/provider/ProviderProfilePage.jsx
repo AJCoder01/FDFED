@@ -19,7 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { saveProvider } from '../../data/mockRepository';
+import { saveProvider } from '../../data/apiRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -345,8 +345,8 @@ export function ProviderProfilePage() {
                 <User size={14} /> Contact Person: <strong>{currentUser?.name}</strong>
               </p>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap', fontSize: '13px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#D97706', fontWeight: '700' }}>
-                  <Star size={15} fill="#F59E0B" color="#F59E0B" /> {currentUser?.rating || 4.8} ({currentUser?.reviewCount || 34} verified reviews)
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-conflict)', fontWeight: '700' }}>
+                  <Star size={15} fill="#F59E0B" color="#F59E0B" /> {currentUser?.rating == null ? 'Unrated' : currentUser.rating.toFixed(1)} ({currentUser?.reviewCount ?? 0} reviews)
                 </span>
                 <span style={{ color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                   <MapPin size={14} /> {currentUser?.serviceArea || 'Bengaluru'}

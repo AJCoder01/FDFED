@@ -3,7 +3,7 @@ import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Headphones, Gavel, DollarSign, TrendingUp } from 'lucide-react';
-import { getBookings, getTickets, getDisputes, getServices, getRevenueStats } from '../../data/mockRepository';
+import { getBookings, getTickets, getDisputes, getServices, getRevenueStats } from '../../data/apiRepository';
 
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';

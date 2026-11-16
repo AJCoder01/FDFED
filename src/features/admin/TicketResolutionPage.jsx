@@ -2,7 +2,7 @@ import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useState } from 'react';
 
-import { getTickets, resolveTicket } from '../../data/mockRepository';
+import { getTickets, resolveTicket } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';

@@ -1,6 +1,7 @@
+import { downloadFile } from '../../data/apiClient';
 import React, { useState } from 'react';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getArbitratorApplications, approveArbitratorApplication, rejectArbitratorApplication } from '../../data/mockRepository';
+import { getArbitratorApplications, approveArbitratorApplication, rejectArbitratorApplication } from '../../data/apiRepository';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -216,20 +217,20 @@ export function ArbitratorApplicationPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                   <FileText size={16} color="var(--color-primary)" />
                   <div>
-                    <strong>Resume:</strong> {selectedApp.files?.resume || 'Uploaded file record'}
+                    <strong>Resume:</strong> {selectedApp.files?.resume ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.resume, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                   <FileText size={16} color="var(--color-primary)" />
                   <div>
-                    <strong>License:</strong> {selectedApp.files?.license || 'Uploaded file record'}
+                    <strong>License:</strong> {selectedApp.files?.license ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.license, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                   </div>
                 </div>
                 {selectedApp.files?.cert && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                     <FileText size={16} color="var(--color-primary)" />
                     <div>
-                      <strong>Certification:</strong> {selectedApp.files.cert}
+                      <strong>Certification:</strong> {selectedApp.files?.cert ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.cert, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                     </div>
                   </div>
                 )}
@@ -237,7 +238,7 @@ export function ArbitratorApplicationPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                     <FileText size={16} color="var(--color-primary)" />
                     <div>
-                      <strong>Additional Doc:</strong> {selectedApp.files.extra}
+                      <strong>Additional Doc:</strong> {selectedApp.files?.extra ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.extra, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                     </div>
                   </div>
                 )}

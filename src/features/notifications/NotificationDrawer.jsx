@@ -3,7 +3,7 @@ import { X, Bell, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../app/context/AppContext';
 import { formatTimestamp } from '../../utils/date';
-import { markNotificationsRead } from '../../data/mockRepository';
+import { markNotificationsRead } from '../../data/apiRepository';
 import { Button } from '../../design-system/primitives/Button';
 
 export function NotificationDrawer({ isOpen, onClose }) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText, Scale, Check } from 'lucide-react';
-import { submitArbitratorApplication } from '../../data/mockRepository';
+import { submitArbitratorApplication } from '../../data/apiRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
@@ -48,7 +48,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
     if (!file) return;
     setFiles(prev => ({
       ...prev,
-      [field]: { name: file.name, size: `${(file.size / 1024).toFixed(1)} KB` }
+      [field]: { file, name: file.name, size: `${(file.size / 1024).toFixed(1)} KB` }
     }));
   };
 
@@ -153,12 +153,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
         expertise: expertise.trim(),
         organization: organization.trim(),
         prevExperience: prevExperience.trim(),
-        files: {
-          resume: files.resume?.name || '',
-          cert: files.cert?.name || '',
-          license: files.license?.name || '',
-          extra: files.extra?.name || ''
-        }
+        files
       });
 
       setSubmitted(true);
@@ -327,6 +322,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
             />
             <TextField
               label="Professional Title"
+              required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Senior Independent Arbitrator"
@@ -354,7 +350,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
             <Button type="submit" variant="primary" icon={ArrowRight}>
-              Next: Professional Background →
+              Next: Experience
             </Button>
           </div>
         </form>
@@ -405,7 +401,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
               ← Back
             </Button>
             <Button type="submit" variant="primary" icon={ArrowRight}>
-              Next: Documents →
+              Next: Documents
             </Button>
           </div>
         </form>
@@ -497,7 +493,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
               ← Back
             </Button>
             <Button type="submit" variant="primary" icon={ArrowRight}>
-              Next: Review & Confirm →
+              Next: Review
             </Button>
           </div>
         </form>

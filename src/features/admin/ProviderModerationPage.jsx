@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getProviders, moderateProvider } from '../../data/mockRepository';
+import { getProviders, moderateProvider } from '../../data/apiRepository';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
