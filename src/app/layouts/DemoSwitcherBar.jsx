@@ -8,7 +8,7 @@ export function DemoSwitcherBar() {
   const { currentRole, currentUser, switchRole, handleResetDemoData, isSuperUser, isSuperUserDemoMode } = useApp();
   const navigate = useNavigate();
 
-  if (!isSuperUser && !isSuperUserDemoMode) {
+  if (!isSuperUserDemoMode) {
     return null;
   }
 
@@ -49,8 +49,8 @@ export function DemoSwitcherBar() {
       guest: '/'
     };
     const targetPath = destinations[key] || '/';
-    navigate(targetPath);
-    await switchRole(key);
+    const result = await switchRole(key);
+    if (result.success) navigate(result.path || targetPath);
   };
 
   return (
@@ -102,7 +102,7 @@ export function DemoSwitcherBar() {
                   border: '1px solid',
                   borderColor: isActive ? 'var(--color-primary)' : 'rgba(255,255,255,0.12)',
                   backgroundColor: isActive ? 'var(--color-primary)' : 'rgba(255,255,255,0.05)',
-                  color: isActive ? '#FFFFFF' : '#CBD5E1',
+                  color: isActive ? 'var(--color-on-primary)' : '#CBD5E1',
                   cursor: 'pointer',
                   fontSize: '11px',
                   fontWeight: '600',
@@ -123,7 +123,7 @@ export function DemoSwitcherBar() {
         type="button"
         onClick={handleResetDemoData}
         style={{
-          background: '#EF4444',
+          background: 'var(--color-danger-action)',
           color: '#FFF',
           border: 'none',
           padding: '4px 12px',

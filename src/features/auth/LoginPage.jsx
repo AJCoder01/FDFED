@@ -25,13 +25,14 @@ export function LoginPage() {
     { role: 'arbitrator', label: 'Arbitrator', description: 'Review and resolve disputes', icon: Scale },
     { role: 'admin', label: 'Admin', description: 'Platform operations & compliance management', icon: Shield },
     { role: 'superuser', label: 'SuperUser', description: 'Root demo controller with full actor switching', icon: ShieldCheck, isSuper: true }
-  ];
+  ].filter(choice => choice.role !== 'superuser' || import.meta.env.VITE_DEMO_ENABLED === 'true');
 
   const credentialRoles = ['customer', 'provider', 'arbitrator', 'admin', 'superuser'];
   const hasSelectedCredentialRole = credentialRoles.includes(selectedRole);
   const selectedChoice = roleChoices.find(({ role }) => role === selectedRole);
   const selectedRoleLabel = selectedChoice?.label || 'Account';
 
+  const demoEnabled = import.meta.env.VITE_DEMO_ENABLED === 'true';
   let demoAccount = null;
   if (selectedRole === 'superuser') {
     demoAccount = DEMO_USERS.admin; // Naina Kapoor (Root SuperUser)
@@ -40,6 +41,8 @@ export function LoginPage() {
   } else if (selectedRole && DEMO_USERS[selectedRole]) {
     demoAccount = DEMO_USERS[selectedRole];
   }
+
+  if (!demoEnabled) demoAccount = null;
 
   // Reset credentials when selecting or changing roles (do not auto-enter credentials)
   useEffect(() => {
@@ -88,7 +91,7 @@ export function LoginPage() {
       const expectedAuthRole = selectedRole === 'superuser' ? 'admin' : selectedRole;
       const user = await login(email, password, expectedAuthRole);
 
-      const isSuper = user.isSuperUser === true || user.email?.toLowerCase() === 'admin@gmail.com' || user.id === 'user-admin-1';
+      const isSuper = user.isSuperUser === true;
       if (selectedRole === 'superuser' && !isSuper) {
         throw new Error('This account does not have SuperUser root privileges. Please sign in as Admin.');
       }
@@ -224,7 +227,7 @@ export function LoginPage() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <strong style={{ fontSize: '14px' }}>{label}</strong>
                     {isSuper && (
-                      <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--color-primary)', color: '#FFF' }}>
+                      <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
                         DEMO CONTROLLER
                       </span>
                     )}

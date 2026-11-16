@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getAccounts } from '../../data/mockRepository';
+import { getAccounts } from '../../data/apiRepository';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
@@ -76,7 +76,7 @@ export function AdminAccountsPage() {
       (acc.location && acc.location.toLowerCase().includes(search.toLowerCase())) ||
       (acc.city && acc.city.toLowerCase().includes(search.toLowerCase()));
 
-    const isAccSuper = acc.role === 'admin' && (acc.isSuperUser === true || acc.id === 'user-admin-1' || acc.email?.toLowerCase() === 'admin@gmail.com');
+    const isAccSuper = acc.role === 'admin' && (acc.isSuperUser === true);
     const matchesRole = selectedRole === 'all' ||
       (selectedRole === 'superuser' ? isAccSuper :
        selectedRole === 'admin' ? (acc.role === 'admin' && !isAccSuper) :
@@ -86,17 +86,17 @@ export function AdminAccountsPage() {
 
   const getRoleBadge = (row) => {
     if (row?.role === 'admin') {
-      const isRowSuper = row.isSuperUser === true || row.email?.toLowerCase() === 'admin@gmail.com' || row.id === 'user-admin-1';
+      const isRowSuper = row.isSuperUser === true;
       if (isRowSuper) {
         return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', fontSize: '12px', fontWeight: '700' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: 'var(--color-purple)', fontSize: '12px', fontWeight: '700' }}>
             <ShieldCheck size={13} />
             SuperUser
           </span>
         );
       }
       return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', fontSize: '12px', fontWeight: '700' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'rgba(124, 58, 237, 0.1)', color: 'var(--color-purple)', fontSize: '12px', fontWeight: '700' }}>
           <Shield size={13} />
           Admin
         </span>
@@ -104,8 +104,8 @@ export function AdminAccountsPage() {
     }
     const styles = {
       customer: { bg: 'rgba(37, 99, 235, 0.1)', color: 'var(--color-primary)', label: 'Customer', icon: UserRound },
-      provider: { bg: 'rgba(16, 185, 129, 0.1)', color: '#059669', label: 'Provider', icon: Wrench },
-      arbitrator: { bg: 'rgba(217, 119, 6, 0.1)', color: '#d97706', label: 'Arbitrator', icon: Scale }
+      provider: { bg: 'rgba(16, 185, 129, 0.1)', color: 'var(--color-success)', label: 'Provider', icon: Wrench },
+      arbitrator: { bg: 'rgba(217, 119, 6, 0.1)', color: 'var(--color-conflict)', label: 'Arbitrator', icon: Scale }
     };
     const style = styles[row?.role] || { bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b', label: row?.role || 'User', icon: Users };
     const Icon = style.icon;
@@ -164,7 +164,7 @@ export function AdminAccountsPage() {
       header: 'Account Status',
       accessor: 'status',
       render: (row) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: '600', color: '#16a34a' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: '600', color: 'var(--color-success)' }}>
           <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
           Active
         </span>
@@ -238,7 +238,7 @@ export function AdminAccountsPage() {
                   size="sm"
                   icon={UserCheck}
                   onClick={async () => {
-                    const isAccountSuper = cleanSelectedAccount.isSuperUser || cleanSelectedAccount.id === 'user-admin-1' || cleanSelectedAccount.email?.toLowerCase() === 'admin@gmail.com';
+                    const isAccountSuper = cleanSelectedAccount.isSuperUser;
                     const roleTarget = isAccountSuper ? 'superuser' : (cleanSelectedAccount.role === 'admin' ? 'admin' : cleanSelectedAccount.role);
                     setSelectedAccount(null);
                     const res = await switchRole(roleTarget);

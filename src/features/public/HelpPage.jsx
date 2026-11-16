@@ -6,7 +6,7 @@ export function HelpPage() {
   const faqs = [
     {
       q: 'How does ServiceHub ensure quality & provider verification?',
-      a: 'All individual service professionals undergo government identity verification (Aadhaar/PAN), background checks, and trade skill audits before listings are published.'
+      a: 'Administrators review provider submissions before approving publication. The application records review decisions and feedback.'
     },
     {
       q: 'What happens if I am dissatisfied with the service?',

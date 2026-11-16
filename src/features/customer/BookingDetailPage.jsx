@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, HelpCircle, Scale } from 'lucide-react';
-import { getBookingById, getDisputes, updateBookingStatus, submitReview, respondToTimeProposal } from '../../data/mockRepository';
+import { getBookingById, getDisputes, updateBookingStatus, submitReview, respondToTimeProposal } from '../../data/apiRepository';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useApp } from '../../app/context/AppContext';

@@ -10,7 +10,8 @@ export function Select({
   helperText,
   required = false,
   disabled = false,
-  placeholder = 'Select option...'
+  placeholder = 'Select option...',
+  'aria-label': ariaLabel
 }) {
   const fieldId = useId();
   const id = name || fieldId;
@@ -57,6 +58,7 @@ export function Select({
       )}
 
       <select
+        aria-label={ariaLabel || (!label ? placeholder : undefined)}
         id={id}
         name={name}
         value={value}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../../app/context/AppContext';
-import { saveProvider } from '../../data/mockRepository';
+import { saveProvider } from '../../data/apiRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';

@@ -3,7 +3,7 @@ import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { getBookings, getTickets, createTicket } from '../../data/mockRepository';
+import { getBookings, getTickets, createTicket } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';

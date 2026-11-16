@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Scale, AlertTriangle, Upload, FileText, X } from 'lucide-react';
-import { createDispute, getBookingById } from '../../data/mockRepository';
+import { createDispute, getBookingById } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';

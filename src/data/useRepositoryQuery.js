@@ -24,5 +24,5 @@ export function useRepositoryQuery(load) {
     ? { ...value, data: typeof update === 'function' ? update(value.data) : update }
     : value);
   const data = result.load === load ? result.data : null;
-  return { data, setData, error: result.load === load ? result.error : '', loading: data === null, refresh };
+  return { data, setData, error: result.load === load ? result.error : '', loading: result.load !== load, refresh };
 }

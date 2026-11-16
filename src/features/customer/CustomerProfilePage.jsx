@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Mail, Phone, MapPin, Plus, Trash2, CheckCircle2, Save, Edit3, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { updateUserProfile } from '../../data/mockRepository';
+import { updateUserProfile } from '../../data/apiRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';

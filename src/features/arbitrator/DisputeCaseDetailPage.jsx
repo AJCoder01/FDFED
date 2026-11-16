@@ -1,9 +1,10 @@
+import { downloadFile } from '../../data/apiClient';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Award, Eye, Download, FileText } from 'lucide-react';
-import { getDisputeById } from '../../data/mockRepository';
+import { getDisputeById } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
@@ -16,88 +17,15 @@ export function DisputeCaseDetailPage() {
   const { currentUser, showToast } = useApp();
   const [viewingEvidence, setViewingEvidence] = useState(null);
 
-  const handleDownloadEvidence = (ev) => {
-    try {
-      if (ev.fileData && ev.fileData.startsWith('data:')) {
-        const link = document.createElement('a');
-        link.href = ev.fileData;
-        link.download = ev.filename || 'evidence-document';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        const isImage = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(ev.filename);
-        let blob;
-        if (isImage) {
-          const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
-            <rect width="800" height="600" fill="#f8fafc"/>
-            <rect x="20" y="20" width="760" height="560" fill="none" stroke="#cbd5e1" stroke-width="2" rx="8"/>
-            <text x="400" y="100" font-family="sans-serif" font-size="24" font-weight="bold" fill="#1e293b" text-anchor="middle">OFFICIAL DISPUTE EVIDENCE RECORD</text>
-            <text x="400" y="140" font-family="sans-serif" font-size="16" fill="#64748b" text-anchor="middle">Dispute Case Reference: #${caseId}</text>
-            <line x1="60" y1="170" x2="740" y2="170" stroke="#e2e8f0" stroke-width="2"/>
-            <text x="80" y="220" font-family="sans-serif" font-size="16" font-weight="bold" fill="#334155">File Name: ${ev.filename}</text>
-            <text x="80" y="260" font-family="sans-serif" font-size="15" fill="#475569">Document Title: ${ev.title}</text>
-            <text x="80" y="300" font-family="sans-serif" font-size="15" fill="#475569">Uploaded By: ${ev.uploader}</text>
-            <text x="80" y="340" font-family="sans-serif" font-size="15" fill="#475569">Timestamp: ${ev.uploadedAt}</text>
-            <rect x="80" y="380" width="640" height="140" fill="#f1f5f9" rx="6"/>
-            <text x="100" y="420" font-family="sans-serif" font-size="14" fill="#334155">Verified Evidence Inspection Record</text>
-            <text x="100" y="450" font-family="sans-serif" font-size="13" fill="#64748b">This documentary record was submitted under platform dispute arbitration proceedings.</text>
-            <text x="100" y="480" font-family="sans-serif" font-size="13" fill="#10b981">✓ Cryptographic Integrity Checked &amp; Signed by Independent Tribunal</text>
-          </svg>`;
-          blob = new Blob([svgContent], { type: 'image/svg+xml' });
-        } else {
-          const textContent = `=====================================================
-SERVICEHUB INDEPENDENT ARBITRATION TRIBUNAL
-OFFICIAL EVIDENCE DOCUMENT RECORD
-=====================================================
-
-Dispute Case ID : #${caseId}
-Service Title   : ${dispute?.serviceTitle || 'Marketplace Service Booking'}
-Parties         : ${dispute?.customerName || 'Customer'} (Claimant) vs ${dispute?.providerName || 'Provider'} (Respondent)
-Amount Claimed  : ₹${dispute?.amountInDispute || dispute?.claimAmount || '0'}
-
------------------------------------------------------
-DOCUMENT METADATA:
------------------------------------------------------
-Document Title  : ${ev.title}
-File Name       : ${ev.filename}
-Submitted By    : ${ev.uploader}
-Upload Date     : ${ev.uploadedAt}
-
------------------------------------------------------
-SUBMITTED EVIDENCE SUMMARY / INSPECTION STATEMENT:
------------------------------------------------------
-${ev.uploaderRole === 'customer' || ev.uploader?.includes('Customer') ? (dispute?.customerStatement || 'Customer photographic/documentary evidence submission.') : (dispute?.providerStatement || 'Provider inspection sign-off and service performance records.')}
-
------------------------------------------------------
-VERIFICATION STATUS:
-Verified authentic submission in platform caseload record.
-Admissible before the presiding Arbitrator.
-=====================================================
-`;
-          blob = new Blob([textContent], { type: 'text/plain' });
-        }
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = ev.filename || 'evidence-document.txt';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-      showToast(`Evidence document "${ev.filename}" downloaded successfully.`, 'success');
-    } catch (err) {
-      showToast('Failed to download document: ' + err.message, 'error');
-    }
+  const handleDownloadEvidence = async ev => {
+    try { if (!ev.fileId) throw new Error('This historical evidence file is unavailable.'); await downloadFile(ev.fileId, ev.filename); }
+    catch (error) { showToast(error.message, 'error'); }
   };
 
   const load = useCallback(async () => {
     const dispute = await getDisputeById(caseId);
 
-    return (dispute?.arbitratorId === currentUser?.id || dispute?.arbitratorId === 'user-arbit-1' || currentUser?.role === 'arbitrator' || currentUser?.isSuperUser)
-      ? dispute
-      : null;
+    return dispute?.arbitratorId === currentUser?.id ? dispute : null;
   }, [caseId, currentUser?.id, currentUser?.role, currentUser?.isSuperUser]);
 
   const {
@@ -513,22 +441,22 @@ Admissible before the presiding Arbitrator.
               <div><strong>Upload Timestamp:</strong> {viewingEvidence.uploadedAt}</div>
             </div>
 
-            {viewingEvidence.fileData && viewingEvidence.fileData.startsWith('data:image') ? (
+            {viewingEvidence.fileId ? (
               <div style={{ textAlign: 'center', maxHeight: '420px', overflow: 'auto', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: '#000', padding: '10px' }}>
-                <img src={viewingEvidence.fileData} alt={viewingEvidence.filename} style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }} />
+                <Button onClick={() => downloadFile(viewingEvidence.fileId, viewingEvidence.filename, true).catch(e => showToast(e.message, 'error'))}>Open stored evidence</Button>
               </div>
             ) : (
               <div style={{ padding: '24px', backgroundColor: 'var(--color-page-bg)', borderRadius: '8px', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--color-primary)' }}>
                   <FileText size={24} />
-                  <strong style={{ fontSize: '15px' }}>Official Arbitral Evidence Record Preview</strong>
+                  <strong style={{ fontSize: '15px' }}>Historical Evidence Metadata</strong>
                 </div>
                 <div style={{ padding: '16px', backgroundColor: '#FFF', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '13px', lineHeight: 1.6, color: 'var(--color-ink)' }}>
                   <p><strong>Case Reference:</strong> #{caseId} — {dispute.serviceTitle}</p>
                   <p><strong>Parties:</strong> {dispute.customerName} (Claimant) vs {dispute.providerName} (Respondent)</p>
                   <p><strong>Associated Statement:</strong> {viewingEvidence.uploaderRole === 'customer' || viewingEvidence.uploader?.includes('Customer') ? dispute.customerStatement : (dispute.providerStatement || 'Provider inspection sign-off and service performance records.')}</p>
                   <div style={{ marginTop: '12px', padding: '8px 12px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#059669', fontSize: '12px', fontWeight: '600' }}>
-                    ✓ Documentary evidence verified by Platform Caseload Registry. Admissible for case ruling.
+                    The original file is unavailable. This metadata is not a verification of the evidence.
                   </div>
                 </div>
               </div>

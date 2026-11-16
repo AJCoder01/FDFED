@@ -2,7 +2,7 @@ import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useState, useCallback } from 'react';
 import { Award, Eye } from 'lucide-react';
-import { getDisputes, getAccounts, assignDispute } from '../../data/mockRepository';
+import { getDisputes, getAccounts, assignDispute } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -112,6 +112,7 @@ export function DisputeAssignmentPage() {
             </Button>
           ) : (
             <Select
+              aria-label={`Assign arbitrator for case ${row.id}`}
               placeholder="Choose"
               value=""
               disabled={busy || row.status === 'ruled'}

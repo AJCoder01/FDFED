@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getDisputes } from '../../data/mockRepository';
+import { getDisputes } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 
 import { ErrorState } from '../../design-system/primitives/ErrorState';
@@ -24,7 +24,7 @@ export function ArbitratorDashboard() {
   const load = useCallback(async () => {
     const allDisputes = await getDisputes();
     return allDisputes.filter(
-      dispute => dispute.arbitratorId === currentUser?.id || (!currentUser?.id && dispute.arbitratorId === 'user-arbit-1') || (currentUser?.id === 'user-arbit-1' && dispute.arbitratorId === 'user-arbit-1')
+      dispute => dispute.arbitratorId === currentUser?.id
     );
   }, [currentUser?.id]);
 

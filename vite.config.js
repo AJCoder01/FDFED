@@ -1,12 +1,3 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-const bootId = `boot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    __SERVER_BOOT_ID__: JSON.stringify(bootId)
-  }
-})
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+export default defineConfig({plugins:[react()],server:{proxy:{'/api':{target:process.env.API_PROXY || 'http://127.0.0.1:3000',changeOrigin:true}}}});

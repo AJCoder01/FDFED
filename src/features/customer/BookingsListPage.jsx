@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/mockRepository';
+import { getBookings } from '../../data/apiRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { EmptyState } from '../../design-system/primitives/EmptyState';
@@ -52,7 +52,7 @@ export function BookingsListPage() {
               borderRadius: 'var(--radius-control)',
               border: 'none',
               backgroundColor: activeTab === tab.key ? 'var(--color-primary)' : 'transparent',
-              color: activeTab === tab.key ? '#FFF' : 'var(--color-ink)',
+              color: activeTab === tab.key ? 'var(--color-on-primary)' : 'var(--color-ink)',
               fontWeight: '600',
               fontSize: '13px',
               cursor: 'pointer'

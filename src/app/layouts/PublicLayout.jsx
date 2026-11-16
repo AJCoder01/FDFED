@@ -2,22 +2,24 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Shield, Search, User, Bell, RotateCcw, Menu, X, HelpCircle, Briefcase, Lock, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { Modal } from '../../design-system/primitives/Modal';
 import { Button } from '../../design-system/primitives/Button';
 import { Toast } from '../../design-system/primitives/Toast';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 import { DemoSwitcherBar } from './DemoSwitcherBar';
 
 export function PublicLayout() {
-  const { currentRole, logout, toast, clearToast, unreadCount } = useApp();
+  const { currentRole, logout, toast, clearToast, unreadCount, showToast } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
+    <div className="public-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-page-bg)' }}>
       <DemoSwitcherBar />
 
       {/* Main Navbar */}
-      <header style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-xs)' }}>
+      <header className="public-header" style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, zIndex: 100, boxShadow: 'var(--shadow-xs)' }}>
         <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '72px' }}>
           <Link to={currentRole === 'guest' ? '/' : `/${currentRole}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
@@ -30,7 +32,7 @@ export function PublicLayout() {
           </Link>
 
           {/* Desktop Nav Links */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <nav className="public-desktop-nav" aria-label="Main navigation" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
             <Link to="/services" style={{ color: location.pathname === '/services' ? 'var(--color-primary)' : 'var(--color-ink-secondary)', fontWeight: '600', fontSize: '14px', transition: 'color 0.15s ease' }}>
               Find Services
             </Link>
@@ -43,8 +45,10 @@ export function PublicLayout() {
           </nav>
 
           {/* Right Action Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="public-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <ThemeToggle />
+            <button className="icon-control mobile-menu-toggle" aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={event => { event.currentTarget.focus(); setMenuOpen(true); }}><Menu size={20} /></button>
+            <div className="public-desktop-actions">
             {currentRole === 'guest' ? (
               <>
                 <Link to="/login">
@@ -75,9 +79,16 @@ export function PublicLayout() {
                 </Button>
               </div>
             )}
+            </div>
           </div>
         </div>
       </header>
+      <Modal isOpen={menuOpen} onClose={() => setMenuOpen(false)} title="Navigation">
+        <nav className="workspace-nav" aria-label="Main navigation">
+          {[["Find Services","/services"],["Post a Custom Job","/post-a-job"],["Help & Support","/help"], ...(currentRole === 'guest' ? [["Log In","/login"],["Sign Up","/signup"]] : [["Dashboard",`/${currentRole}`]])].map(([label,path]) => <Link key={path} to={path} onClick={() => setMenuOpen(false)}>{label}</Link>)}
+          {currentRole !== 'guest' && <Button variant="outline" onClick={async () => { try { await logout(); setMenuOpen(false); navigate('/'); } catch (e) { showToast(e.message, 'error'); } }}>Log Out</Button>}
+        </nav>
+      </Modal>
 
       {/* Main Page Content */}
       <main style={{ flex: 1 }}>
@@ -87,7 +98,7 @@ export function PublicLayout() {
       {/* Footer (Dark Navy matching UI references) */}
       <footer style={{ backgroundColor: '#0B132B', color: '#94A3B8', borderTop: '1px solid rgba(255,255,255,0.08)', padding: '56px 0 32px 0' }}>
         <div className="app-container">
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '40px', paddingBottom: '40px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="public-footer-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '40px', paddingBottom: '40px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
@@ -96,11 +107,11 @@ export function PublicLayout() {
                 <span style={{ fontSize: '20px', fontWeight: '800', color: '#FFFFFF', letterSpacing: '-0.02em' }}>ServiceHub</span>
               </div>
               <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: '1.6', maxWidth: '360px' }}>
-                The trusted non-retail home & local service marketplace with fixed INR pricing, verified background checks, and escrow payment protection across India.
+                A home and local service marketplace with fixed INR pricing, admin-reviewed providers, and simulated payments.
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '20px', fontSize: '13px', color: '#CBD5E1' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Lock size={14} color="#3B82F6" /> 256-Bit Escrow Security</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} color="#10B981" /> 100% Verified Pros</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Lock size={14} color="#3B82F6" /> Simulated Payments</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={14} color="#10B981" /> Admin-Reviewed Providers</span>
               </div>
             </div>
 
@@ -121,7 +132,7 @@ export function PublicLayout() {
                 <li><Link to="/services" style={{ color: '#94A3B8' }}>Browse All Services</Link></li>
                 <li><Link to="/post-a-job" style={{ color: '#94A3B8' }}>Post Custom Request</Link></li>
                 <li><Link to="/signup?role=provider" style={{ color: '#94A3B8' }}>Become a Provider</Link></li>
-                <li><Link to="/help" style={{ color: '#94A3B8' }}>Escrow Guarantee</Link></li>
+                <li><Link to="/help" style={{ color: '#94A3B8' }}>Payment Simulation</Link></li>
               </ul>
             </div>
 
@@ -141,7 +152,7 @@ export function PublicLayout() {
             </div>
             <div style={{ display: 'flex', gap: '20px' }}>
               <Link to="/help" style={{ color: '#94A3B8' }}>Privacy Policy</Link>
-              <Link to="/help" style={{ color: '#94A3B8' }}>Terms of Escrow</Link>
+              <Link to="/help" style={{ color: '#94A3B8' }}>Payment Information</Link>
               <Link to="/help" style={{ color: '#94A3B8' }}>Dispute Resolution Policy</Link>
             </div>
           </div>

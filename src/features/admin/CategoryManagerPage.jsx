@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layers } from 'lucide-react';
-import { getCategories, getServices } from '../../data/mockRepository';
+import { getCategories, getServices } from '../../data/apiRepository';
 import { DataTable } from '../../design-system/primitives/DataTable';
 
 export function CategoryManagerPage() {
@@ -34,7 +34,7 @@ export function CategoryManagerPage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Service Category Manager</h1>
-          <p className="page-subtitle">Configure marketplace categories and tax/commission structures</p>
+          <p className="page-subtitle">View marketplace categories and listing counts</p>
         </div>
       </div>
 

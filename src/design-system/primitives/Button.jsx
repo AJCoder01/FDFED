@@ -10,6 +10,7 @@ export function Button({
   fullWidth = false,
   icon: Icon,
   style: customStyle = {},
+  className = '',
   ...props
 }) {
   const baseStyles = {
@@ -31,11 +32,11 @@ export function Button({
   const variantStyles = {
     primary: {
       backgroundColor: 'var(--color-primary)',
-      color: '#FFFFFF',
+      color: 'var(--color-on-primary)',
       borderColor: 'var(--color-primary)',
       boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
     },
-    success: { backgroundColor: 'var(--color-success)', color: '#FFFFFF', borderColor: 'var(--color-success)' },
+    success: { backgroundColor: 'var(--color-success-action)', color: '#FFFFFF', borderColor: 'var(--color-success)' },
     secondary: {
       backgroundColor: 'var(--color-surface)',
       color: 'var(--color-ink)',
@@ -48,7 +49,7 @@ export function Button({
       borderColor: 'var(--color-primary)',
     },
     danger: {
-      backgroundColor: 'var(--color-danger)',
+      backgroundColor: 'var(--color-danger-action)',
       color: '#FFFFFF',
       borderColor: 'var(--color-danger)',
       boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
@@ -74,7 +75,10 @@ export function Button({
   };
 
   return (
-    <button {...props} type={type} style={style} disabled={disabled} onClick={onClick}>
+    <button {...props} className={`ui-button ${className}`} type={type} style={style} disabled={disabled} onClick={event => {
+      event.currentTarget.focus();
+      onClick?.(event);
+    }}>
       {Icon && <Icon size={size === 'sm' ? 14 : size === 'lg' ? 20 : 16} />}
       {children}
     </button>

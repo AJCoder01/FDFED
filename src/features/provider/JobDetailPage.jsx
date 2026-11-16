@@ -1,7 +1,8 @@
+import { TimeProposalForm } from './TimeProposalForm';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Play } from 'lucide-react';
-import { getBookingById, getDisputes } from '../../data/mockRepository';
+import { getBookingById, getDisputes } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
@@ -82,6 +83,7 @@ export function JobDetailPage() {
               <Button type="submit" icon={CheckCircle2} disabled={busy}>{busy ? 'Saving…' : job.paymentStatus === 'Pending' ? 'Complete Job & Record Cash Payment' : 'Mark Job Completed'}</Button>
             </form>
           )}
+          {job.status === 'active' && <TimeProposalForm job={job} />}
           <section className="card provider-stack">
             <h2>Fulfillment Timeline</h2>
             <div className="provider-timeline">

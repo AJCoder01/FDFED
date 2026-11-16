@@ -1,4 +1,4 @@
-import { updateBookingStatus } from '../../data/mockRepository';
+import { updateBookingStatus } from '../../data/apiRepository';
 export { isPaid, isAccepted, isPending, platformFee, netPayout } from '../../data/bookingRules';
 export { slotMinutes, formatSlot, validateSlots } from '../../data/scheduling';
 export const money = value => `₹${Number(value).toLocaleString('en-IN')}`;

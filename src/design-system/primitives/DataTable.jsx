@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function DataTable({ columns = [], data = [], keyField = 'id', emptyMessage = 'No records found' }) {
+export function DataTable({ columns = [], data = [], keyField = 'id', emptyMessage = 'No records found', label = 'Records' }) {
   const containerStyle = {
     width: '100%',
     overflowX: 'auto',
@@ -39,12 +39,12 @@ export function DataTable({ columns = [], data = [], keyField = 'id', emptyMessa
   }
 
   return (
-    <div style={containerStyle}>
+    <div style={containerStyle} tabIndex={0} role="region" aria-label={label}>
       <table style={tableStyle}>
         <thead>
           <tr>
             {columns.map((col, idx) => (
-              <th key={idx} style={thStyle}>
+              <th key={idx} scope="col" style={thStyle}>
                 {col.header}
               </th>
             ))}

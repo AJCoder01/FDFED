@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { getCategories, getServices, saveService, deleteService } from '../../data/mockRepository';
+import { getCategories, getServices, saveService, deleteService } from '../../data/apiRepository';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';

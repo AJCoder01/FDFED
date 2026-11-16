@@ -1,26 +1,32 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Calendar as CalendarIcon, Video, CheckCircle2 } from 'lucide-react';
 import { getTodayDateInputValue, addDays } from '../../utils/date';
-import { getDisputes, scheduleHearing } from '../../data/mockRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { scheduleHearing } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
+import { Select } from '../../design-system/primitives/Select';
+import { EmptyState } from '../../design-system/primitives/EmptyState';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { useAssignedCase } from './useAssignedCase';
 
 export function HearingSchedulerPage() {
-  const [searchParams] = useSearchParams();
-  const caseIdParam = searchParams.get('caseId') || 'DISP-101';
   const { currentUser, showToast } = useApp();
-
-  const { data: disputes } = useRepositoryQuery(getDisputes);
-  const caseDispute = (disputes || []).find(d => d.id === caseIdParam);
+  const { caseId: caseIdParam, cases: disputes, selectedCase: caseDispute, selectCase, loading, error, refresh } = useAssignedCase();
 
   const [date, setDate] = useState(() => addDays(getTodayDateInputValue(), 1));
   const [time, setTime] = useState('11:00 AM');
   const [meetUrl, setMeetUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
+
+  useEffect(() => {
+    setScheduledSuccess(false);
+    setDate(caseDispute?.hearingSchedule?.scheduledDate || addDays(getTodayDateInputValue(), 1));
+    setTime(caseDispute?.hearingSchedule?.scheduledTime || '11:00 AM');
+    setMeetUrl(caseDispute?.hearingSchedule?.meetUrl || '');
+  }, [caseIdParam]);
 
   useEffect(() => {
     if (caseDispute?.hearingSchedule) {
@@ -33,7 +39,7 @@ export function HearingSchedulerPage() {
   const selected = date || getTodayDateInputValue();
   const monday = new Date(`${selected}T12:00:00Z`);
   monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
-  const hearings = (disputes || []).filter(dispute => (dispute.arbitratorId === currentUser?.id || dispute.arbitratorId === 'user-arbit-1') && dispute.hearingSchedule);
+  const hearings = (disputes || []).filter(dispute => (dispute.arbitratorId === currentUser?.id) && dispute.hearingSchedule);
   const calendarDays = Array.from({ length: 7 }, (_, index) => {
     const value = addDays(monday.toISOString().slice(0, 10), index);
     return { date: value, day: new Date(`${value}T12:00:00Z`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric' }), slots: hearings.filter(dispute => dispute.hearingSchedule.scheduledDate === value).length, active: value === date };
@@ -50,6 +56,11 @@ export function HearingSchedulerPage() {
     } catch (error) { showToast(error.message, 'warning'); }
     finally { setBusy(false); }
   };
+
+  if (loading) return <Skeleton height="240px" />;
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (!caseDispute) return <EmptyState title="No assigned case" description="Your hearing schedule will appear when a case is assigned to you." />;
+  if (caseDispute.ruling) return <EmptyState title="Case already ruled" description="This case has a recorded ruling and cannot receive another hearing." />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -98,6 +109,7 @@ export function HearingSchedulerPage() {
         {/* Schedule Form */}
         <form onSubmit={handleScheduleSubmit} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Set Hearing Slot for Case #{caseIdParam}</h2>
+          <Select label="Dispute Case ID" value={caseIdParam} onChange={event => selectCase(event.target.value)} options={disputes.filter(item => !item.ruling).map(item => ({ value: item.id, label: item.id }))} />
 
           <TextField
             name="hearing-date"
@@ -126,7 +138,7 @@ export function HearingSchedulerPage() {
           />
 
           <Button type="submit" disabled={busy} variant="primary" size="lg" icon={Video}>
-            Confirm Hearing & Notify Parties
+            Confirm Hearing
           </Button>
 
           {scheduledSuccess && (

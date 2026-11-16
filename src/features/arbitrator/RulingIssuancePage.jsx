@@ -1,28 +1,36 @@
-import { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Award } from 'lucide-react';
 
-import { issueRuling } from '../../data/mockRepository';
+import { issueRuling } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
+import { EmptyState } from '../../design-system/primitives/EmptyState';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { useAssignedCase } from './useAssignedCase';
 
 const MINIMUM_WORDS = 20;
 
 export function RulingIssuancePage() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { showToast } = useApp();
 
-  const caseId = searchParams.get('caseId') || 'DISP-101';
+  const { caseId, cases, selectedCase, selectCase, loading, error, refresh } = useAssignedCase();
 
   const [verdict, setVerdict] = useState('In favour of Customer');
   const [awardAmount, setAwardAmount] = useState('0');
   const [rulingReason, setRulingReason] = useState('');
   const [busy, setBusy] = useState(false);
-  const [issued, setIssued] = useState(false);
+  const [issued, setIssued] = useState(null);
+  useEffect(() => {
+    setVerdict('In favour of Customer');
+    setAwardAmount('0');
+    setRulingReason('');
+  }, [caseId]);
 
   // Count words, ignoring extra spaces and empty input.
   const wordCount = rulingReason.trim()
@@ -60,7 +68,7 @@ export function RulingIssuancePage() {
         reason: rulingReason.trim()
       });
 
-      setIssued(true);
+      setIssued({ caseId, verdict, awardAmount: amount, reason: rulingReason.trim() });
       showToast(
         `Ruling issued for Case #${caseId}. Notifications sent to Customer & Provider.`,
         'success'
@@ -75,7 +83,11 @@ export function RulingIssuancePage() {
     }
   };
 
-  if (issued) {
+  if (loading) return <Skeleton height="240px" />;
+  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (!selectedCase) return <EmptyState title="No assigned case" description="Choose a case assigned to you before recording a ruling." actionLabel="View cases" onAction={() => navigate('/arbitrator/cases')} />;
+  const recordedRuling = selectedCase.ruling || (issued?.caseId === caseId ? issued : null);
+  if (recordedRuling) {
     return (
       <div
         className="app-container"
@@ -143,13 +155,13 @@ export function RulingIssuancePage() {
             }}
           >
             <div>
-              <strong>Verdict:</strong> {verdict}
+              <strong>Verdict:</strong> {recordedRuling.verdict}
             </div>
             <div>
-              <strong>Awarded Compensation:</strong> ₹{amountForDisplay(awardAmount)}
+              <strong>Awarded Compensation:</strong> ₹{amountForDisplay(recordedRuling.awardAmount)}
             </div>
             <div>
-              <strong>Ruling Summary:</strong> {rulingReason.trim()}
+              <strong>Ruling Summary:</strong> {recordedRuling.reason}
             </div>
           </div>
 
@@ -191,10 +203,12 @@ export function RulingIssuancePage() {
           gap: '20px'
         }}
       >
-        <TextField
+        <Select
           label="Dispute Case ID"
           value={caseId}
-          disabled
+          disabled={busy}
+          onChange={event => selectCase(event.target.value)}
+          options={cases.map(item => ({ value: item.id, label: item.id }))}
         />
 
         <Select
@@ -274,7 +288,7 @@ export function RulingIssuancePage() {
         >
           {busy
             ? 'Publishing Ruling...'
-            : 'Publish Final Ruling & Dispatch Notifications'}
+            : 'Publish Final Ruling'}
         </Button>
       </form>
     </div>

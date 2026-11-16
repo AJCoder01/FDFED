@@ -1,9 +1,10 @@
+import { ServiceImage } from '../../design-system/primitives/ServiceImage';
 import { useCallback, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, Filter, Star, X, Shield } from 'lucide-react';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { getServices, getCategories } from '../../data/mockRepository';
+import { getServices, getCategories } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { EmptyState } from '../../design-system/primitives/EmptyState';
@@ -91,6 +92,7 @@ export function ServiceSearchPage() {
           {/* Category Dropdown */}
           <div style={{ width: '200px' }}>
             <Select
+              aria-label="Filter by category"
               placeholder="All Categories"
               value={currentCategory}
               onChange={(e) => updateFilters('category', e.target.value)}
@@ -101,6 +103,7 @@ export function ServiceSearchPage() {
           {/* Sort Dropdown */}
           <div style={{ width: '180px' }}>
             <Select
+              aria-label="Sort services"
               value={currentSort}
               onChange={(e) => updateFilters('sort', e.target.value)}
               options={[
@@ -114,6 +117,7 @@ export function ServiceSearchPage() {
           {/* Price Range Filter */}
           <div style={{ width: '180px' }}>
             <Select
+              aria-label="Maximum price"
               value={currentMaxPrice}
               onChange={(e) => updateFilters('maxPrice', e.target.value)}
               options={[
@@ -176,7 +180,7 @@ export function ServiceSearchPage() {
         <div className="grid-cols-3">
           {services.map((srv) => (
             <div key={srv.id} className="card card-hover" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-              <img src={srv.image} alt={srv.title} style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
+              <ServiceImage src={srv.image} alt={srv.title} style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
               <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -1,7 +1,8 @@
+import { ServiceImage } from '../../design-system/primitives/ServiceImage';
 import { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Star, Shield, Clock, ArrowLeft } from 'lucide-react';
-import { getAvailableSlots, getServiceById, getServiceReviews } from '../../data/mockRepository';
+import { getAvailableSlots, getServiceById, getServiceReviews } from '../../data/apiRepository';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
@@ -91,7 +92,7 @@ export function ServiceDetailPage() {
         {/* Main Left Details */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <img src={service.image} alt={service.title} style={{ width: '100%', height: '320px', objectFit: 'cover' }} />
+            <ServiceImage src={service.image} alt={service.title} style={{ width: '100%', height: '320px', objectFit: 'cover' }} />
             <div style={{ padding: '24px' }}>
               <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase' }}>{service.categoryName}</span>
               <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '4px' }}>{service.title}</h1>

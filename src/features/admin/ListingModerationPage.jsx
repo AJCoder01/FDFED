@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { getServices, saveService } from '../../data/mockRepository';
+import { getServices, saveService } from '../../data/apiRepository';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';

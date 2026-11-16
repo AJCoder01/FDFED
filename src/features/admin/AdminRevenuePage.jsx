@@ -3,7 +3,7 @@ import { DollarSign, TrendingUp, CreditCard, Users, PieChart, Search, Filter, Sh
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
-import { getRevenueStats } from '../../data/mockRepository';
+import { getRevenueStats } from '../../data/apiRepository';
 import { platformFee, netPayout } from '../../data/bookingRules';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -79,7 +79,7 @@ export function AdminRevenuePage() {
       render: (row) => {
         const fee = platformFee(row);
         return (
-          <span style={{ fontWeight: '800', color: '#059669', backgroundColor: '#ECFDF5', padding: '4px 8px', borderRadius: '6px' }}>
+          <span style={{ fontWeight: '800', color: 'var(--color-success)', backgroundColor: 'var(--color-success-bg)', padding: '4px 8px', borderRadius: '6px' }}>
             +₹{fee}
           </span>
         );
@@ -146,15 +146,15 @@ export function AdminRevenuePage() {
       {/* Main KPI Cards */}
       <div className="grid-cols-4">
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #10B981' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#ECFDF5', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <TrendingUp size={24} />
           </div>
           <div>
             <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>PLATFORM REVENUE AFTER REFUNDS</span>
-            <div style={{ fontSize: '26px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>
+            <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--color-success)', marginTop: '2px' }}>
               ₹{stats.totalRevenue.toLocaleString()}
             </div>
-            <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '600' }}>Earned from booking fees</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '600' }}>Earned from booking fees</span>
           </div>
         </div>
 
@@ -180,12 +180,12 @@ export function AdminRevenuePage() {
             <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '2px' }}>
               ₹{stats.totalNetPayouts.toLocaleString()}
             </div>
-            <span style={{ fontSize: '11px', color: '#6D28D9', fontWeight: '600' }}>Completed paid bookings</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-purple)', fontWeight: '600' }}>Completed paid bookings</span>
           </div>
         </div>
 
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #F59E0B' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#FEF3C7', color: 'var(--color-conflict)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <PieChart size={24} />
           </div>
           <div>
@@ -211,7 +211,7 @@ export function AdminRevenuePage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '12px' }}>
                 <span style={{ color: 'var(--color-muted)' }}>Platform Fee (5%):</span>
-                <strong style={{ color: '#059669' }}>+₹{cat.revenue}</strong>
+                <strong style={{ color: 'var(--color-success)' }}>+₹{cat.revenue}</strong>
               </div>
               <div style={{ marginTop: '8px', backgroundColor: '#E2E8F0', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
                 <div style={{ width: `${stats.gmv > 0 ? (cat.gmv / stats.gmv) * 100 : 0}%`, height: '100%', backgroundColor: 'var(--color-primary)' }} />
@@ -239,6 +239,7 @@ export function AdminRevenuePage() {
             </div>
 
             <Select
+              aria-label="Payment status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
@@ -284,7 +285,7 @@ export function AdminRevenuePage() {
                 <span>Gross Booking Price:</span>
                 <strong style={{ fontSize: '15px' }}>₹{selectedTxn.amount}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', fontWeight: '700' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-success)', fontWeight: '700' }}>
                 <span>Less: ServiceHub Platform Booking Fee (5%):</span>
                 <span>-₹{selectedTxn.platformFee !== undefined ? selectedTxn.platformFee : Math.round(selectedTxn.amount * 0.05)}</span>
               </div>

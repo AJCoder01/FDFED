@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getServices, getCategories, saveService, deleteService } from '../../data/mockRepository';
+import { getServices, getCategories, saveService, deleteService } from '../../data/apiRepository';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
