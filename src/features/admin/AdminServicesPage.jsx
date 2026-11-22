@@ -1,6 +1,15 @@
-import React, { useState, useCallback } from 'react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getServices, getCategories, saveService, deleteService } from '../../data/apiRepository';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  selectServices,
+  selectCategories,
+  selectMarketplaceLoading,
+  selectMarketplaceError,
+  fetchServicesThunk,
+  fetchCategoriesThunk,
+  saveServiceThunk,
+  deleteServiceThunk
+} from '../../store/slices/marketplaceSlice';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
@@ -14,18 +23,20 @@ import { Eye, Layers, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function AdminServicesPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
   const [busyId, setBusyId] = useState(null);
 
-  const load = useCallback(async () => {
-    const [services, categories] = await Promise.all([
-      getServices({ role: 'admin' }),
-      getCategories()
-    ]);
-    return { services: services || [], categories: categories || [] };
-  }, []);
+  const services = useSelector(selectServices);
+  const categories = useSelector(selectCategories);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
 
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  useEffect(() => {
+    dispatch(fetchServicesThunk({ role: 'admin' }));
+    dispatch(fetchCategoriesThunk());
+  }, [dispatch]);
+
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -35,7 +46,7 @@ export function AdminServicesPage() {
     setBusyId(id);
     try {
       const status = currentStatus === 'published' ? 'paused' : 'published';
-      await saveService({ id, status }, { role: 'admin' });
+      await dispatch(saveServiceThunk({ serviceData: { id, status }, options: { role: 'admin' } })).unwrap();
       showToast(`Listing status updated to ${status}.`);
     } catch (err) {
       showToast(err.message || 'Failed to update service status.', 'error');
@@ -49,9 +60,8 @@ export function AdminServicesPage() {
     if (busyId) return;
     setBusyId(id);
     try {
-      await deleteService(id, { role: 'admin' });
+      await dispatch(deleteServiceThunk({ id, options: { role: 'admin' } })).unwrap();
       showToast(`Service "${title}" deleted successfully.`);
-      refresh();
     } catch (err) {
       showToast(err.message || 'Failed to delete service.', 'error');
     } finally {
@@ -59,14 +69,14 @@ export function AdminServicesPage() {
     }
   };
 
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  if (error) return <ErrorState description={error} onRetry={() => { dispatch(fetchServicesThunk({ role: 'admin' })); dispatch(fetchCategoriesThunk()); }} />;
+  if (loading && (!services || services.length === 0)) return <Skeleton height="400px" borderRadius="12px" />;
 
-  const categoryMap = new Map((data?.categories || []).map(c => [c.id, c.name]));
+  const categoryMap = new Map((categories || []).map(c => [c.id, c.name]));
 
   const categoryOptions = [
     { value: 'all', label: 'All Categories' },
-    ...(data?.categories || []).map(c => ({ value: c.id, label: c.name }))
+    ...(categories || []).map(c => ({ value: c.id, label: c.name }))
   ];
 
   const statusOptions = [
@@ -78,7 +88,7 @@ export function AdminServicesPage() {
     { value: 'other', label: 'Other' }
   ];
 
-  const filteredServices = (data?.services || []).filter(s => {
+  const filteredServices = (services || []).filter(s => {
     const catName = s.categoryName || categoryMap.get(s.categoryId) || '';
     const matchesSearch = !search.trim() ||
       s.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -196,7 +206,7 @@ export function AdminServicesPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
           <Layers size={18} color="var(--color-primary)" />
           <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>
-            Total Services: {data?.services?.length || 0}
+            Total Services: {services?.length || 0}
           </span>
         </div>
       </div>

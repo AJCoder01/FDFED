@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
 import { Calendar as CalendarIcon, Video, CheckCircle2 } from 'lucide-react';
 import { getTodayDateInputValue, addDays } from '../../utils/date';
-import { scheduleHearing } from '../../data/apiRepository';
+import { scheduleHearingThunk } from '../../store/slices/supportSlice';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
@@ -12,6 +13,7 @@ import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { useAssignedCase } from './useAssignedCase';
 
 export function HearingSchedulerPage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
   const { caseId: caseIdParam, cases: disputes, selectedCase: caseDispute, selectCase, loading, error, refresh } = useAssignedCase();
 
@@ -50,7 +52,10 @@ export function HearingSchedulerPage() {
     if (busy) return;
     setBusy(true);
     try {
-      await scheduleHearing(caseIdParam, { scheduledDate: date, scheduledTime: time, meetUrl });
+      await dispatch(scheduleHearingThunk({
+        disputeId: caseIdParam,
+        hearingData: { scheduledDate: date, scheduledTime: time, meetUrl }
+      })).unwrap();
       setScheduledSuccess(true);
       showToast(`Hearing scheduled for Case #${caseIdParam} on ${date} at ${time}. Both parties notified.`, 'success');
     } catch (error) { showToast(error.message, 'warning'); }

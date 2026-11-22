@@ -3,11 +3,14 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Shield, ShieldCheck, UserRound, Wrench, Scale, ArrowLeft, KeyRound, UserPlus, Sparkles } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_DEMO_PASSWORD } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
+import { useSelector } from 'react-redux';
+import { selectSavedIntent } from '../../store/slices/authSlice';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 
 export function LoginPage() {
-  const { login, savedIntent } = useApp();
+  const { login } = useApp();
+  const savedIntent = useSelector(selectSavedIntent);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');

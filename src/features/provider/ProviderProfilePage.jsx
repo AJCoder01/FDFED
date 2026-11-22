@@ -18,8 +18,10 @@ import {
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser, fetchCurrentUserThunk } from '../../store/slices/authSlice';
+import { saveProviderThunk } from '../../store/slices/usersSlice';
 import { useApp } from '../../app/context/AppContext';
-import { saveProvider } from '../../data/apiRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -27,7 +29,9 @@ import { PhoneInputField, validatePhoneNumber } from '../../design-system/primit
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ProviderProfilePage() {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const { showToast } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(currentUser?.name || '');
@@ -59,69 +63,37 @@ export function ProviderProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setAvatar(ev.target.result);
+    reader.onload = ev => setAvatar(ev.target.result);
     reader.readAsDataURL(file);
   };
 
-  const handleCancelEdit = () => {
-    setName(currentUser?.name || '');
-    setPhone(currentUser?.phone || '');
-    setAvatar(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
-    setBusinessName(currentUser?.businessName || '');
-    setServiceArea(currentUser?.serviceArea || '');
-    setSkills((currentUser?.skills || []).join(', '));
-    setDocumentName(currentUser?.documentName || '');
-    setError('');
-    setIsEditing(false);
-  };
-
-  const handleSave = async (e, submit = false) => {
+  const handleSaveProfile = async (e, submitForVerification = false) => {
     if (e) e.preventDefault();
-    setError('');
-
     if (!name.trim()) {
-      setError('Please enter your full contact name.');
+      showToast('Name cannot be empty.', 'warning');
       return;
     }
-
     if (!businessName.trim()) {
-      setError('Please enter a business or trading name.');
-      return;
-    }
-
-    if (!serviceArea.trim()) {
-      setError('Please enter your service coverage area.');
-      return;
-    }
-
-    const skillsArray = skills
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (skillsArray.length === 0) {
-      setError('Please specify at least one trade skill or category.');
+      showToast('Business Name cannot be empty.', 'warning');
       return;
     }
 
     if (phone) {
       const phoneErr = validatePhoneNumber(phone);
       if (phoneErr) {
-        setError(phoneErr);
+        showToast(phoneErr, 'warning');
         return;
       }
     }
 
-    if (submit && !documentName.trim()) {
-      setError('Please enter a document filename before submitting for verification.');
-      return;
-    }
-
     setBusy(true);
+    setError('');
+
     try {
-      await saveProvider(
-        currentUser.id,
-        {
+      const skillsArray = skills.split(',').map(s => s.trim()).filter(Boolean);
+      await dispatch(saveProviderThunk({
+        id: currentUser.id,
+        values: {
           name: name.trim(),
           phone: phone.trim(),
           avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
@@ -130,344 +102,110 @@ export function ProviderProfilePage() {
           skills: skillsArray,
           documentName: documentName.trim()
         },
-        submit
-      );
-
+        submit: submitForVerification
+      })).unwrap();
+      await dispatch(fetchCurrentUserThunk()).unwrap();
       setIsEditing(false);
-      showToast(
-        submit
-          ? 'Profile and credentials submitted for Admin review.'
-          : 'Service provider profile updated successfully!',
-        'success'
-      );
+      showToast(submitForVerification ? 'Profile and credentials submitted for Admin review.' : 'Profile changes saved.', 'success');
     } catch (err) {
-      setError(err.message || 'Unable to update provider profile.');
-      showToast(err.message || 'Unable to update profile.', 'error');
+      setError(err.message || 'Failed to update provider profile.');
+      showToast(err.message || 'Update failed.', 'error');
     } finally {
       setBusy(false);
     }
   };
 
-  const skillList = (currentUser?.skills && currentUser.skills.length > 0)
-    ? currentUser.skills
-    : ['AC Maintenance', 'Electrical Repair', 'Appliance Repair'];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1000px', margin: '0 auto', paddingBottom: '40px' }}>
-      {/* Page Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 className="page-title">Service Provider Profile</h1>
-          <p className="page-subtitle">Manage business credentials, contact info, trade skills, and verification status.</p>
+          <h1 className="page-title">Provider Profile & Credentials</h1>
+          <p className="page-subtitle">Manage your verified marketplace profile, services, and trade credentials</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <Button
-            variant={isEditing ? 'outline' : 'primary'}
-            size="sm"
-            icon={isEditing ? X : Edit3}
-            onClick={() => {
-              if (isEditing) {
-                handleCancelEdit();
-              } else {
-                setIsEditing(true);
-              }
-            }}
-          >
-            {isEditing ? 'Cancel Edit' : 'Edit Profile'}
-          </Button>
+          {!isEditing ? (
+            <Button variant="primary" icon={Edit3} onClick={() => setIsEditing(true)}>
+              Edit Profile
+            </Button>
+          ) : (
+            <>
+              <Button variant="secondary" icon={X} onClick={() => setIsEditing(false)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button variant="primary" icon={Save} onClick={e => handleSaveProfile(e, false)} disabled={busy}>
+                {busy ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Edit Profile Form Mode */}
-      {isEditing && (
-        <form onSubmit={(e) => handleSave(e, false)} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '22px', padding: '28px', border: '2px solid var(--color-primary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Edit3 size={20} color="var(--color-primary)" />
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)' }}>Edit Provider Profile Details</h2>
-            </div>
-            <StatusBadge status="warning" label="Editing Active" />
-          </div>
-
-          {/* Profile Picture Section */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-ink)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Profile Avatar
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <img
-                src={avatar || DEFAULT_BLANK_AVATAR}
-                alt="Avatar preview"
-                style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-success)', backgroundColor: 'var(--color-page-bg)' }}
-                onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
-              />
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <input
-                  type="file"
-                  id="providerAvatarUpload"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={handleAvatarFile}
-                  disabled={busy}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  icon={Upload}
-                  onClick={() => document.getElementById('providerAvatarUpload').click()}
-                  disabled={busy}
-                >
-                  Upload Picture
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAvatar(DEFAULT_BLANK_AVATAR)}
-                  disabled={busy}
-                >
-                  Clear to Unknown Avatar
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Details */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <TextField
-              label="Contact Person / Full Name *"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Rohan Verma"
-              required
-              disabled={busy}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }} className="grid-cols-2">
+        {/* Left Column: Avatar & Summary */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px', padding: '32px' }}>
+          <div style={{ position: 'relative' }}>
+            <img
+              src={avatar}
+              alt={name}
+              style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--color-border)', backgroundColor: 'var(--color-primary-light)' }}
+              onError={e => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
             />
-            <PhoneInputField
-              label="Contact Phone Number *"
-              value={phone}
-              onChange={setPhone}
-              required
-              disabled={busy}
-            />
-          </div>
-
-          <TextField
-            label="Account Email (Read-Only)"
-            value={currentUser?.email || ''}
-            disabled
-            helperText="Used for authentication and booking dispatch notices"
-          />
-
-          {/* Business Information */}
-          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-ink)' }}>Business & Trade Information</h3>
-
-            <TextField
-              label="Business / Trading Name *"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g. UrbanFix Home Solutions"
-              required
-              disabled={busy}
-            />
-
-            <TextField
-              label="Service Coverage Area *"
-              value={serviceArea}
-              onChange={(e) => setServiceArea(e.target.value)}
-              placeholder="e.g. Bengaluru"
-              required
-              disabled={busy}
-            />
-
-            <TextField
-              label="Trade Skills (Comma separated) *"
-              value={skills}
-              onChange={(e) => setSkills(e.target.value)}
-              placeholder="AC Maintenance, Electrical Repair, Appliance Repair, Plumbing"
-              helperText="Comma-separated list used to match customer inquiries and directory categories"
-              required
-              disabled={busy}
-            />
-
-            <TextField
-              label="Verification Document Record"
-              value={documentName}
-              onChange={(e) => setDocumentName(e.target.value)}
-              placeholder="e.g. trade_license_ka_2026.pdf"
-              helperText="Demo registration record; upload simulated filename for administrative verification"
-              disabled={busy}
-            />
-          </div>
-
-          {error && (
-            <div role="alert" style={{ padding: '12px', borderRadius: 'var(--radius-control)', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertCircle size={16} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Actions Bar */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--color-border)', paddingTop: '16px', flexWrap: 'wrap' }}>
-            <Button type="button" variant="secondary" onClick={handleCancelEdit} disabled={busy}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" icon={Save} disabled={busy}>
-              {busy ? 'Saving Changes...' : 'Save Profile Changes'}
-            </Button>
-            {currentUser?.verificationStatus !== 'approved' && (
-              <Button type="button" variant="outline" icon={ShieldCheck} onClick={(e) => handleSave(e, true)} disabled={busy || currentUser?.verificationStatus === 'submitted'}>
-                Submit for Verification
-              </Button>
+            {isEditing && (
+              <label style={{ position: 'absolute', bottom: '0', right: '0', backgroundColor: 'var(--color-primary)', color: '#FFF', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+                <Upload size={16} />
+                <input type="file" accept="image/*" onChange={handleAvatarFile} style={{ display: 'none' }} />
+              </label>
             )}
           </div>
-        </form>
-      )}
 
-      {/* View Mode (Display Profile Cards) */}
-      {!isEditing && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Identity Card */}
-          <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-            <img
-              src={currentUser?.avatar || DEFAULT_BLANK_AVATAR}
-              alt={currentUser?.name || 'Provider'}
-              style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--color-success)', backgroundColor: 'var(--color-page-bg)' }}
-              onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
-            />
-            <div style={{ flex: 1, minWidth: '240px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{currentUser?.businessName || currentUser?.name}</h2>
-                <StatusBadge status={currentUser?.verificationStatus || 'approved'} />
-              </div>
-              <p style={{ fontSize: '14px', color: 'var(--color-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <User size={14} /> Contact Person: <strong>{currentUser?.name}</strong>
-              </p>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap', fontSize: '13px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-conflict)', fontWeight: '700' }}>
-                  <Star size={15} fill="#F59E0B" color="#F59E0B" /> {currentUser?.rating == null ? 'Unrated' : currentUser.rating.toFixed(1)} ({currentUser?.reviewCount ?? 0} reviews)
-                </span>
-                <span style={{ color: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <MapPin size={14} /> {currentUser?.serviceArea || 'Bengaluru'}
-                </span>
-              </div>
-            </div>
+          <div>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-ink)', margin: 0 }}>{businessName || name}</h2>
+            <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>Lead Contractor: {name}</p>
           </div>
 
-          {/* Verification Status Banner */}
-          <div className="card" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderLeft: '4px solid var(--color-success)' }}>
-            <div>
-              <strong style={{ fontSize: '14px', color: 'var(--color-ink)' }}>Platform Verification Record</strong>
-              <p style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '2px' }}>
-                {currentUser?.verificationFeedback || 'Your business credentials and trade certification are verified by platform operations.'}
-              </p>
-              {currentUser?.documentName && (
-                <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <FileText size={14} /> Document: <code>{currentUser.documentName}</code>
-                </div>
-              )}
+          <StatusBadge status={currentUser?.verificationStatus} />
+          {currentUser?.verificationFeedback && (
+            <div style={{ backgroundColor: 'var(--color-page-bg)', padding: '12px', borderRadius: 'var(--radius-control)', fontSize: '12px', color: 'var(--color-muted)', width: '100%', textAlign: 'left' }}>
+              <strong>Admin Feedback:</strong> {currentUser.verificationFeedback}
             </div>
-            <StatusBadge status={currentUser?.verificationStatus || 'approved'} />
-          </div>
-
-          {/* Details 2-Column Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-            {/* Contact Details */}
-            <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-ink)', borderBottom: '1px solid var(--color-border)', paddingBottom: '10px' }}>
-                Contact & Account Information
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <User size={16} color="var(--color-primary)" />
-                  <div>
-                    <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>FULL NAME</span>
-                    <strong style={{ color: 'var(--color-ink)' }}>{currentUser?.name || 'N/A'}</strong>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Phone size={16} color="var(--color-primary)" />
-                  <div>
-                    <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>CONTACT PHONE</span>
-                    <strong style={{ color: 'var(--color-ink)' }}>{currentUser?.phone || '+91 91234 56789'}</strong>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Mail size={16} color="var(--color-primary)" />
-                  <div>
-                    <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>REGISTERED EMAIL</span>
-                    <strong style={{ color: 'var(--color-ink)' }}>{currentUser?.email || 'rohan@gmail.com'}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Business & Trade Skills */}
-            <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-ink)', borderBottom: '1px solid var(--color-border)', paddingBottom: '10px' }}>
-                Business Trade & Coverage
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-                <div>
-                  <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>SERVICE COVERAGE AREA</span>
-                  <strong style={{ color: 'var(--color-ink)' }}>{currentUser?.serviceArea || 'Bengaluru'}</strong>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '8px' }}>PRIMARY TRADE SKILLS</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {skillList.map((skill, idx) => (
-                      <span
-                        key={idx}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 10px',
-                          borderRadius: '12px',
-                          backgroundColor: 'var(--color-primary-light)',
-                          color: 'var(--color-primary)',
-                          fontSize: '12px',
-                          fontWeight: '600'
-                        }}
-                      >
-                        <Wrench size={12} /> {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Operating Hours Summary */}
-          <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Clock size={18} color="var(--color-primary)" />
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-ink)' }}>Standard Operating Hours</h3>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', fontSize: '13px' }}>
-              <div>
-                <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>ACTIVE WORKING DAYS</span>
-                <strong style={{ color: 'var(--color-ink)' }}>Monday – Saturday</strong>
-              </div>
-              <div>
-                <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>DAILY SHIFT HOURS</span>
-                <strong style={{ color: 'var(--color-ink)' }}>09:00 AM – 07:00 PM</strong>
-              </div>
-              <div>
-                <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700' }}>SCHEDULE BUFFER</span>
-                <strong style={{ color: 'var(--color-ink)' }}>15 mins travel buffer between slots</strong>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+
+        {/* Right Column: Profile Details */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-ink)' }}>Business & Contact Information</h2>
+
+          {!isEditing ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div><strong style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Business Name:</strong> <div style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{businessName}</div></div>
+              <div><strong style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Contact Name:</strong> <div style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{name}</div></div>
+              <div><strong style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Email:</strong> <div style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{currentUser?.email}</div></div>
+              <div><strong style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Phone:</strong> <div style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{phone || 'Not provided'}</div></div>
+              <div><strong style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Service Region:</strong> <div style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{serviceArea || 'Not specified'}</div></div>
+              <div><strong style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Skills & Specialties:</strong> <div style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{skills || 'None'}</div></div>
+              <div><strong style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Document / License:</strong> <div style={{ fontSize: '15px', color: 'var(--color-ink)' }}>{documentName || 'Not submitted'}</div></div>
+            </div>
+          ) : (
+            <form onSubmit={e => handleSaveProfile(e, false)} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <TextField label="Business Name" value={businessName} onChange={e => setBusinessName(e.target.value)} required />
+              <TextField label="Contact Person Name" value={name} onChange={e => setName(e.target.value)} required />
+              <TextField label="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} required />
+              <TextField label="Service Area / City" value={serviceArea} onChange={e => setServiceArea(e.target.value)} required />
+              <TextField label="Skills (comma separated)" value={skills} onChange={e => setSkills(e.target.value)} required />
+              <TextField label="Verification Document Record" value={documentName} onChange={e => setDocumentName(e.target.value)} />
+              {error && <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '13px' }}>{error}</p>}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Button type="submit" disabled={busy}>{busy ? 'Saving...' : 'Save Draft'}</Button>
+                {currentUser?.verificationStatus !== 'approved' && (
+                  <Button type="button" variant="primary" disabled={busy} onClick={e => handleSaveProfile(e, true)}>
+                    Submit for Verification
+                  </Button>
+                )}
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Scale, AlertTriangle, Upload, FileText, X } from 'lucide-react';
-import { createDispute, getBookingById } from '../../data/apiRepository';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import { selectSelectedBooking, fetchBookingByIdThunk } from '../../store/slices/bookingsSlice';
+import { createDisputeThunk } from '../../store/slices/supportSlice';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 
 export function DisputeFilingPage() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
   const bookingIdParam = searchParams.get('bookingId') || '';
-  const { currentUser, showToast } = useApp();
+  const currentUser = useSelector(selectCurrentUser);
+  const reduxBooking = useSelector(selectSelectedBooking);
+  const { showToast } = useApp();
 
-  const [booking, setBooking] = useState(null);
+  const booking = reduxBooking?.id === bookingIdParam ? reduxBooking : null;
   const [loadingBooking, setLoadingBooking] = useState(true);
   const [claimAmount, setClaimAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -25,13 +31,11 @@ export function DisputeFilingPage() {
       setLoadingBooking(false);
       return;
     }
-    getBookingById(bookingIdParam)
-      .then(b => {
-        setBooking(b);
-      })
+    dispatch(fetchBookingByIdThunk(bookingIdParam))
+      .unwrap()
       .catch(() => {})
       .finally(() => setLoadingBooking(false));
-  }, [bookingIdParam]);
+  }, [bookingIdParam, dispatch]);
 
   const handleFileChange = (e) => {
     if (e.target.files) {
@@ -86,13 +90,13 @@ export function DisputeFilingPage() {
         uploadedAt: new Date().toISOString()
       }));
 
-      const created = await createDispute({
+      const created = await dispatch(createDisputeThunk({
         bookingId: bookingIdParam,
         customerId: currentUser.id,
         claimAmount: Number(claimAmount),
         customerStatement: statement,
         evidences
-      });
+      })).unwrap();
 
       setSubmittedDispute(created);
       showToast(`Dispute Case #${created.id} filed. An Arbitrator will be assigned.`, 'success');

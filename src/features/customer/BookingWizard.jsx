@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser, selectSavedIntent, clearSavedIntent, fetchCurrentUserThunk } from '../../store/slices/authSlice';
+import { createBookingThunk } from '../../store/slices/bookingsSlice';
+import { saveCustomerAddressesThunk } from '../../store/slices/usersSlice';
 import { useApp } from '../../app/context/AppContext';
-import { createBooking, saveCustomerAddresses } from '../../data/apiRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
@@ -10,9 +13,12 @@ import { Button } from '../../design-system/primitives/Button';
 export function BookingWizard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, savedIntent, setSavedIntent, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const reduxSavedIntent = useSelector(selectSavedIntent);
+  const { showToast } = useApp();
 
-  const bookingData = location.state?.intent || savedIntent;
+  const bookingData = location.state?.intent || reduxSavedIntent;
   const addresses = currentUser?.addresses || [];
   const defaultAddress = addresses.find(address => address.isDefault) || addresses[0];
 
@@ -36,10 +42,14 @@ export function BookingWizard() {
     if (savingAddress) return;
     setSavingAddress(true);
     try {
-      const saved = await saveCustomerAddresses(currentUser.id, [
-        ...addresses,
-        { ...newAddress, id: `addr-${crypto.randomUUID().slice(0, 8)}`, isDefault: addresses.length === 0 }
-      ]);
+      const saved = await dispatch(saveCustomerAddressesThunk({
+        id: currentUser.id,
+        addresses: [
+          ...addresses,
+          { ...newAddress, id: `addr-${crypto.randomUUID().slice(0, 8)}`, isDefault: addresses.length === 0 }
+        ]
+      })).unwrap();
+      await dispatch(fetchCurrentUserThunk()).unwrap();
       const created = saved.addresses[saved.addresses.length - 1];
       setSelectedAddressId(created.id);
       setNewAddressOpen(false);
@@ -55,7 +65,7 @@ export function BookingWizard() {
   const handleConfirmOrder = async () => {
     setLoading(true);
     try {
-      const newBooking = await createBooking({
+      const newBooking = await dispatch(createBookingThunk({
         requestKey,
         serviceId: bookingData.serviceId,
         serviceTitle: bookingData.serviceTitle,
@@ -71,9 +81,9 @@ export function BookingWizard() {
         amount: bookingData.price,
         paymentMethod: paymentMethod,
         notes: notes
-      });
+      })).unwrap();
 
-      setSavedIntent(null);
+      dispatch(clearSavedIntent());
       setConfirmedBooking(newBooking);
       showToast(`Booking #${newBooking.id} created successfully!`, 'success');
     } catch (error) {

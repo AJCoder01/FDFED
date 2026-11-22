@@ -1,6 +1,12 @@
-import { useCallback, useState } from 'react';
-import { getServices, saveService } from '../../data/apiRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  selectServices,
+  selectMarketplaceLoading,
+  selectMarketplaceError,
+  fetchServicesThunk,
+  saveServiceThunk
+} from '../../store/slices/marketplaceSlice';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { useApp } from '../../app/context/AppContext';
@@ -9,22 +15,30 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 
 export function ListingModerationPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => getServices({ role: 'admin' }), []);
-  const { data: services, loading, error, refresh } = useRepositoryQuery(load);
+
+  const services = useSelector(selectServices);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
+
+  useEffect(() => {
+    dispatch(fetchServicesThunk({ role: 'admin' }));
+  }, [dispatch]);
+
   const handleToggleStatus = async (id, currentStatus) => {
     if (busy) return;
     setBusy(true);
     try {
       const status = currentStatus === 'published' ? 'paused' : 'published';
-      await saveService({ id, status }, { role: 'admin' });
+      await dispatch(saveServiceThunk({ serviceData: { id, status }, options: { role: 'admin' } })).unwrap();
       showToast(`Listing ${status}.`);
     } catch (error) { showToast(error.message, 'error'); }
     finally { setBusy(false); }
   };
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" />;
+  if (error) return <ErrorState description={error} onRetry={() => dispatch(fetchServicesThunk({ role: 'admin' }))} />;
+  if (loading && (!services || services.length === 0)) return <Skeleton height="300px" />;
 
   const columns = [
     { header: 'Title', accessor: 'title', render: (row) => <strong>{row.title}</strong> },

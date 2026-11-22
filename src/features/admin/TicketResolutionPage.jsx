@@ -1,8 +1,13 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  selectTickets,
+  selectSupportLoading,
+  selectSupportError,
+  fetchTicketsThunk,
+  resolveTicketThunk
+} from '../../store/slices/supportSlice';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useState } from 'react';
-
-import { getTickets, resolveTicket } from '../../data/apiRepository';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -11,8 +16,17 @@ import { Modal } from '../../design-system/primitives/Modal';
 import { Select } from '../../design-system/primitives/Select';
 
 export function TicketResolutionPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
-  const { data: tickets, loading, error, refresh } = useRepositoryQuery(getTickets);
+
+  const tickets = useSelector(selectTickets);
+  const loading = useSelector(selectSupportLoading);
+  const error = useSelector(selectSupportError);
+
+  useEffect(() => {
+    dispatch(fetchTicketsThunk());
+  }, [dispatch]);
+
   const [busy, setBusy] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [outcome, setOutcome] = useState('Full Mock Refund Issued');
@@ -26,12 +40,18 @@ export function TicketResolutionPage() {
   const handleConfirmResolve = async () => {
     if (busy) return;
     setBusy(true);
-    try { await resolveTicket(selectedTicket.id, outcome); setModalOpen(false); showToast('Ticket resolution saved.'); }
-    catch (error) { showToast(error.message, 'warning'); }
-    finally { setBusy(false); }
+    try {
+      await dispatch(resolveTicketThunk({ ticketId: selectedTicket.id, outcome })).unwrap();
+      setModalOpen(false);
+      showToast('Ticket resolution saved.');
+    } catch (error) {
+      showToast(error.message, 'warning');
+    } finally {
+      setBusy(false);
+    }
   };
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <p>Loading tickets…</p>;
+  if (error) return <ErrorState description={error} onRetry={() => dispatch(fetchTicketsThunk())} />;
+  if (loading && (!tickets || tickets.length === 0)) return <p>Loading tickets…</p>;
 
   const columns = [
     { header: 'Ticket ID', accessor: 'id', render: (row) => <strong>#{row.id}</strong> },

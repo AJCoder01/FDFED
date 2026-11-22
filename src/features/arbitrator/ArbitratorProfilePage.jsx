@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Scale, User, Mail, Phone, ShieldCheck, CheckCircle2, Award, FileText, Calendar, Clock, MapPin, Gavel, Edit3, Save, X, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
-import { updateUserProfile, getDisputes } from '../../data/apiRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import { selectDisputes, fetchDisputesThunk } from '../../store/slices/supportSlice';
+import { updateUserProfileThunk } from '../../store/slices/usersSlice';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ArbitratorProfilePage() {
-  const { currentUser, showToast } = useApp();
-  const { data: disputes } = useRepositoryQuery(getDisputes);
+  const dispatch = useDispatch();
+  const { showToast } = useApp();
+  const currentUser = useSelector(selectCurrentUser);
+  const disputes = useSelector(selectDisputes);
+
+  useEffect(() => {
+    dispatch(fetchDisputesThunk());
+  }, [dispatch]);
 
   const myDisputes = (disputes || []).filter(
     (d) => d.arbitratorId === currentUser?.id
@@ -60,12 +68,15 @@ export function ArbitratorProfilePage() {
 
     setSaving(true);
     try {
-      await updateUserProfile(currentUser.id, {
-        name: name.trim(),
-        phone: phone.trim(),
-        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
-        title: title.trim()
-      });
+      await dispatch(updateUserProfileThunk({
+        userId: currentUser.id,
+        profileData: {
+          name: name.trim(),
+          phone: phone.trim(),
+          avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+          title: title.trim()
+        }
+      })).unwrap();
       setIsEditing(false);
       showToast('Arbitrator profile updated successfully!', 'success');
     } catch (err) {

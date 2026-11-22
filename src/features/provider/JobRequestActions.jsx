@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Check, X } from 'lucide-react';
+import { useDispatch } from 'react-redux';
+import { updateBookingStatusThunk } from '../../store/slices/bookingsSlice';
 import { useApp } from '../../app/context/AppContext';
 import { Button } from '../../design-system/primitives/Button';
 import { Modal } from '../../design-system/primitives/Modal';
 import { TextField } from '../../design-system/primitives/TextField';
-import { isPending, updateJob } from './providerUtils';
+import { isPending } from './providerUtils';
 
 export function JobRequestActions({ job, onUpdate, onRefresh }) {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const { showToast } = useApp();
   const [action, setAction] = useState('');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -16,6 +19,7 @@ export function JobRequestActions({ job, onUpdate, onRefresh }) {
   const close = () => {
     if (!busy) { setAction(''); setReason(''); setError(''); }
   };
+
   const confirm = async event => {
     event.preventDefault();
     if (busy) return;
@@ -24,15 +28,26 @@ export function JobRequestActions({ job, onUpdate, onRefresh }) {
     setError('');
     try {
       const note = action === 'accept' ? 'Provider accepted the booking request.' : `Provider declined the booking request. Reason: ${reason.trim()}`;
-      const updated = await updateJob(job.id, currentUser.id, action, note);
-      onUpdate(updated);
+      const statusMap = { accept: 'active', decline: 'cancelled' };
+      const updated = await dispatch(updateBookingStatusThunk({
+        id: job.id,
+        status: statusMap[action],
+        note
+      })).unwrap();
+
+      if (onUpdate) onUpdate(updated);
       setAction('');
       setReason('');
       const messages = { accept: 'Booking accepted.', decline: updated.paymentStatus === 'Refunded' ? 'Booking declined and mock payment refunded.' : 'Booking declined.' };
       showToast(messages[action]);
-    } catch (error) { setError(error.message); onRefresh(); }
-    finally { setBusy(false); }
+    } catch (err) {
+      setError(err.message);
+      if (onRefresh) onRefresh();
+    } finally {
+      setBusy(false);
+    }
   };
+
   if (job.status !== 'active' && !action) return null;
 
   return (

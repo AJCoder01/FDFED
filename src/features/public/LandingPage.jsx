@@ -1,10 +1,17 @@
 import { ServiceImage } from '../../design-system/primitives/ServiceImage';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Search, Shield, Star, Wrench, Sparkles, Zap, Tv, Wind, ArrowRight, X } from 'lucide-react';
-import { getCategories, getServices } from '../../data/apiRepository';
+import {
+  selectCategories,
+  selectServices,
+  selectMarketplaceLoading,
+  selectMarketplaceError,
+  fetchCategoriesThunk,
+  fetchServicesThunk
+} from '../../store/slices/marketplaceSlice';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 import { useApp } from '../../app/context/AppContext';
@@ -12,15 +19,17 @@ import { useApp } from '../../app/context/AppContext';
 export function LandingPage() {
   const { currentRole, logout } = useApp();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
+  const categories = useSelector(selectCategories);
+  const allServices = useSelector(selectServices);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
 
-  const load = useCallback(async () => {
-    const [categories, services] = await Promise.all([getCategories(), getServices()]);
-    return { categories, services };
-  }, []);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const categories = data?.categories || [];
-  const allServices = data?.services || [];
+  useEffect(() => {
+    dispatch(fetchCategoriesThunk());
+    dispatch(fetchServicesThunk());
+  }, [dispatch]);
 
   const reviewCount = allServices.reduce((count, service) => count + service.reviewCount, 0);
   const averageRating = reviewCount ? (allServices.reduce((total, service) => total + (service.rating || 0) * service.reviewCount, 0) / reviewCount).toFixed(1) : '—';
@@ -73,7 +82,7 @@ export function LandingPage() {
     setSelectedCategory('');
   };
 
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (error) return <ErrorState description={error} onRetry={() => { dispatch(fetchCategoriesThunk()); dispatch(fetchServicesThunk()); }} />;
 
   const getCategoryIcon = (iconName, isSelected = false) => {
     const color = isSelected ? '#FFFFFF' : 'var(--color-primary)';

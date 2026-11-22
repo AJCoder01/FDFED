@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { DollarSign, TrendingUp, CreditCard, Users, PieChart, Search, Filter, ShieldCheck, Eye } from 'lucide-react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { selectRevenueStats, selectFinanceLoading, selectFinanceError, fetchRevenueStatsThunk } from '../../store/slices/financeSlice';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
-import { getRevenueStats } from '../../data/apiRepository';
 import { platformFee, netPayout } from '../../data/bookingRules';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -13,13 +13,21 @@ import { Select } from '../../design-system/primitives/Select';
 import { Modal } from '../../design-system/primitives/Modal';
 
 export function AdminRevenuePage() {
-  const { data: stats, loading, error, refresh } = useRepositoryQuery(getRevenueStats);
+  const dispatch = useDispatch();
+  const stats = useSelector(selectRevenueStats) || { recentTransactions: [], categoryBreakdown: [], totalRevenue: 0, gmv: 0, totalRefunds: 0, totalNetPayouts: 0, avgFeePerBooking: 0, transactionCount: 0 };
+  const loading = useSelector(selectFinanceLoading);
+  const error = useSelector(selectFinanceError);
+
+  useEffect(() => {
+    dispatch(fetchRevenueStatsThunk());
+  }, [dispatch]);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedTxn, setSelectedTxn] = useState(null);
 
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" />;
+  if (error) return <ErrorState description={error} onRetry={() => dispatch(fetchRevenueStatsThunk())} />;
+  if (loading && !stats.recentTransactions?.length) return <Skeleton height="400px" />;
 
   // Filter transactions
   const filteredTransactions = stats.recentTransactions.filter(txn => {

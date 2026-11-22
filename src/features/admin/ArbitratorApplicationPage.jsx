@@ -1,7 +1,14 @@
-import { downloadFile } from '../../data/apiClient';
-import React, { useState } from 'react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getArbitratorApplications, approveArbitratorApplication, rejectArbitratorApplication } from '../../data/apiRepository';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  selectArbitratorApplications,
+  selectPlatformLoading,
+  selectPlatformError,
+  fetchArbitratorApplicationsThunk,
+  approveArbitratorApplicationThunk,
+  rejectArbitratorApplicationThunk
+} from '../../store/slices/platformSlice';
+import { downloadFileThunk } from '../../store/slices/filesSlice';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -12,22 +19,29 @@ import { useApp } from '../../app/context/AppContext';
 import { Scale, CheckCircle2, XCircle, FileText, Eye } from 'lucide-react';
 
 export function ArbitratorApplicationPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
-  const { data: applications, loading, error, refresh } = useRepositoryQuery(getArbitratorApplications);
+  const applications = useSelector(selectArbitratorApplications);
+  const loading = useSelector(selectPlatformLoading);
+  const error = useSelector(selectPlatformError);
+
+  useEffect(() => {
+    dispatch(fetchArbitratorApplicationsThunk());
+  }, [dispatch]);
+
   const [selectedApp, setSelectedApp] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  if (error) return <ErrorState description={error} onRetry={() => dispatch(fetchArbitratorApplicationsThunk())} />;
+  if (loading && (!applications || applications.length === 0)) return <Skeleton height="400px" borderRadius="12px" />;
 
   const handleApprove = async (appId) => {
     if (busy) return;
     setBusy(true);
     try {
-      await approveArbitratorApplication(appId);
+      await dispatch(approveArbitratorApplicationThunk(appId)).unwrap();
       showToast('Arbitrator application approved. Account created/activated.', 'success');
       setSelectedApp(null);
-      refresh();
     } catch (err) {
       showToast(err.message, 'warning');
     } finally {
@@ -39,10 +53,9 @@ export function ArbitratorApplicationPage() {
     if (busy) return;
     setBusy(true);
     try {
-      await rejectArbitratorApplication(appId);
+      await dispatch(rejectArbitratorApplicationThunk(appId)).unwrap();
       showToast('Arbitrator application rejected.', 'info');
       setSelectedApp(null);
-      refresh();
     } catch (err) {
       showToast(err.message, 'warning');
     } finally {
@@ -217,20 +230,20 @@ export function ArbitratorApplicationPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                   <FileText size={16} color="var(--color-primary)" />
                   <div>
-                    <strong>Resume:</strong> {selectedApp.files?.resume ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.resume, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
+                    <strong>Resume:</strong> {selectedApp.files?.resume ? <Button size="sm" onClick={() => dispatch(downloadFileThunk({ fileId: selectedApp.files.resume, filename: 'application-document' })).unwrap().catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                   <FileText size={16} color="var(--color-primary)" />
                   <div>
-                    <strong>License:</strong> {selectedApp.files?.license ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.license, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
+                    <strong>License:</strong> {selectedApp.files?.license ? <Button size="sm" onClick={() => dispatch(downloadFileThunk({ fileId: selectedApp.files.license, filename: 'application-document' })).unwrap().catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                   </div>
                 </div>
                 {selectedApp.files?.cert && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                     <FileText size={16} color="var(--color-primary)" />
                     <div>
-                      <strong>Certification:</strong> {selectedApp.files?.cert ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.cert, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
+                      <strong>Certification:</strong> {selectedApp.files?.cert ? <Button size="sm" onClick={() => dispatch(downloadFileThunk({ fileId: selectedApp.files.cert, filename: 'application-document' })).unwrap().catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                     </div>
                   </div>
                 )}
@@ -238,7 +251,7 @@ export function ArbitratorApplicationPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: 'var(--color-surface)', fontSize: '13px' }}>
                     <FileText size={16} color="var(--color-primary)" />
                     <div>
-                      <strong>Additional Doc:</strong> {selectedApp.files?.extra ? <Button size="sm" onClick={() => downloadFile(selectedApp.files.extra, 'application-document').catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
+                      <strong>Additional Doc:</strong> {selectedApp.files?.extra ? <Button size="sm" onClick={() => dispatch(downloadFileThunk({ fileId: selectedApp.files.extra, filename: 'application-document' })).unwrap().catch(e => showToast(e.message, 'error'))}>Download</Button> : 'Historical file unavailable'}
                     </div>
                   </div>
                 )}

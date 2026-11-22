@@ -1,26 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Layers } from 'lucide-react';
-import { getCategories, getServices } from '../../data/apiRepository';
+import {
+  selectCategories,
+  selectServices,
+  fetchCategoriesThunk,
+  fetchServicesThunk
+} from '../../store/slices/marketplaceSlice';
 import { DataTable } from '../../design-system/primitives/DataTable';
 
 export function CategoryManagerPage() {
-  const [categories, setCategories] = useState([]);
+  const dispatch = useDispatch();
+  const categoriesList = useSelector(selectCategories);
+  const servicesList = useSelector(selectServices);
 
   useEffect(() => {
-    async function loadData() {
-      const [list, services] = await Promise.all([
-        getCategories(),
-        getServices({ role: 'admin' })
-      ]);
-      const servicesList = services || [];
-      const updated = (list || []).map(cat => ({
-        ...cat,
-        serviceCount: servicesList.filter(s => s.categoryId === cat.id || s.categoryName?.toLowerCase() === cat.name?.toLowerCase()).length
-      }));
-      setCategories(updated);
-    }
-    loadData();
-  }, []);
+    dispatch(fetchCategoriesThunk());
+    dispatch(fetchServicesThunk({ role: 'admin' }));
+  }, [dispatch]);
+
+  const categories = useMemo(() => {
+    const sList = servicesList || [];
+    return (categoriesList || []).map(cat => ({
+      ...cat,
+      serviceCount: sList.filter(s => s.categoryId === cat.id || s.categoryName?.toLowerCase() === cat.name?.toLowerCase()).length
+    }));
+  }, [categoriesList, servicesList]);
 
   const columns = [
     { header: 'Category Name', accessor: 'name', render: (row) => <strong>{row.name}</strong> },

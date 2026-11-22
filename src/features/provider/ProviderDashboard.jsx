@@ -1,24 +1,40 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, DollarSign, Shield, Plus, CheckCircle2, Clock } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import {
+  selectBookings,
+  selectBookingsLoading,
+  selectBookingsError,
+  fetchBookingsThunk,
+} from '../../store/slices/bookingsSlice';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/apiRepository';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { bookingTime, formatDate, isPending, isPaid, money, netPayout, slotMinutes } from './providerUtils';
 import { getTodayDateInputValue } from '../../utils/date';
 
 export function ProviderDashboard() {
-  const { currentUser } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const jobs = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
   const navigate = useNavigate();
-  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  if (loading && jobs.length === 0) return <Skeleton height="400px" borderRadius="12px" />;
 
   const completed = jobs.filter(job => job.status === 'completed');
   const earnings = completed.filter(isPaid).reduce((sum, job) => sum + netPayout(job), 0);
@@ -39,8 +55,8 @@ export function ProviderDashboard() {
         <div className="provider-row">
           <Shield size={24} color="var(--color-primary)" />
           <div>
-            <strong>Verification Status: {currentUser.verificationStatus?.replaceAll('_', ' ').toUpperCase() || 'UNAVAILABLE'}</strong>
-            <p className="provider-hint">{currentUser.businessName}</p>
+            <strong>Verification Status: {currentUser?.verificationStatus?.replaceAll('_', ' ').toUpperCase() || 'UNAVAILABLE'}</strong>
+            <p className="provider-hint">{currentUser?.businessName}</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => navigate('/provider/profile')}>View Profile & Skills</Button>
@@ -56,29 +72,41 @@ export function ProviderDashboard() {
       </div>
 
       <div className="provider-row">
-        <Button icon={Plus} disabled={currentUser.verificationStatus !== 'approved'} onClick={() => navigate('/provider/services/new')}>Create New Listing</Button>
+        <Button icon={Plus} disabled={currentUser?.verificationStatus !== 'approved'} onClick={() => navigate('/provider/services/new')}>Create New Listing</Button>
         <Button variant="secondary" onClick={() => navigate('/provider/jobs')}>View Job Inbox</Button>
+        <Button variant="secondary" onClick={() => navigate('/provider/availability')}>Edit Availability</Button>
+        <Button variant="secondary" onClick={() => navigate('/provider/earnings')}>Earnings Breakdown</Button>
       </div>
 
-      {[
-        { title: 'Upcoming Jobs', list: upcoming.slice(0, 3), empty: 'No upcoming jobs scheduled.' },
-        { title: 'Recent Job Inbox', list: recent.slice(0, 3), empty: 'No jobs assigned yet.' }
-      ].map(({ title, list, empty }) => (
-        <section key={title} className="card provider-stack">
-          <h2>{title}</h2>
-          {list.length === 0 && <p className="provider-hint">{empty}</p>}
-          {list.map(job => (
-            <div key={job.id} className="provider-record provider-row provider-between">
+      <div className="grid-cols-2">
+        <div className="card provider-stack">
+          <h3>Upcoming Appointments</h3>
+          {upcoming.length === 0 && <p className="provider-hint">No scheduled jobs coming up.</p>}
+          {upcoming.slice(0, 5).map(job => (
+            <div key={job.id} className="provider-row provider-between">
               <div>
-                <div className="provider-row"><strong>#{job.id}</strong><StatusBadge status={job.status} /></div>
-                <h3>{job.serviceTitle}</h3>
-                <p className="provider-hint">Customer: {job.customerName} | {formatDate(job.scheduledDate)} at {job.scheduledSlot}</p>
+                <strong>{job.serviceTitle}</strong>
+                <p className="provider-hint">{formatDate(job.scheduledDate)} at {job.scheduledSlot}</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>Open Job Workspace</Button>
+              <StatusBadge status={job.status} />
             </div>
           ))}
-        </section>
-      ))}
+        </div>
+
+        <div className="card provider-stack">
+          <h3>Recent Booking Activity</h3>
+          {recent.length === 0 && <p className="provider-hint">No recent booking updates.</p>}
+          {recent.slice(0, 5).map(job => (
+            <div key={job.id} className="provider-row provider-between">
+              <div>
+                <strong>#{job.id} — {job.customerName}</strong>
+                <p className="provider-hint">{job.serviceTitle}</p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => navigate(`/provider/jobs/${job.id}`)}>Open</Button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

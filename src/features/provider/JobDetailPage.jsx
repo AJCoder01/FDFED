@@ -2,39 +2,62 @@ import { TimeProposalForm } from './TimeProposalForm';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Play } from 'lucide-react';
-import { getBookingById, getDisputes } from '../../data/apiRepository';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import {
+  selectSelectedBooking,
+  selectBookingsLoading,
+  selectBookingsError,
+  fetchBookingByIdThunk,
+  updateBookingStatusThunk,
+} from '../../store/slices/bookingsSlice';
+import {
+  selectDisputes,
+  fetchDisputesThunk,
+} from '../../store/slices/supportSlice';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ProviderDisputeResponse } from './ProviderDisputeResponse';
 import { JobRequestActions } from './JobRequestActions';
-import { formatDate, formatTimestamp, isAccepted, isPaid, money, netPayout, platformFee, updateJob } from './providerUtils';
+import { formatDate, formatTimestamp, isAccepted, isPaid, money, netPayout, platformFee } from './providerUtils';
 
 export function JobDetailPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const rawJob = useSelector(selectSelectedBooking);
+  const allDisputes = useSelector(selectDisputes);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
+  const { showToast } = useApp();
+
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
-  const load = useCallback(async () => {
-    const job = await getBookingById(jobId);
-    if (!job || job.providerId !== currentUser.id) return { job: null, disputes: [] };
-    const disputes = await getDisputes();
-    return { job, disputes: disputes.filter(dispute => dispute.bookingId === job.id && dispute.providerId === currentUser.id) };
-  }, [jobId, currentUser.id]);
-  const { data, setData, error, loading, refresh } = useRepositoryQuery(load);
-  const job = data?.job;
-  const setJob = updated => setData(value => ({ ...value, job: updated }));
+
+  const refresh = useCallback(() => {
+    if (jobId) {
+      dispatch(fetchBookingByIdThunk(jobId));
+      dispatch(fetchDisputesThunk());
+    }
+  }, [jobId, dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     setNotes('');
     setActionError('');
   }, [jobId]);
+
+  const job = rawJob && rawJob.providerId === currentUser?.id ? rawJob : null;
+  const disputes = (allDisputes || []).filter(d => d.bookingId === job?.id && d.providerId === currentUser?.id);
 
   const changeStatus = async (event, action) => {
     event.preventDefault();
@@ -47,7 +70,12 @@ export function JobDetailPage() {
     setActionError('');
     try {
       const note = action === 'start' ? 'Provider started work at the service location.' : `Job completed. Notes: ${notes.trim()}`;
-      setJob(await updateJob(job.id, currentUser.id, action, note));
+      const statusMap = { start: 'in_progress', complete: 'completed' };
+      await dispatch(updateBookingStatusThunk({
+        id: job.id,
+        status: statusMap[action],
+        note
+      })).unwrap();
       setNotes('');
       showToast(action === 'start' ? 'Job started.' : 'Job marked completed. Earnings summary updated.');
     } catch (error) {
@@ -59,75 +87,86 @@ export function JobDetailPage() {
   };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
-  if (!job) return <ErrorState title="Job Unavailable" description="This booking does not belong to your provider account or no longer exists." onRetry={() => navigate('/provider/jobs')} />;
+  if (loading && !job) return <Skeleton height="400px" borderRadius="12px" />;
+  if (!job) return <div className="provider-page"><p>Job not found or access restricted.</p></div>;
 
   return (
     <div className="provider-page">
-      <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate('/provider/jobs')}>Back to Job Inbox</Button>
+      <button type="button" className="provider-link" onClick={() => navigate('/provider/jobs')}>
+        <ArrowLeft size={16} /> Back to Job Inbox
+      </button>
+
       <div className="card provider-row provider-between">
         <div className="provider-stack">
-          <div className="provider-row"><h1>Job Workspace #{job.id}</h1><StatusBadge status={job.status} label={job.status === 'active' ? (isAccepted(job) ? 'Accepted' : 'Awaiting Acceptance') : undefined} /></div>
+          <div className="provider-row">
+            <h1>Job #{job.id}</h1>
+            <StatusBadge status={job.status} label={job.status === 'active' ? (isAccepted(job) ? 'Accepted' : 'Awaiting Acceptance') : undefined} />
+          </div>
           <p className="provider-hint">{job.serviceTitle} · {formatDate(job.scheduledDate)} at {job.scheduledSlot}</p>
         </div>
-        <JobRequestActions job={job} onUpdate={setJob} onRefresh={refresh} />
-        {job.status === 'active' && isAccepted(job) && <Button icon={Play} disabled={busy} onClick={event => changeStatus(event, 'start')}>{busy ? 'Saving…' : 'Start Work'}</Button>}
+        <JobRequestActions job={job} onRefresh={refresh} />
       </div>
-      {actionError && <p role="alert" className="provider-error">{actionError}</p>}
-      <div className="provider-detail-grid">
-        <div className="provider-page">
+
+      <div className="grid-cols-2">
+        <div className="card provider-stack">
+          <h2>Job Progression</h2>
+          <p className="provider-hint">Record on-site arrival and complete the service after customer inspection.</p>
+          {job.status === 'active' && isAccepted(job) && (
+            <Button icon={Play} disabled={busy} onClick={e => changeStatus(e, 'start')}>Start Job</Button>
+          )}
           {job.status === 'in_progress' && (
-            <form className="card provider-stack" onSubmit={event => changeStatus(event, 'complete')}>
-              <h2>Job Fulfillment & Completion</h2>
-              <TextField name="completion-notes" label="Completion Notes" value={notes} onChange={event => setNotes(event.target.value)} multiline required disabled={busy} />
-              <Button type="submit" icon={CheckCircle2} disabled={busy}>{busy ? 'Saving…' : job.paymentStatus === 'Pending' ? 'Complete Job & Record Cash Payment' : 'Mark Job Completed'}</Button>
+            <form className="provider-stack" onSubmit={e => changeStatus(e, 'complete')}>
+              <TextField
+                name="completion-notes"
+                label="Completion Notes"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Describe work completed, tests performed, customer sign-off…"
+                multiline
+                required
+              />
+              <Button icon={CheckCircle2} type="submit" disabled={busy || !notes.trim()}>Complete Job</Button>
             </form>
           )}
-          {job.status === 'active' && <TimeProposalForm job={job} />}
-          <section className="card provider-stack">
-            <h2>Fulfillment Timeline</h2>
-            <div className="provider-timeline">
-              {job.timeline?.map((event, index) => <div key={`${event.time}-${index}`} className="provider-stack"><strong>{event.title}</strong><p className="provider-hint">{event.desc}</p><span className="provider-hint">{formatTimestamp(event.time)}</span></div>)}
-            </div>
-          </section>
-          {data.disputes.map(dispute => (
-            <section key={dispute.id} className="card provider-stack">
-              <div className="provider-row provider-between"><h2>Dispute #{dispute.id}</h2><StatusBadge status={dispute.status} /></div>
-              <p>{dispute.customerStatement}</p>
-              {dispute.status === 'ruled' && dispute.providerStatement && <p><strong>Your Response:</strong> {dispute.providerStatement}</p>}
-              <ProviderDisputeResponse dispute={dispute} />
-              {dispute.evidences && dispute.evidences.filter(e => e.uploaderRole === 'provider' || (e.uploader && e.uploader.includes('Provider'))).length > 0 && (
-                <div>
-                  <strong>Your Submitted Evidence Records:</strong>
-                  <ul style={{ paddingLeft: '20px' }}>
-                    {dispute.evidences
-                      .filter(e => e.uploaderRole === 'provider' || (e.uploader && e.uploader.includes('Provider')))
-                      .map(evidence => (
-                        <li key={evidence.id}>{evidence.filename} <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>({evidence.uploadedAt})</span></li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-              <p className="provider-hint">Assigned arbitrator: {dispute.arbitratorName || 'Not assigned'}</p>
-              {dispute.hearingSchedule && <p>Hearing: {formatDate(dispute.hearingSchedule.scheduledDate)} at {dispute.hearingSchedule.scheduledTime}</p>}
-              {dispute.hearingSchedule && dispute.status !== 'ruled' && <a href={dispute.hearingSchedule.meetUrl} target="_blank" rel="noreferrer">Join Hearing</a>}
-              {dispute.ruling && <div className="provider-record"><strong>{dispute.ruling.verdict}</strong><p>Award: {money(dispute.ruling.awardAmount)}</p><p>{dispute.ruling.reason}</p></div>}
-            </section>
-          ))}
+          {actionError && <p role="alert" className="provider-error">{actionError}</p>}
+          <h3>Booking History</h3>
+          <ul className="provider-timeline">
+            {(job.timeline || []).map((t, idx) => (
+              <li key={idx}><strong>{t.title}</strong> — {t.desc} <small>({formatTimestamp(t.time)})</small></li>
+            ))}
+          </ul>
         </div>
-        <div className="card provider-stack">
-          <h2>Customer Details</h2>
-          <p><strong>Customer:</strong> {job.customerName}</p>
-          <p><strong>Phone:</strong> {job.customerPhone}</p>
-          <p><strong>Address:</strong> {job.address}</p>
-          <p><strong>Customer Notes:</strong> {job.notes || 'None provided'}</p>
-          <hr />
-          <h2>Payment Breakdown</h2>
-          <div className="provider-row provider-between"><span>Gross Price</span><strong>{money(job.amount)}</strong></div>
-          {job.refundedAmount > 0 && <div className="provider-row provider-between"><span>Refunded Amount</span><span>{money(job.refundedAmount)}</span></div>}
-          <div className="provider-row provider-between"><span>Platform Fee (5%)</span><span>{money(platformFee(job))}</span></div>
-          <div className="provider-row provider-between"><span>Net Amount</span><strong>{money(netPayout(job))}</strong></div>
-          <p className="provider-hint">Payment: {job.paymentStatus}. {job.status === 'completed' && isPaid(job) ? 'Included in completed earnings.' : 'Not included in completed earnings.'}</p>
+
+        <div className="provider-stack">
+          <div className="card provider-stack">
+            <h2>Customer & Location</h2>
+            <p><strong>Customer:</strong> {job.customerName}</p>
+            <p><strong>Phone:</strong> {job.customerPhone}</p>
+            <p><strong>Address:</strong> {job.address}</p>
+            <p><strong>Payment Method:</strong> {job.paymentMethod}</p>
+            <p><strong>Payment Status:</strong> {job.paymentStatus}</p>
+            <p><strong>Net Payout:</strong> {money(netPayout(job))} <small>(Fee: {money(platformFee(job))})</small></p>
+          </div>
+
+          {(job.status === 'active' || job.status === 'reschedule_proposed') && (
+            <TimeProposalForm job={job} />
+          )}
+
+          {disputes.length > 0 && (
+            <div className="card provider-stack">
+              <h2>Active Disputes on this Booking</h2>
+              {disputes.map(dispute => (
+                <div key={dispute.id} className="provider-stack">
+                  <div className="provider-row provider-between">
+                    <strong>Case #{dispute.id}</strong>
+                    <StatusBadge status={dispute.status} />
+                  </div>
+                  <p><strong>Customer Claim:</strong> ₹{dispute.claimAmount} — "{dispute.customerStatement}"</p>
+                  <ProviderDisputeResponse dispute={dispute} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,8 +1,21 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, HelpCircle, Scale } from 'lucide-react';
-import { getBookingById, getDisputes, updateBookingStatus, submitReview, respondToTimeProposal } from '../../data/apiRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  selectSelectedBooking,
+  selectBookingsLoading,
+  selectBookingsError,
+  fetchBookingByIdThunk,
+  updateBookingStatusThunk,
+  submitReviewThunk,
+  respondToTimeProposalThunk,
+} from '../../store/slices/bookingsSlice';
+import {
+  selectDisputes,
+  fetchDisputesThunk,
+} from '../../store/slices/supportSlice';
+import { selectCurrentUser } from '../../store/slices/authSlice';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -15,53 +28,83 @@ import { TextField } from '../../design-system/primitives/TextField';
 export function BookingDetailPage() {
   const { bookingId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const rawBooking = useSelector(selectSelectedBooking);
+  const disputes = useSelector(selectDisputes);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
+  const { showToast } = useApp();
 
-  const load = useCallback(async () => {
-    const job = await getBookingById(bookingId);
-    if (!job || job.customerId !== currentUser.id) return null;
-    const disputes = await getDisputes();
-    const dispute = disputes.find(d => d.bookingId === job.id) || null;
-    return { ...job, dispute };
-  }, [bookingId, currentUser.id]);
-  const { data: booking, setData: setBooking, loading, error, refresh } = useRepositoryQuery(load);
+  const refresh = useCallback(() => {
+    if (bookingId) {
+      dispatch(fetchBookingByIdThunk(bookingId));
+      dispatch(fetchDisputesThunk());
+    }
+  }, [bookingId, dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const dispute = disputes.find(d => d.bookingId === rawBooking?.id) || null;
+  const booking = rawBooking && rawBooking.customerId === currentUser?.id ? { ...rawBooking, dispute } : null;
+
   const [busy, setBusy] = useState(false);
-
-  // Modals
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
   const handleCancelConfirm = async () => {
-    const updated = await updateBookingStatus(booking.id, 'cancelled', 'Cancelled by customer.', { role: 'customer', userId: currentUser.id });
-    setBooking(prev => ({ ...prev, ...updated }));
-    showToast(updated.paymentStatus === 'Refunded' ? 'Booking cancelled and mock payment refunded.' : 'Booking cancelled.', 'info');
+    try {
+      const updated = await dispatch(updateBookingStatusThunk({
+        id: booking.id,
+        status: 'cancelled',
+        note: 'Cancelled by customer.'
+      })).unwrap();
+      showToast(updated.paymentStatus === 'Refunded' ? 'Booking cancelled and mock payment refunded.' : 'Booking cancelled.', 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to cancel booking', 'warning');
+    }
   };
+
   const handleReviewSubmit = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      const updated = await submitReview(booking.id, rating, reviewText, currentUser.id);
-      setBooking(prev => ({ ...prev, ...updated }));
+      await dispatch(submitReviewThunk({
+        id: booking.id,
+        rating,
+        comment: reviewText
+      })).unwrap();
       setReviewModalOpen(false);
       showToast('Your review has been saved.');
-    } catch (error) { showToast(error.message, 'warning'); }
-    finally { setBusy(false); }
+    } catch (error) {
+      showToast(error.message, 'warning');
+    } finally {
+      setBusy(false);
+    }
   };
+
   const respond = async accept => {
     if (busy) return;
     setBusy(true);
     try {
-      const updated = await respondToTimeProposal(booking.id, accept, currentUser.id);
-      setBooking(prev => ({ ...prev, ...updated }));
+      await dispatch(respondToTimeProposalThunk({
+        id: booking.id,
+        accept
+      })).unwrap();
       showToast(accept ? 'New appointment confirmed.' : 'Proposal declined. Original appointment retained.');
-    } catch (error) { showToast(error.message, 'warning'); }
-    finally { setBusy(false); }
+    } catch (error) {
+      showToast(error.message, 'warning');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  if (loading && !booking) return <Skeleton height="400px" borderRadius="12px" />;
   if (!booking) return <div>Booking not found</div>;
 
   const isEligibleForDispute = ['completed', 'in_progress'].includes(booking.status);
@@ -168,7 +211,7 @@ export function BookingDetailPage() {
             </div>
           )}
 
-          {/* Customer Evidence Files ONLY (Privacy: Customer never sees provider evidence) */}
+          {/* Customer Evidence Files ONLY */}
           {booking.dispute.evidences?.filter(e => e.uploaderRole === 'customer' || (e.uploader && e.uploader.includes('Customer'))).length > 0 && (
             <div>
               <strong style={{ fontSize: '13px', color: 'var(--color-ink)' }}>Your Uploaded Evidence Files:</strong>
