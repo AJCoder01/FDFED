@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { createCustomJobRequest, getCustomJobRequests } from '../../data/apiRepository';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { Briefcase, CheckCircle2, ArrowRight, Lock, UserPlus, LogIn } from 'lucide-react';
+import {
+  selectCustomJobRequests,
+  fetchCustomJobRequestsThunk,
+  createCustomJobRequestThunk
+} from '../../store/slices/platformSlice';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
@@ -11,8 +16,11 @@ import { getTodayDateInputValue } from '../../utils/date';
 
 export function PostAJobPage() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { showToast, currentUser, currentRole } = useApp();
   const isCustomer = currentUser && currentRole === 'customer';
+
+  const history = useSelector(selectCustomJobRequests) || [];
 
   const [formData, setFormData] = useState({
     category: 'Home Cleaning',
@@ -35,8 +43,13 @@ export function PostAJobPage() {
     }));
   }, [currentUser?.id]);
   const [busy, setBusy] = useState(false);
-  const [history, setHistory] = useState([]);
-  useEffect(() => { if (isCustomer) getCustomJobRequests().then(setHistory).catch(e => showToast(e.message, 'error')); }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (isCustomer) {
+      dispatch(fetchCustomJobRequestsThunk());
+    }
+  }, [dispatch, isCustomer]);
+
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const handleChange = (e) => {
@@ -59,9 +72,15 @@ export function PostAJobPage() {
     }
 
     setBusy(true);
-    try { const saved = await createCustomJobRequest(formData); setHistory(previous => [saved, ...previous]); setSubmittedRequest(saved); showToast('Custom job request saved.'); }
-    catch (error) { showToast(error.message, 'error'); }
-    finally { setBusy(false); }
+    try {
+      const saved = await dispatch(createCustomJobRequestThunk(formData)).unwrap();
+      setSubmittedRequest(saved);
+      showToast('Custom job request saved.');
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (submittedRequest) {

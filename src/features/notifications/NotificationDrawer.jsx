@@ -1,13 +1,20 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { X, Bell, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../../app/context/AppContext';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import {
+  selectNotifications,
+  fetchNotificationsThunk,
+  markNotificationsReadThunk,
+} from '../../store/slices/platformSlice';
 import { formatTimestamp } from '../../utils/date';
-import { markNotificationsRead } from '../../data/apiRepository';
 import { Button } from '../../design-system/primitives/Button';
 
 export function NotificationDrawer({ isOpen, onClose }) {
-  const { notifications, currentUser, reloadNotifications } = useApp();
+  const dispatch = useDispatch();
+  const notifications = useSelector(selectNotifications);
+  const currentUser = useSelector(selectCurrentUser);
   const navigate = useNavigate();
   const dialog = useRef(null);
   const titleId = useId();
@@ -44,24 +51,40 @@ export function NotificationDrawer({ isOpen, onClose }) {
       if (previousFocus?.isConnected) previousFocus.focus();
     };
   }, [isOpen]);
+
   const refresh = async () => {
     if (busy) return;
     setBusy(true);
     setError('');
-    try { await reloadNotifications(); }
-    catch { setError('Unable to refresh notifications. Try again.'); }
-    finally { setBusy(false); }
+    try {
+      await dispatch(fetchNotificationsThunk()).unwrap();
+    } catch {
+      setError('Unable to refresh notifications. Try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const markRead = async notification => {
     if (busy) return;
-    setBusy(true); setError('');
+    setBusy(true);
+    setError('');
     try {
-      await markNotificationsRead(currentUser.id, notification?.id);
-      await reloadNotifications();
-      if (notification?.targetLink?.startsWith('/') && !notification.targetLink.startsWith('//')) { navigate(notification.targetLink); onClose(); }
-    } catch (error) { setError(error.message); }
-    finally { setBusy(false); }
+      await dispatch(
+        markNotificationsReadThunk({
+          userId: currentUser?.id,
+          notificationId: notification?.id,
+        })
+      ).unwrap();
+      if (notification?.targetLink?.startsWith('/') && !notification.targetLink.startsWith('//')) {
+        navigate(notification.targetLink);
+        onClose();
+      }
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!isOpen) return null;

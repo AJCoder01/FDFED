@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, Mail, Phone, MapPin, Plus, Trash2, CheckCircle2, Save, Edit3, Upload } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser, fetchCurrentUserThunk } from '../../store/slices/authSlice';
+import { updateUserProfileThunk } from '../../store/slices/usersSlice';
 import { useApp } from '../../app/context/AppContext';
-import { updateUserProfile } from '../../data/apiRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
@@ -9,7 +11,9 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function CustomerProfilePage() {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const { showToast } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(currentUser?.name || '');
@@ -46,12 +50,16 @@ export function CustomerProfilePage() {
 
     setSaving(true);
     try {
-      await updateUserProfile(currentUser.id, {
-        name: name.trim(),
-        phone: phone.trim(),
-        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
-        addresses
-      });
+      await dispatch(updateUserProfileThunk({
+        id: currentUser.id,
+        values: {
+          name: name.trim(),
+          phone: phone.trim(),
+          avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+          addresses
+        }
+      })).unwrap();
+      await dispatch(fetchCurrentUserThunk()).unwrap();
       setIsEditing(false);
       showToast('Profile updated successfully!', 'success');
     } catch (err) {

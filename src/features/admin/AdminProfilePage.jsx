@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Shield, User, Mail, Phone, Lock, CheckCircle2, Award, Server, Key, MapPin, Calendar, Clock, Edit3, Save, X, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
-import { updateUserProfile, getUserProfile } from '../../data/apiRepository';
+import { selectCurrentUser, fetchCurrentUserThunk } from '../../store/slices/authSlice';
+import { updateUserProfileThunk } from '../../store/slices/usersSlice';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function AdminProfilePage() {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const { showToast } = useApp();
+  const currentUser = useSelector(selectCurrentUser);
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(currentUser?.name || '');
@@ -27,8 +31,12 @@ export function AdminProfilePage() {
   };
 
   const handleSecurityCheck = async () => {
-    try { await getUserProfile(); showToast('Your server session is active.'); }
-    catch (error) { showToast(error.message, 'error'); }
+    try {
+      await dispatch(fetchCurrentUserThunk()).unwrap();
+      showToast('Your server session is active.');
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
   };
 
   const handleSaveProfile = async (e) => {
@@ -48,12 +56,15 @@ export function AdminProfilePage() {
 
     setSaving(true);
     try {
-      await updateUserProfile(currentUser.id, {
-        name: name.trim(),
-        phone: phone.trim(),
-        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
-        department: department.trim()
-      });
+      await dispatch(updateUserProfileThunk({
+        userId: currentUser.id,
+        profileData: {
+          name: name.trim(),
+          phone: phone.trim(),
+          avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+          department: department.trim()
+        }
+      })).unwrap();
       setIsEditing(false);
       showToast('Admin profile updated successfully!', 'success');
     } catch (err) {

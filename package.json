@@ -7,15 +7,17 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/data/*.test.mjs",
+    "test": "node --test src/data/*.test.mjs src/store/*.test.mjs",
     "test:e2e": "playwright test",
     "backend:dev": "npm --prefix backend run dev",
     "backend:build": "npm --prefix backend run build"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.15.0",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-redux": "^9.3.1",
     "react-router-dom": "^7.18.2"
   },
   "devDependencies": {

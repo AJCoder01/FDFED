@@ -1,11 +1,24 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, ShieldCheck } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  selectCurrentUser,
+  selectCurrentRole,
+  selectIsSuperUserDemoMode,
+  switchDemoRoleThunk,
+  logoutThunk,
+} from '../../store/slices/authSlice';
+import { resetDemoDataThunk } from '../../store/slices/platformSlice';
 import { useApp } from '../context/AppContext';
 import { DEMO_USERS } from '../../data/mockData';
 
 export function DemoSwitcherBar() {
-  const { currentRole, currentUser, switchRole, handleResetDemoData, isSuperUser, isSuperUserDemoMode } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const currentRole = useSelector(selectCurrentRole);
+  const isSuperUserDemoMode = useSelector(selectIsSuperUserDemoMode);
+  const { showToast } = useApp();
   const navigate = useNavigate();
 
   if (!isSuperUserDemoMode) {
@@ -49,8 +62,28 @@ export function DemoSwitcherBar() {
       guest: '/'
     };
     const targetPath = destinations[key] || '/';
-    const result = await switchRole(key);
-    if (result.success) navigate(result.path || targetPath);
+    try {
+      if (key === 'guest') {
+        await dispatch(logoutThunk()).unwrap();
+        navigate('/');
+      } else {
+        const u = await dispatch(switchDemoRoleThunk(key)).unwrap();
+        navigate(`/${u.role}`);
+      }
+    } catch (e) {
+      showToast(e.message || 'Failed to switch role', 'error');
+    }
+  };
+
+  const handleResetDemoData = async () => {
+    try {
+      const res = await dispatch(resetDemoDataThunk()).unwrap();
+      await dispatch(logoutThunk()).unwrap();
+      showToast(res?.message || 'Demo data reset successfully.');
+      navigate('/');
+    } catch (e) {
+      showToast(e.message || 'Failed to reset demo data', 'error');
+    }
   };
 
   return (

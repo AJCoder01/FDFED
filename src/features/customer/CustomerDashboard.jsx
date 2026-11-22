@@ -1,23 +1,45 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Calendar, CheckCircle2, Clock, Plus, Pencil, Trash2 } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  selectBookings,
+  selectBookingsLoading,
+  selectBookingsError,
+  fetchBookingsThunk,
+} from '../../store/slices/bookingsSlice';
+import { saveCustomerAddressesThunk } from '../../store/slices/usersSlice';
+import {
+  selectCurrentUser,
+  fetchCurrentUserThunk,
+} from '../../store/slices/authSlice';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings, saveCustomerAddresses } from '../../data/apiRepository';
 import { collectedAmount } from '../../data/bookingRules';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 
 export function CustomerDashboard() {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const bookings = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
+  const { showToast } = useApp();
   const navigate = useNavigate();
-  const load = useCallback(() => getBookings('customer', currentUser.id), [currentUser.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const bookings = data || [];
+
+  const refresh = useCallback(() => {
+    dispatch(fetchBookingsThunk());
+    dispatch(fetchCurrentUserThunk());
+  }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
+
   const addresses = currentUser?.addresses || [];
   const emptyAddress = { id: '', label: 'Home', addressLine: '', city: '', pincode: '', isDefault: false };
   const [addressFormOpen, setAddressFormOpen] = useState(false);
@@ -30,6 +52,7 @@ export function CustomerDashboard() {
     setEditingAddressId(null);
     setAddressForm(emptyAddress);
   };
+
   const handleAddressSubmit = async event => {
     event.preventDefault();
     if (addressBusy) return;
@@ -45,7 +68,8 @@ export function CustomerDashboard() {
           ...addresses.map(address => ({ ...address, isDefault: addressForm.isDefault ? false : address.isDefault })),
           { ...addressForm, id: `addr-${crypto.randomUUID().slice(0, 8)}`, isDefault: addresses.length === 0 || addressForm.isDefault }
         ];
-      await saveCustomerAddresses(currentUser.id, nextAddresses);
+      await dispatch(saveCustomerAddressesThunk({ id: currentUser.id, addresses: nextAddresses })).unwrap();
+      await dispatch(fetchCurrentUserThunk()).unwrap();
       showToast(editingAddressId ? 'Address updated.' : 'Address saved.');
       closeAddressForm();
     } catch (error) {
@@ -54,26 +78,34 @@ export function CustomerDashboard() {
       setAddressBusy(false);
     }
   };
+
   const handleSetDefault = async addressId => {
     try {
-      await saveCustomerAddresses(currentUser.id, addresses.map(address => ({ ...address, isDefault: address.id === addressId })));
+      await dispatch(saveCustomerAddressesThunk({
+        id: currentUser.id,
+        addresses: addresses.map(address => ({ ...address, isDefault: address.id === addressId }))
+      })).unwrap();
+      await dispatch(fetchCurrentUserThunk()).unwrap();
       showToast('Default address updated.');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to update the default address.', 'warning');
     }
   };
+
   const handleDeleteAddress = async addressId => {
     try {
       const removedDefault = addresses.find(address => address.id === addressId)?.isDefault;
       const remaining = addresses
         .filter(address => address.id !== addressId)
         .map((address, index) => ({ ...address, isDefault: removedDefault ? index === 0 : address.isDefault }));
-      await saveCustomerAddresses(currentUser.id, remaining);
+      await dispatch(saveCustomerAddressesThunk({ id: currentUser.id, addresses: remaining })).unwrap();
+      await dispatch(fetchCurrentUserThunk()).unwrap();
       showToast('Address removed.');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Unable to remove this address.', 'warning');
     }
   };
+
   const startEditingAddress = address => {
     setEditingAddressId(address.id);
     setAddressForm({ ...address });

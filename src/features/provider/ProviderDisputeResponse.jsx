@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import { saveDisputeResponseThunk } from '../../store/slices/supportSlice';
 import { useApp } from '../../app/context/AppContext';
-import { saveDisputeResponse } from '../../data/apiRepository';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Upload, FileText, X } from 'lucide-react';
 
 export function ProviderDisputeResponse({ dispute }) {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const { showToast } = useApp();
   const [statement, setStatement] = useState(dispute.providerStatement || '');
   const [evidenceFiles, setEvidenceFiles] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -44,10 +48,15 @@ export function ProviderDisputeResponse({ dispute }) {
     if (busy) return;
     setBusy(true); setError('');
     try {
-      await saveDisputeResponse(dispute.id, currentUser.id, statement, evidenceFiles);
+      await dispatch(saveDisputeResponseThunk({
+        id: dispute.id,
+        providerId: currentUser.id,
+        statement,
+        files: evidenceFiles
+      })).unwrap();
       setEvidenceFiles([]);
       showToast('Dispute response and evidence saved.');
-    } catch (error) { setError(error.message); }
+    } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   };
 
@@ -63,63 +72,37 @@ export function ProviderDisputeResponse({ dispute }) {
         multiline
         required
         disabled={busy}
+        placeholder="Explain your work quality, arrival time, or response to customer claim…"
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>
-          Upload Counter-Evidence Documents / Photos <span style={{ fontWeight: '400', color: 'var(--color-muted)' }}>(Optional)</span>
+      {/* Provider Evidence File Uploader */}
+      <div className="provider-stack" style={{ border: '1px dashed var(--color-border)', padding: '12px', borderRadius: 'var(--radius-control)' }}>
+        <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Upload size={14} /> Attach Provider Evidence (Photos / Work Receipts)
         </label>
-        <div style={{ border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-control)', padding: '16px', textAlign: 'center', backgroundColor: 'var(--color-page-bg)' }}>
-          <Upload size={22} style={{ color: 'var(--color-muted)', margin: '0 auto 6px' }} />
-          <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: '0 0 8px 0' }}>
-            Upload completion photos, chat logs, job sheets, or inspection evidence
-          </p>
-          <input
-            type="file"
-            id={`providerEvidenceInput-${dispute.id}`}
-            multiple
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-            disabled={busy}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => document.getElementById(`providerEvidenceInput-${dispute.id}`).click()}
-            disabled={busy}
-          >
-            Select Evidence File(s)
-          </Button>
-        </div>
-
+        <input
+          type="file"
+          multiple
+          onChange={handleFileChange}
+          disabled={busy}
+          style={{ fontSize: '12px' }}
+        />
         {evidenceFiles.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--color-ink)' }}>Attached Files ({evidenceFiles.length}):</span>
-            {evidenceFiles.map((file, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', fontSize: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FileText size={14} color="var(--color-primary)" />
-                  <span><strong>{file.name}</strong> <span style={{ color: 'var(--color-muted)', fontSize: '11px' }}>({file.size})</span></span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeFile(idx)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}
-                  title="Remove file"
-                  disabled={busy}
-                >
-                  <X size={14} />
+          <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: '11px', color: 'var(--color-ink)' }}>
+            {evidenceFiles.map((f, idx) => (
+              <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileText size={12} /> {f.name} ({f.size})
+                <button type="button" onClick={() => removeFile(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}>
+                  <X size={12} />
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 
       {error && <p role="alert" className="provider-error">{error}</p>}
-      <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Dispute Response'}</Button>
+      <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Response & Evidence'}</Button>
     </form>
   );
 }
-

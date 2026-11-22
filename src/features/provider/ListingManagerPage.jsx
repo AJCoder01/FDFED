@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { getCategories, getServices, saveService, deleteService } from '../../data/apiRepository';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import {
+  selectServices,
+  selectCategories,
+  selectMarketplaceLoading,
+  selectMarketplaceError,
+  fetchServicesThunk,
+  fetchCategoriesThunk,
+  saveServiceThunk,
+  deleteServiceThunk,
+} from '../../store/slices/marketplaceSlice';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -12,7 +23,6 @@ import { Modal } from '../../design-system/primitives/Modal';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { SlotEditor } from './SlotEditor';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { money, validateSlots } from './providerUtils';
 
 const emptyForm = {
@@ -21,20 +31,33 @@ const emptyForm = {
 };
 
 export function ListingManagerPage() {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const services = useSelector(selectServices);
+  const categories = useSelector(selectCategories);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
+  const { showToast } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(pathname.endsWith('/new'));
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState(false);
   const [formError, setFormError] = useState('');
-  const approved = currentUser.verificationStatus === 'approved';
-  const load = useCallback(async () => {
-    const [services, categories] = await Promise.all([getServices({ role: 'provider', userId: currentUser.id }), getCategories()]);
-    return { services, categories };
-  }, [currentUser.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const approved = currentUser?.verificationStatus === 'approved';
+
+  const refresh = useCallback(() => {
+    if (currentUser?.id) {
+      dispatch(fetchServicesThunk({ role: 'provider', userId: currentUser.id }));
+      dispatch(fetchCategoriesThunk());
+    }
+  }, [currentUser?.id, dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     if (pathname.endsWith('/new')) {
@@ -51,6 +74,7 @@ export function ListingManagerPage() {
     setFormError('');
     if (pathname.endsWith('/new')) navigate('/provider/services', { replace: true });
   };
+
   const edit = service => {
     setForm({
       ...service,
@@ -60,6 +84,7 @@ export function ListingManagerPage() {
     setFormError('');
     setOpen(true);
   };
+
   const change = event => setForm(value => ({ ...value, [event.target.name]: event.target.value }));
 
   const handleImageFile = event => {
@@ -75,7 +100,7 @@ export function ListingManagerPage() {
   const save = async event => {
     event.preventDefault();
     if (busy) return;
-    const category = data.categories.find(category => category.id === form.categoryId);
+    const category = (categories || []).find(cat => cat.id === form.categoryId);
     const price = Number(form.price);
     const duration = Number(form.duration);
     const slotError = validateSlots(form.availableSlots, duration);
@@ -93,7 +118,7 @@ export function ListingManagerPage() {
     setFormError('');
     try {
       const finalImage = form.image?.trim() || DEFAULT_SERVICE_IMAGE;
-      await saveService({
+      await dispatch(saveServiceThunk({
         ...(form.id ? { id: form.id } : {}),
         title: form.title.trim(),
         description: form.description.trim(),
@@ -109,7 +134,7 @@ export function ListingManagerPage() {
         providerName: currentUser.businessName || currentUser.name,
         availableSlots: form.availableSlots,
         ...(!form.id ? { status: draft ? 'draft' : 'published' } : {})
-      }, { role: 'provider', userId: currentUser.id });
+      })).unwrap();
       setOpen(false);
       if (pathname.endsWith('/new')) navigate('/provider/services', { replace: true });
       showToast(form.id ? 'Listing changes saved.' : draft ? 'Listing draft saved.' : 'Listing published.');
@@ -124,7 +149,7 @@ export function ListingManagerPage() {
     if (busy || !approved) return;
     setBusy(true);
     try {
-      await saveService({ id: service.id, status }, { role: 'provider', userId: currentUser.id });
+      await dispatch(saveServiceThunk({ id: service.id, status })).unwrap();
       showToast(`Listing status saved as ${status}.`);
     } catch (error) {
       showToast(error.message, 'error');
@@ -138,9 +163,8 @@ export function ListingManagerPage() {
     if (busy || !approved) return;
     setBusy(true);
     try {
-      await deleteService(service.id, { role: 'provider', userId: currentUser.id });
+      await dispatch(deleteServiceThunk(service.id)).unwrap();
       showToast('Service removed from listing.');
-      refresh();
     } catch (error) {
       showToast(error.message, 'error');
     } finally {
@@ -149,9 +173,9 @@ export function ListingManagerPage() {
   };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" borderRadius="12px" />;
+  if (loading && services.length === 0) return <Skeleton height="300px" borderRadius="12px" />;
 
-  const categoryOptions = (data.categories || []).map(cat => ({ value: cat.id, label: cat.name }));
+  const categoryOptions = (categories || []).map(cat => ({ value: cat.id, label: cat.name }));
   if (!categoryOptions.some(opt => opt.label.toLowerCase() === 'others' || opt.label.toLowerCase() === 'other')) {
     categoryOptions.push({ value: 'cat-6', label: 'Other' });
   }
@@ -164,111 +188,74 @@ export function ListingManagerPage() {
       </div>
       {!approved && <p className="provider-hint">An approved provider profile is required to manage listings.</p>}
 
-      {data.services.length === 0 && <div className="card">No service listings yet.</div>}
+      {services.length === 0 && <div className="card">No service listings yet.</div>}
       <div className="grid-cols-3">
-        {data.services.map(service => (
+        {services.map(service => (
           <div key={service.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <img src={service.image || DEFAULT_SERVICE_IMAGE} alt={service.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+            <div style={{ height: '140px', backgroundColor: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <img src={service.image || DEFAULT_SERVICE_IMAGE} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={event => { event.currentTarget.src = DEFAULT_SERVICE_IMAGE; }} />
+            </div>
             <div className="provider-stack" style={{ padding: '16px' }}>
-              <div className="provider-row provider-between"><span className="provider-hint">{service.categoryName}</span><StatusBadge status={service.status} /></div>
-              <h3>{service.title}</h3><strong>{money(service.price)} · {service.duration}</strong>
-              <div className="provider-row" style={{ flexWrap: 'wrap', gap: '8px' }}>
-                <Button variant="outline" size="sm" onClick={() => navigate(`/services/${service.id}`)}>Preview</Button>
-                <Button variant="secondary" size="sm" disabled={busy || !approved} onClick={() => edit(service)}>Edit</Button>
-                <Button variant="secondary" size="sm" disabled={busy || !approved} onClick={() => changeStatus(service, service.status === 'published' ? 'paused' : 'published')}>{service.status === 'published' ? 'Pause' : 'Publish'}</Button>
-                <Button variant="danger" size="sm" disabled={busy || !approved} icon={Trash2} onClick={() => handleDeleteService(service)}>Delete</Button>
+              <div className="provider-row provider-between"><strong>{service.title}</strong><StatusBadge status={service.status} /></div>
+              <p className="provider-hint">{service.description}</p>
+              <div className="provider-row provider-between"><span>Price: {money(service.price)}</span><span>{service.duration}</span></div>
+              <div className="provider-row" style={{ flexWrap: 'wrap', gap: '6px' }}>
+                <Button size="sm" variant="secondary" onClick={() => edit(service)}>Edit</Button>
+                {service.status === 'published' ? <Button size="sm" variant="outline" onClick={() => changeStatus(service, 'draft')}>Unpublish</Button> : <Button size="sm" variant="outline" onClick={() => changeStatus(service, 'published')}>Publish</Button>}
+                <Button size="sm" variant="danger" icon={Trash2} onClick={() => handleDeleteService(service)}>Delete</Button>
               </div>
             </div>
           </div>
         ))}
       </div>
-      <form onSubmit={save} noValidate>
-        <Modal
-          isOpen={open}
-          onClose={close}
-          title={form.id ? 'Edit Service Listing' : 'Create Service Listing'}
-          footer={(
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-              <div>
-                {form.id && (
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="sm"
-                    disabled={busy || !approved}
-                    onClick={() => {
-                      const s = data.services.find(item => item.id === form.id);
-                      if (s) {
-                        close();
-                        handleDeleteService(s);
-                      }
-                    }}
-                  >
-                    Delete Listing
-                  </Button>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button variant="secondary" disabled={busy} onClick={close}>Cancel</Button>
-                <Button type="submit" disabled={busy || !approved}>
-                  {busy ? 'Saving…' : form.id ? 'Save Changes' : draft ? 'Save Draft' : 'Save & Publish'}
-                </Button>
-              </div>
-            </div>
-          )}
-        >
-          <div className="provider-stack">
-            {!form.id && <label className="provider-row"><input type="checkbox" checked={draft} onChange={event => setDraft(event.target.checked)} disabled={busy} />Save as a draft</label>}
-            <TextField name="title" label="Service Title" value={form.title} onChange={change} disabled={busy} required />
-            <Select name="categoryId" label="Service Category" value={form.categoryId} onChange={change} disabled={busy} required options={categoryOptions} />
-            <div className="grid-cols-2">
-              <TextField name="price" label="Fixed Price (INR)" type="number" min="1" value={form.price} onChange={change} disabled={busy} required />
-              <TextField name="duration" label="Duration (Minutes)" type="number" min="1" placeholder="e.g. 60" value={form.duration} onChange={change} disabled={busy} required />
-            </div>
-            <TextField name="description" label="Detailed Description" value={form.description} onChange={change} disabled={busy} multiline required />
 
-            {/* Service Image Upload & Default Avatar fallback */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>Service Image</label>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ width: '100px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-page-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {form.image ? (
-                    <img src={form.image} alt="Service Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <ImageIcon size={28} color="var(--color-muted)" />
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <input
-                    type="file"
-                    id="serviceImageInput"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleImageFile}
-                    disabled={busy}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    icon={Upload}
-                    onClick={() => document.getElementById('serviceImageInput').click()}
-                    disabled={busy}
-                  >
-                    Upload Service Image
-                  </Button>
-                  <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
-                    If no image is uploaded, a default service placeholder avatar will be used.
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <SlotEditor slots={form.availableSlots} onChange={slots => setForm(value => ({ ...value, availableSlots: slots }))} disabled={busy} />
-            {formError && <p role="alert" className="provider-error">{formError}</p>}
+      <Modal isOpen={open} onClose={close} title={form.id ? 'Edit Listing' : 'Create Listing'}
+        footer={<><Button variant="secondary" disabled={busy} onClick={close}>Cancel</Button><Button type="submit" form="service-form" disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save Changes' : draft ? 'Save Draft' : 'Save & Publish'}</Button></>}>
+        <form id="service-form" className="provider-stack" onSubmit={save}>
+          <TextField name="title" label="Service Title" value={form.title} onChange={change} required />
+          <Select name="categoryId" label="Service Category" value={form.categoryId} onChange={change} options={categoryOptions} required />
+          <div className="provider-row">
+            <TextField name="price" label="Fixed Price (INR)" type="number" min="1" value={form.price} onChange={change} required />
+            <TextField name="duration" label="Duration (Minutes)" type="number" min="1" max="1440" value={form.duration} onChange={change} required />
           </div>
-        </Modal>
-      </form>
+          <TextField name="description" label="Detailed Description" value={form.description} onChange={change} multiline required />
+          <TextField name="policy" label="Cancellation Policy" value={form.policy || ''} onChange={change} />
+
+          {/* Image Upload Control */}
+          <div className="provider-stack" style={{ border: '1px dashed var(--color-border)', padding: '12px', borderRadius: 'var(--radius-control)' }}>
+            <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ImageIcon size={14} /> Service Cover Image
+            </label>
+            <div className="provider-row" style={{ alignItems: 'center', gap: '12px' }}>
+              {form.image && (
+                <img
+                  src={form.image}
+                  alt="Service preview"
+                  style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--color-border)' }}
+                />
+              )}
+              <label style={{ cursor: 'pointer' }}>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg, image/webp"
+                  onChange={handleImageFile}
+                  style={{ display: 'none' }}
+                />
+                <span className="btn btn-sm btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Upload size={14} /> Upload Custom Photo
+                </span>
+              </label>
+            </div>
+            <p className="provider-hint" style={{ margin: 0, fontSize: '11px' }}>
+              Supports PNG, JPG, or WebP. Leave blank to use category default illustration.
+            </p>
+          </div>
+
+          <SlotEditor slots={form.availableSlots} durationMinutes={Number(form.duration) || 60} onChange={availableSlots => setForm(value => ({ ...value, availableSlots }))} />
+          {!form.id && <label className="provider-row"><input type="checkbox" checked={draft} onChange={event => setDraft(event.target.checked)} /> Save as draft (do not publish immediately)</label>}
+          {formError && <p role="alert" className="provider-error">{formError}</p>}
+        </form>
+      </Modal>
     </div>
   );
 }

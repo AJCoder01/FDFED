@@ -1,42 +1,50 @@
-import { downloadFile } from '../../data/apiClient';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, Calendar, Award, Eye, Download, FileText } from 'lucide-react';
-import { getDisputeById } from '../../data/apiRepository';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 import { Modal } from '../../design-system/primitives/Modal';
+import {
+  selectSelectedDispute,
+  selectSupportLoading,
+  selectSupportError,
+  fetchDisputeByIdThunk
+} from '../../store/slices/supportSlice';
+import { selectCurrentUser } from '../../store/slices/authSlice';
+import { downloadFileThunk } from '../../store/slices/filesSlice';
 
 export function DisputeCaseDetailPage() {
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const { showToast } = useApp();
+  const currentUser = useSelector(selectCurrentUser);
+  const dispute = useSelector(selectSelectedDispute);
+  const loading = useSelector(selectSupportLoading);
+  const error = useSelector(selectSupportError);
   const [viewingEvidence, setViewingEvidence] = useState(null);
 
+  useEffect(() => {
+    if (caseId) {
+      dispatch(fetchDisputeByIdThunk(caseId));
+    }
+  }, [dispatch, caseId]);
+
   const handleDownloadEvidence = async ev => {
-    try { if (!ev.fileId) throw new Error('This historical evidence file is unavailable.'); await downloadFile(ev.fileId, ev.filename); }
-    catch (error) { showToast(error.message, 'error'); }
+    try {
+      if (!ev.fileId) throw new Error('This historical evidence file is unavailable.');
+      await dispatch(downloadFileThunk({ fileId: ev.fileId, filename: ev.filename })).unwrap();
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
   };
 
-  const load = useCallback(async () => {
-    const dispute = await getDisputeById(caseId);
-
-    return dispute?.arbitratorId === currentUser?.id ? dispute : null;
-  }, [caseId, currentUser?.id, currentUser?.role, currentUser?.isSuperUser]);
-
-  const {
-    data: dispute,
-    loading,
-    error,
-    refresh,
-  } = useRepositoryQuery(load);
-
   if (error) {
-    return <ErrorState description={error} onRetry={refresh} />;
+    return <ErrorState description={error} onRetry={() => dispatch(fetchDisputeByIdThunk(caseId))} />;
   }
 
   if (loading) {
@@ -443,7 +451,7 @@ export function DisputeCaseDetailPage() {
 
             {viewingEvidence.fileId ? (
               <div style={{ textAlign: 'center', maxHeight: '420px', overflow: 'auto', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: '#000', padding: '10px' }}>
-                <Button onClick={() => downloadFile(viewingEvidence.fileId, viewingEvidence.filename, true).catch(e => showToast(e.message, 'error'))}>Open stored evidence</Button>
+                <Button onClick={() => dispatch(downloadFileThunk({ fileId: viewingEvidence.fileId, filename: viewingEvidence.filename, preview: true })).unwrap().catch(e => showToast(e.message, 'error'))}>Open stored evidence</Button>
               </div>
             ) : (
               <div style={{ padding: '24px', backgroundColor: 'var(--color-page-bg)', borderRadius: '8px', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>

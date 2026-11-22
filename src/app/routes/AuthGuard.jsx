@@ -1,20 +1,34 @@
 import { Navigate } from "react-router-dom";
-import { useApp } from "../context/AppContext";
+import { useSelector } from "react-redux";
+import {
+  selectCurrentUser,
+  selectCurrentRole,
+  selectAuthLoading,
+  selectIsSuperUser,
+  selectIsSuperUserDemoMode,
+} from "../../store/slices/authSlice";
 import { Skeleton } from "../../design-system/primitives/Skeleton";
-import { ErrorState } from "../../design-system/primitives/ErrorState";
+
 export function AuthGuard({ allowedRoles, children }) {
-  const { currentRole, currentUser, authLoading, authError } = useApp();
+  const currentUser = useSelector(selectCurrentUser);
+  const currentRole = useSelector(selectCurrentRole);
+  const authLoading = useSelector(selectAuthLoading);
+  const isSuperUser = useSelector(selectIsSuperUser);
+  const isSuperUserDemoMode = useSelector(selectIsSuperUserDemoMode);
+
   if (authLoading) return <Skeleton height="200px" />;
-  if (authError)
-    return (
-      <ErrorState
-        description={authError}
-        onRetry={() => window.location.reload()}
-      />
-    );
-  if (!currentUser)
-    return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(currentRole))
-    return <Navigate to={`/${currentRole}`} replace />;
+  if (!currentUser || currentRole === "guest") {
+    return <Navigate to="/" replace />;
+  }
+
+  if (
+    allowedRoles &&
+    !allowedRoles.includes(currentRole) &&
+    !isSuperUser &&
+    !isSuperUserDemoMode
+  ) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 }

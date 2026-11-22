@@ -1,9 +1,18 @@
 import { ServiceImage } from '../../design-system/primitives/ServiceImage';
-import { useCallback, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Star, Shield, Clock, ArrowLeft } from 'lucide-react';
-import { getAvailableSlots, getServiceById, getServiceReviews } from '../../data/apiRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import {
+  selectSelectedService,
+  selectServiceReviews,
+  selectAvailableSlots,
+  selectMarketplaceLoading,
+  selectMarketplaceError,
+  fetchServiceByIdThunk,
+  fetchServiceReviewsThunk,
+  fetchAvailableSlotsThunk
+} from '../../store/slices/marketplaceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
@@ -14,26 +23,37 @@ export function ServiceDetailPage() {
   const { serviceId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
   const { currentRole, currentUser, setSavedIntent, showToast } = useApp();
   const serviceSearchPath = currentRole === 'customer' ? '/customer/services' : '/services';
 
-  const load = useCallback(async () => {
-    const [service, reviews] = await Promise.all([getServiceById(serviceId, { role: currentRole, userId: currentUser?.id }), getServiceReviews(serviceId)]);
-    return { service, reviews };
-  }, [serviceId, currentRole, currentUser?.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const service = data?.service;
+  const service = useSelector(selectSelectedService);
+  const reviews = useSelector(selectServiceReviews);
+  const availableSlots = useSelector(selectAvailableSlots);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
+
   const [selectedSlot, setSelectedSlot] = useState('');
   const [selectedDate, setSelectedDate] = useState(
     location.state?.selectedDate || getTodayDateInputValue()
   );
 
-  const loadSlots = useCallback(() => selectedDate && service ? getAvailableSlots(service.id, selectedDate) : Promise.resolve([]), [service?.id, selectedDate]);
-  const { data: slots, error: slotError, loading: slotsLoading } = useRepositoryQuery(loadSlots);
-  const availableSlots = slots || [];
   useEffect(() => {
-    if (slots) setSelectedSlot(value => slots.includes(value) ? value : (slots[0] || ''));
-  }, [slots]);
+    if (serviceId) {
+      dispatch(fetchServiceByIdThunk({ serviceId, options: { role: currentRole, userId: currentUser?.id } }));
+      dispatch(fetchServiceReviewsThunk(serviceId));
+    }
+  }, [dispatch, serviceId, currentRole, currentUser?.id]);
+
+  useEffect(() => {
+    if (service?.id && selectedDate) {
+      dispatch(fetchAvailableSlotsThunk({ serviceId: service.id, date: selectedDate }));
+    }
+  }, [dispatch, service?.id, selectedDate]);
+
+  useEffect(() => {
+    if (availableSlots) setSelectedSlot(value => availableSlots.includes(value) ? value : (availableSlots[0] || ''));
+  }, [availableSlots]);
 
   const handleBookingStart = () => {
     if (!selectedDate || !selectedSlot || !availableSlots.includes(selectedSlot)) {
@@ -60,9 +80,12 @@ export function ServiceDetailPage() {
     }
   };
 
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
+  if (error) return <ErrorState description={error} onRetry={() => {
+    dispatch(fetchServiceByIdThunk({ serviceId, options: { role: currentRole, userId: currentUser?.id } }));
+    dispatch(fetchServiceReviewsThunk(serviceId));
+  }} />;
 
-  if (loading) {
+  if (loading && !service) {
     return (
       <div className="app-container" style={{ padding: '32px 16px' }}>
         <Skeleton height="400px" borderRadius="16px" />
@@ -113,8 +136,8 @@ export function ServiceDetailPage() {
 
           <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h3>Customer Reviews</h3>
-            {data.reviews.length === 0 && <p>No customer reviews yet.</p>}
-            {data.reviews.map(review => <div key={review.id}><strong>{review.customerName} · {review.rating}/5</strong><p>{review.comment}</p>{review.reply && <p><strong>Provider Reply:</strong> {review.reply}</p>}</div>)}
+            {reviews.length === 0 && <p>No customer reviews yet.</p>}
+            {reviews.map(review => <div key={review.id}><strong>{review.customerName} · {review.rating}/5</strong><p>{review.comment}</p>{review.reply && <p><strong>Provider Reply:</strong> {review.reply}</p>}</div>)}
           </section>
 
           {/* Policy & Trust */}
