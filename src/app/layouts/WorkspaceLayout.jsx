@@ -1,14 +1,30 @@
-import { Suspense, useState } from 'react';
+import { Component, Suspense, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, ChevronRight, LogOut, Menu, Shield } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Modal } from '../../design-system/primitives/Modal';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Toast } from '../../design-system/primitives/Toast';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
 import { DemoSwitcherBar } from './DemoSwitcherBar';
+
+class WorkspacePageBoundary extends Component {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <ErrorState title="Unable to open this page" description="Reload the page to try again." onRetry={() => window.location.reload()} />;
+    }
+    return this.props.children;
+  }
+}
 
 export function WorkspaceLayout({ role, title, label, accent, navItems }) {
   const { currentUser, logout, toast, clearToast, unreadCount, showToast, reloadNotifications } = useApp();
@@ -60,9 +76,11 @@ export function WorkspaceLayout({ role, title, label, accent, navItems }) {
           </div>
         </header>
         <main className="workspace-main">
-          <Suspense fallback={<Skeleton height="400px" />}>
-            <Outlet key={currentUser?.id} />
-          </Suspense>
+          <WorkspacePageBoundary key={`${currentUser?.id}:${location.pathname}`}>
+            <Suspense fallback={<Skeleton height="400px" />}>
+              <Outlet />
+            </Suspense>
+          </WorkspacePageBoundary>
         </main>
       </div>
     </div>

@@ -13,11 +13,11 @@ test("customer session survives refresh and navigation; profile, catalog, histor
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page, "customer", "aarav@gmail.com");
   await page.reload();
-  await page.waitForLoadState('networkidle');
   await expect(page).toHaveURL(/\/customer$/);
   await expect(page.getByText("Aarav Mehta").first()).toBeVisible();
   await page.goto("/");
-  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole("heading", { name: /Find trusted experts/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "View Details" }).first()).toBeVisible();
   await page.goto("/customer/bookings");
   await expect(page.getByText(/BK-89600/).first()).toBeVisible();
   await page.goto("/services/srv-1");
@@ -40,7 +40,7 @@ test("provider pages, availability and admin moderation are reachable", async ({
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page, "provider", "rohan@gmail.com");
-  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "Recent Job Inbox" })).toBeVisible();
   for (const [path, heading] of [
     ["/provider/services", "Service Listing Management"],
     ["/provider/jobs", "Provider Job Inbox"],
@@ -51,7 +51,6 @@ test("provider pages, availability and admin moderation are reachable", async ({
   ]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-    await page.waitForLoadState("networkidle");
     await expect(page.getByText("Unable to load data.")).toHaveCount(0);
   }
   await page.goto("/provider/availability");

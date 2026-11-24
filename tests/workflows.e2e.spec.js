@@ -44,7 +44,9 @@ test('customer signup validates inputs and persists a real address',async({page}
   await page.getByRole('textbox',{name:'City',exact:true}).fill('Bengaluru');
   await page.getByLabel('PIN Code').fill('560001');
   await page.getByRole('button',{name:/Register as /}).click();
-  await expect(page).toHaveURL(/\/customer$/);await page.reload();
+  await expect(page).toHaveURL(/\/customer$/);
+  await expect(page.getByText("You haven't made any bookings yet.")).toBeVisible();
+  await page.reload();
   await navigate(page,'/customer/profile');await expect(page.getByText('14 Test Lane',{exact:false})).toBeVisible();
 });
 test('provider signup, verification submission and admin moderation work on mobile',async({page})=>{

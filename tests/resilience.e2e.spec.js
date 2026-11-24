@@ -32,6 +32,17 @@ test('missing catalog detail shows the missing-service state', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Service Not Found' })).toBeVisible();
 });
 
+test('a failed workspace page download can be retried', async ({ page }) => {
+  const pageModule = /\/(?:assets\/BookingsListPage-[^/]+\.js|src\/features\/customer\/BookingsListPage\.jsx)(?:\?.*)?$/;
+  await page.route(pageModule, route => route.abort());
+  await login(page, 'customer');
+  await page.goto('/customer/bookings');
+  await expect(page.getByRole('heading', { name: 'Unable to open this page' })).toBeVisible();
+  await page.unroute(pageModule);
+  await page.getByRole('button', { name: 'Retry Action' }).click();
+  await expect(page.getByRole('heading', { name: 'My Bookings' })).toBeVisible();
+});
+
 test('two tabs restore the same account and logout revokes the shared session', async ({ page, context }) => {
   await login(page, 'customer');
   const secondTab = await context.newPage();

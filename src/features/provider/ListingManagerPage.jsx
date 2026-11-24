@@ -168,7 +168,7 @@ export function ListingManagerPage() {
       <div className="grid-cols-3">
         {data.services.map(service => (
           <div key={service.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <img src={service.image || DEFAULT_SERVICE_IMAGE} alt={service.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+            <img src={service.image || DEFAULT_SERVICE_IMAGE} alt={service.title} loading="lazy" decoding="async" style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
             <div className="provider-stack" style={{ padding: '16px' }}>
               <div className="provider-row provider-between"><span className="provider-hint">{service.categoryName}</span><StatusBadge status={service.status} /></div>
               <h3>{service.title}</h3><strong>{money(service.price)} · {service.duration}</strong>
