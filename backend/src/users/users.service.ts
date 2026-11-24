@@ -3,13 +3,14 @@ import { Database } from "../common/database";
 import { Actor, own, roles, found, paginate } from "../common/policy";
 import { userInclude, userView } from "../common/serializers";
 import {
+  AddressDto,
   AddressesDto,
-  ProfileDto,
+  ProfileUpdateDto,
   ProviderDto,
   ScheduleDto,
   ModerationDto,
 } from "../common/dto";
-import { audit, notify, admins, lockProvider } from "../common/effects";
+import { audit, notify, admins, lockProvider, Tx } from "../common/effects";
 import { validateSchedule } from "../bookings/scheduling";
 import { demoEnabled } from "../auth/auth.service";
 @Injectable()
@@ -27,35 +28,37 @@ export class UsersService {
       canDemoSwitch: demoEnabled() && (a.isSuperUser || !!a.demoOriginId),
     };
   }
-  async profile(a: Actor, d: ProfileDto) {
+  async profile(a: Actor, { addresses, ...d }: ProfileUpdateDto) {
     if (d.avatar && !/^(https?:\/\/|\/api\/v1\/uploads\/)/.test(d.avatar))
       throw new BadRequestException("Upload a profile image first.");
     await this.db.$transaction(async (tx) => {
+      if (addresses !== undefined) await this.replaceAddresses(tx, a, addresses);
       await tx.user.update({ where: { id: a.id }, data: d });
       await audit(tx, a, "PROFILE_UPDATE", "Profile updated");
     });
     return this.me(a);
   }
   async addresses(a: Actor, d: AddressesDto) {
+    await this.db.$transaction((tx) => this.replaceAddresses(tx, a, d.addresses));
+    return this.me(a);
+  }
+  private async replaceAddresses(tx: Tx, a: Actor, addresses: AddressDto[]) {
     roles(a, "CUSTOMER");
-    const ids = d.addresses.map((x) => x.id);
+    const ids = addresses.map((x) => x.id);
     if (new Set(ids).size !== ids.length)
       throw new BadRequestException("Address IDs must be unique.");
-    const preferred = d.addresses.findIndex((x) => x.isDefault);
+    const preferred = addresses.findIndex((x) => x.isDefault);
     const defaultIndex = preferred < 0 ? 0 : preferred;
-    await this.db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "User" WHERE id=${a.id} FOR UPDATE`;
-      await tx.customerAddress.deleteMany({ where: { userId: a.id } });
-      await tx.customerAddress.createMany({
-        data: d.addresses.map((x, i) => ({
-          ...x,
-          userId: a.id,
-          isDefault: i === defaultIndex,
-        })),
-      });
-      await audit(tx, a, "ADDRESSES_UPDATED", "Saved address book");
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${a.id} FOR UPDATE`;
+    await tx.customerAddress.deleteMany({ where: { userId: a.id } });
+    await tx.customerAddress.createMany({
+      data: addresses.map((x, i) => ({
+        ...x,
+        userId: a.id,
+        isDefault: i === defaultIndex,
+      })),
     });
-    return this.me(a);
+    await audit(tx, a, "ADDRESSES_UPDATED", "Saved address book");
   }
   async provider(a: Actor | undefined, id: string) {
     const u = found(

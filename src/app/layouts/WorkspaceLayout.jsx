@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, ChevronRight, LogOut, Menu, Shield } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 import { Modal } from '../../design-system/primitives/Modal';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Toast } from '../../design-system/primitives/Toast';
 import { ThemeToggle } from '../../design-system/primitives/ThemeToggle';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
@@ -58,7 +59,11 @@ export function WorkspaceLayout({ role, title, label, accent, navItems }) {
             </Link>
           </div>
         </header>
-        <main className="workspace-main"><Outlet key={currentUser?.id} /></main>
+        <main className="workspace-main">
+          <Suspense fallback={<Skeleton height="400px" />}>
+            <Outlet key={currentUser?.id} />
+          </Suspense>
+        </main>
       </div>
     </div>
     <Modal isOpen={menuOpen} onClose={() => setMenuOpen(false)} title="Navigation">{links}</Modal>

@@ -130,6 +130,7 @@ test('provider creates a listing on mobile and staff can pause its public visibi
   await row.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(row.getByText('paused', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Log out', exact: true }).click();
+  await expect(page).toHaveURL('/');
   await page.goto(`/services/${listing.id}`);
-  await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Service Not Found' })).toBeVisible();
 });

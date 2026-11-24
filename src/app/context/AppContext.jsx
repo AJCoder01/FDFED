@@ -3,9 +3,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
-  startTransition,
 } from "react";
+import { useSelector, useStore } from "react-redux";
 import {
   authenticateUser,
   signUpUser,
@@ -17,17 +18,18 @@ import {
 } from "../../data/apiRepository";
 import { refreshSession } from "../../data/apiClient";
 import { subscribeToRepository } from "../../data/repositoryEvents";
+import { notificationsLoaded, profileLoaded, restorationFailed } from "../store";
 const AppContext = createContext();
 export const isSuperUserAccount = (user) =>
   user?.role === "admin" && user?.isSuperUser === true;
 export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authError, setAuthError] = useState("");
+  const { user: currentUser, loading: authLoading, error: authError, identity, notifications } =
+    useSelector((state) => state.session);
+  const store = useStore();
   const [theme, setTheme] = useState(() =>
     localStorage.getItem("servicehub_theme") === "dark" ? "dark" : "light",
   );
-  const [notifications, setNotifications] = useState([]);
+  const notificationRequest = useRef(0);
   const [savedIntent, setSavedIntent] = useState(null);
   const [toast, setToast] = useState({ message: null, type: "info" });
   const showToast = useCallback(
@@ -41,47 +43,41 @@ export function AppProvider({ children }) {
   const currentRole = currentUser?.role || "guest";
   useEffect(() => {
     let active = true;
-    refreshSession()
-      .then((user) => {
-        if (active) setCurrentUser(user);
-      })
-      .catch((e) => {
-        if (active) setAuthError(e.message);
-      })
-      .finally(() => {
-        if (active) setAuthLoading(false);
-      });
-    const expire = () => setCurrentUser(null);
-    window.addEventListener("servicehub:session-expired", expire);
-    return () => {
-      active = false;
-      window.removeEventListener("servicehub:session-expired", expire);
-    };
-  }, []);
+    refreshSession().catch((error) => {
+      if (active) store.dispatch(restorationFailed(error.message));
+    });
+    return () => { active = false; };
+  }, [store]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("servicehub_theme", theme);
   }, [theme]);
+  const reloadNotifications = useCallback(async () => {
+    const { identity, user } = store.getState().session;
+    if (!user) return;
+    const request = ++notificationRequest.current;
+    const notifications = await getNotifications();
+    if (request === notificationRequest.current)
+      store.dispatch(notificationsLoaded({ identity, notifications }));
+  }, [store]);
+  const userId = currentUser?.id;
   useEffect(() => {
-    if (!currentUser?.id) {
-      setNotifications([]);
-      return;
-    }
+    if (!userId) return;
     let active = true;
     let request = 0;
     const reload = async () => {
       const version = ++request;
       try {
-        const [profile, list] = await Promise.all([
-          getUserProfile(),
-          getNotifications(),
+        await Promise.all([
+          getUserProfile().then((profile) => {
+            if (active && version === request)
+              store.dispatch(profileLoaded({ identity, profile }));
+          }),
+          reloadNotifications(),
         ]);
-        if (active && version === request) {
-          setCurrentUser(profile);
-          setNotifications(list);
-        }
       } catch (e) {
-        if (active) showToast(e.message, "error");
+        if (active && version === request && store.getState().session.identity === identity)
+          showToast(e.message, "error");
       }
     };
     reload();
@@ -92,27 +88,10 @@ export function AppProvider({ children }) {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [currentUser?.id, showToast]);
-  const login = async (...args) => {
-    const u = await authenticateUser(...args);
-    setCurrentUser(u);
-    setAuthError("");
-    return u;
-  };
-  const signup = async (data) => {
-    const u = await signUpUser(data);
-    setCurrentUser(u);
-    return u;
-  };
+  }, [userId, identity, reloadNotifications, showToast, store]);
   const logout = useCallback(async () => {
     await logoutUser();
-    // Match the router's transition priority so a protected route cannot redirect
-    // before the caller's navigation to the public page is committed.
-    startTransition(() => {
-      setCurrentUser(null);
-      setNotifications([]);
-      setSavedIntent(null);
-    });
+    setSavedIntent(null);
   }, []);
   const switchRole = async (role) => {
     try {
@@ -121,16 +100,12 @@ export function AppProvider({ children }) {
         return { success: true, path: "/" };
       }
       const u = await switchDemoRole(role);
-      startTransition(() => setCurrentUser(u));
       return { success: true, path: `/${u.role}` };
     } catch (e) {
       showToast(e.message, "error");
       return { success: false, path: `/${currentRole}` };
     }
   };
-  const reloadNotifications = useCallback(async () => {
-    if (currentUser) setNotifications(await getNotifications());
-  }, [currentUser?.id]);
   const handleResetDemoData = async () => {
     try {
       const r = await resetDemoData();
@@ -152,8 +127,8 @@ export function AppProvider({ children }) {
         demoEnabled: !!currentUser?.demoEnabled,
         switchRole,
         theme,
-        login,
-        signup,
+        login: authenticateUser,
+        signup: signUpUser,
         logout,
         toggleTheme: () => setTheme((v) => (v === "light" ? "dark" : "light")),
         notifications,

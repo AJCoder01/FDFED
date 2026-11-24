@@ -8,8 +8,10 @@ import {
   Param,
   Query,
   Req,
+  Res,
   Module,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { MarketplaceService } from "./marketplace.service";
 import { ListingDto, ListingPatchDto } from "../common/dto";
@@ -24,8 +26,12 @@ export class MarketplaceController {
   @Public() @Get("services") list(@Req() r: any, @Query() q: any) {
     return this.s.list(r.user, q);
   }
-  @Public() @Get("services/:id") get(@Req() r: any, @Param("id") id: string) {
-    return this.s.get(r.user, id);
+  @Public() @Get("services/:id") async get(
+    @Req() r: any,
+    @Param("id") id: string,
+    @Res() response: Response,
+  ) {
+    response.json(await this.s.get(r.user, id));
   }
   @Public() @Get("services/:id/reviews") reviews(
     @Req() r: any,

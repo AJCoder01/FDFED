@@ -9,6 +9,7 @@ import {
   MinLength,
   MaxLength,
   IsArray,
+  IsObject,
   ArrayMaxSize,
   IsBoolean,
   ValidateNested,
@@ -195,11 +196,22 @@ export class AddressDto {
 export class AddressesDto {
   @IsArray()
   @ArrayMaxSize(20)
+  @IsObject({ each: true })
   @ValidateNested({ each: true })
   @Type(() => AddressDto)
   @ApiProperty({ required: true, type: [AddressDto] })
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   addresses: AddressDto[];
+}
+export class ProfileUpdateDto extends ProfileDto {
+  @ValidateIf((_, value) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsObject({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => AddressDto)
+  @ApiProperty({ required: false, type: [AddressDto] })
+  addresses?: AddressDto[];
 }
 export class ProviderDto extends ProfileDto {
   @IsString()

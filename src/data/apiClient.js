@@ -1,18 +1,34 @@
+import { sessionReplaced, sessionRestored, store } from '../app/store.js';
+
 export const API_BASE = import.meta.env.VITE_API_URL || "/api/v1";
 let accessToken = null;
 let refreshInFlight = null;
 let sessionVersion = 0;
-export let authenticatedUser = null;
+export const getAuthenticatedUser = () => store.getState().session.user;
+let sessionQueue = Promise.resolve();
+
+export function runSessionRequest(request) {
+  // The cookie is shared across same-origin tabs. Serialize writes where Web Locks are available.
+  const run = () => globalThis.navigator?.locks
+    ? globalThis.navigator.locks.request('servicehub-session', request)
+    : request();
+  const result = sessionQueue.then(run);
+  sessionQueue = result.catch(() => {});
+  return result;
+}
+
 export function setSession(session) {
   sessionVersion++;
   accessToken = session?.accessToken || null;
-  authenticatedUser = session?.user || null;
-  return authenticatedUser;
+  const user = session?.user || null;
+  store.dispatch(sessionReplaced(user));
+  return user;
 }
 export async function refreshSession() {
-  if (!refreshInFlight)
-    refreshInFlight = (async () => {
-      const version = sessionVersion;
+  if (!refreshInFlight) {
+    const version = sessionVersion;
+    refreshInFlight = runSessionRequest(async () => {
+      if (version !== sessionVersion) return getAuthenticatedUser();
       const restore = () => fetch(`${API_BASE}/auth/refresh`, {
         method: "POST",
         credentials: "include",
@@ -30,16 +46,21 @@ export async function refreshSession() {
         if (version !== sessionVersion) break;
         response = await restore();
       }
-      if (version !== sessionVersion) return authenticatedUser;
-      if (!response.ok) {
-        setSession(null);
-        if (response.status === 401) return null;
+      if (version !== sessionVersion) return getAuthenticatedUser();
+      if (!response.ok && response.status !== 401)
         throw new Error("Unable to restore your session.");
-      }
-      return setSession(await response.json());
-    })().finally(() => {
+      const session = response.status === 401 || response.status === 204
+        ? null
+        : await response.json();
+      if (version !== sessionVersion) return getAuthenticatedUser();
+      accessToken = session?.accessToken || null;
+      const user = session?.user || null;
+      store.dispatch(sessionRestored(user));
+      return user;
+    }).finally(() => {
       refreshInFlight = null;
     });
+  }
   return refreshInFlight;
 }
 export async function api(
@@ -53,6 +74,8 @@ export async function api(
     "/auth/refresh",
     "/auth/logout",
   ].includes(path);
+  const sentToken = accessToken;
+  const identity = store.getState().session.identity;
   if (accessToken && !cookieAuth)
     headers.Authorization = `Bearer ${accessToken}`;
   if (body !== undefined && !(body instanceof FormData))
@@ -69,9 +92,10 @@ export async function api(
           : JSON.stringify(body),
   });
   if (response.status === 401 && retry && !path.startsWith("/auth/")) {
-    if (await refreshSession())
+    if (store.getState().session.identity === identity && sentToken === accessToken)
+      await refreshSession();
+    if (accessToken && store.getState().session.identity === identity)
       return api(path, { method, body, blob, retry: false });
-    window.dispatchEvent(new Event("servicehub:session-expired"));
   }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -99,7 +123,7 @@ export async function collection(path, params = {}) {
     const result = await api(`${path}?${q}`);
     if (Array.isArray(result)) return result;
     all.push(...result.items);
-    if (all.length >= result.total) return all;
+    if (result.items.length === 0 || all.length >= result.total) return all;
     page++;
   }
 }

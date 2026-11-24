@@ -2,7 +2,8 @@ import {
   api,
   collection,
   setSession,
-  authenticatedUser,
+  getAuthenticatedUser,
+  runSessionRequest,
   uploadImage,
   uploadEvidence,
 } from "./apiClient";
@@ -17,15 +18,15 @@ async function mutate(path, body, method = "POST") {
   return result;
 }
 export async function authenticateUser(email, password, role) {
-  return setSession(
+  return runSessionRequest(async () => setSession(
     await api("/auth/login", {
       method: "POST",
       body: { email, password, role },
     }),
-  );
+  ));
 }
 export async function signUpUser(data) {
-  return setSession(
+  return runSessionRequest(async () => setSession(
     await api("/auth/signup", {
       method: "POST",
       body: pick(data, [
@@ -43,16 +44,18 @@ export async function signUpUser(data) {
         "addressLabel",
       ]),
     }),
-  );
+  ));
 }
 export async function logoutUser() {
-  await api("/auth/logout", { method: "POST" });
-  setSession(null);
+  return runSessionRequest(async () => {
+    await api("/auth/logout", { method: "POST" });
+    setSession(null);
+  });
 }
 export async function switchDemoRole(role) {
-  return setSession(
+  return runSessionRequest(async () => setSession(
     await api("/auth/demo-switch", { method: "POST", body: { role } }),
-  );
+  ));
 }
 export const getUserProfile = () => api("/users/me");
 export const getCustomerById = () => getUserProfile();
@@ -68,17 +71,16 @@ export async function updateUserProfile(id, values) {
     "department",
   ]);
   if (data.avatar !== undefined) data.avatar = await uploadImage(data.avatar);
-  if (values.addresses) await saveCustomerAddresses(id, values.addresses);
+  if (values.addresses !== undefined) data.addresses = addressInputs(values.addresses);
   return mutate("/users/me", data, "PATCH");
 }
+const addressInputs = (addresses) => addresses.map((address) =>
+  pick(address, ["id", "label", "addressLine", "city", "pincode", "isDefault"]),
+);
 export const saveCustomerAddresses = (id, addresses) =>
   mutate(
     "/customers/me/addresses",
-    {
-      addresses: addresses.map((a) =>
-        pick(a, ["id", "label", "addressLine", "city", "pincode", "isDefault"]),
-      ),
-    },
+    { addresses: addressInputs(addresses) },
     "PUT",
   );
 export const getProviders = () => collection("/providers");
@@ -169,7 +171,7 @@ export const createBooking = (values) =>
 export function updateBookingStatus(id, status, note = "") {
   const action =
     status === "cancelled"
-      ? authenticatedUser?.role === "provider"
+      ? getAuthenticatedUser()?.role === "provider"
         ? "decline"
         : "cancel"
       : { active: "accept", in_progress: "start", completed: "complete" }[
@@ -228,10 +230,8 @@ export const issueRuling = (id, values) =>
     pick(values, ["verdict", "awardAmount", "reason"]),
   );
 export const getNotifications = () => collection("/notifications");
-export async function markNotificationsRead(userId, notificationId) {
-  await mutate("/notifications/read", { notificationId });
-  return getNotifications();
-}
+export const markNotificationsRead = (userId, notificationId) =>
+  mutate("/notifications/read", { notificationId });
 export const getAccounts = () => collection("/admin/accounts");
 export const getActivityLogs = (userId) =>
   collection("/admin/activity", { userId });
