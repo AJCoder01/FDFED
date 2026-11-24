@@ -1,17 +1,24 @@
-import { useCallback } from 'react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { selectBookings, selectBookingsLoading, selectBookingsError, fetchBookingsThunk } from '../../store/slices/bookingsSlice';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
-import { getBookings } from '../../data/apiRepository';
 import { netPayout, platformFee } from '../../data/bookingRules';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 
 export function BookingInspectorPage() {
-  const load = useCallback(() => getBookings('admin'), []);
-  const { data: bookings, loading, error, refresh } = useRepositoryQuery(load);
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" />;
+  const dispatch = useDispatch();
+  const bookings = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
+
+  useEffect(() => {
+    dispatch(fetchBookingsThunk('admin'));
+  }, [dispatch]);
+
+  if (error) return <ErrorState description={error} onRetry={() => dispatch(fetchBookingsThunk('admin'))} />;
+  if (loading && (!bookings || bookings.length === 0)) return <Skeleton height="300px" />;
 
   const columns = [
     { header: 'Booking ID', accessor: 'id', render: (row) => <strong>#{row.id}</strong> },

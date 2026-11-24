@@ -8,39 +8,55 @@ import {
 } from "react";
 import { useSelector, useStore } from "react-redux";
 import {
-  authenticateUser,
-  signUpUser,
-  getUserProfile,
-  getNotifications,
-  logoutUser,
-  switchDemoRole,
-  resetDemoData,
-} from "../../data/apiRepository";
-import { refreshSession } from "../../data/apiClient";
+  restoreSessionThunk,
+  loginThunk,
+  signupThunk,
+  logoutThunk,
+  switchDemoRoleThunk,
+  fetchCurrentUserThunk,
+  setSavedIntent,
+  clearSavedIntent,
+  selectCurrentUser,
+  selectCurrentRole,
+  selectAuthLoading,
+  selectAuthError,
+  selectSavedIntent,
+  selectIsSuperUser,
+  selectIsSuperUserDemoMode,
+} from "../../store/slices/authSlice";
+import {
+  fetchNotificationsThunk,
+  resetDemoDataThunk,
+  selectNotifications,
+  selectUnreadCount,
+} from "../../store/slices/platformSlice";
 import { subscribeToRepository } from "../../data/repositoryEvents";
 import { notificationsLoaded, profileLoaded, restorationFailed } from "../store";
 const AppContext = createContext();
+
 export const isSuperUserAccount = (user) =>
   user?.role === "admin" && user?.isSuperUser === true;
+
 export function AppProvider({ children }) {
   const { user: currentUser, loading: authLoading, error: authError, identity, notifications } =
     useSelector((state) => state.session);
   const store = useStore();
   const [theme, setTheme] = useState(() =>
-    localStorage.getItem("servicehub_theme") === "dark" ? "dark" : "light",
+    localStorage.getItem("servicehub_theme") === "dark" ? "dark" : "light"
   );
   const notificationRequest = useRef(0);
   const [savedIntent, setSavedIntent] = useState(null);
   const [toast, setToast] = useState({ message: null, type: "info" });
+
   const showToast = useCallback(
     (message, type = "success") => setToast({ message, type }),
-    [],
+    []
   );
   const clearToast = useCallback(
     () => setToast({ message: null, type: "info" }),
-    [],
+    []
   );
-  const currentRole = currentUser?.role || "guest";
+
   useEffect(() => {
     let active = true;
     refreshSession().catch((error) => {
@@ -66,7 +82,6 @@ export function AppProvider({ children }) {
     let active = true;
     let request = 0;
     const reload = async () => {
-      const version = ++request;
       try {
         await Promise.all([
           getUserProfile().then((profile) => {
@@ -84,7 +99,6 @@ export function AppProvider({ children }) {
     const unsubscribe = subscribeToRepository(reload);
     const interval = setInterval(reload, 30000);
     return () => {
-      active = false;
       unsubscribe();
       clearInterval(interval);
     };
@@ -102,19 +116,31 @@ export function AppProvider({ children }) {
       const u = await switchDemoRole(role);
       return { success: true, path: `/${u.role}` };
     } catch (e) {
-      showToast(e.message, "error");
+      showToast(e.message || "Failed to switch role", "error");
       return { success: false, path: `/${currentRole}` };
     }
   };
   const handleResetDemoData = async () => {
     try {
-      const r = await resetDemoData();
+      const r = await dispatch(resetDemoDataThunk()).unwrap();
       await logout();
-      showToast(r.message);
+      showToast(r.message || "Demo data reset successfully.");
     } catch (e) {
-      showToast(e.message, "error");
+      showToast(e.message || "Failed to reset demo data.", "error");
     }
   };
+
+  const setIntent = useCallback(
+    (intent) => {
+      if (intent) {
+        dispatch(setSavedIntent(intent));
+      } else {
+        dispatch(clearSavedIntent());
+      }
+    },
+    [dispatch]
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -122,8 +148,8 @@ export function AppProvider({ children }) {
         currentUser,
         authLoading,
         authError,
-        isSuperUser: isSuperUserAccount(currentUser),
-        isSuperUserDemoMode: !!currentUser?.canDemoSwitch,
+        isSuperUser,
+        isSuperUserDemoMode,
         demoEnabled: !!currentUser?.demoEnabled,
         switchRole,
         theme,
@@ -132,10 +158,10 @@ export function AppProvider({ children }) {
         logout,
         toggleTheme: () => setTheme((v) => (v === "light" ? "dark" : "light")),
         notifications,
-        unreadCount: notifications.filter((n) => !n.read).length,
+        unreadCount,
         reloadNotifications,
         savedIntent,
-        setSavedIntent,
+        setSavedIntent: setIntent,
         showToast,
         toast,
         clearToast,
@@ -146,4 +172,5 @@ export function AppProvider({ children }) {
     </AppContext.Provider>
   );
 }
+
 export const useApp = () => useContext(AppContext);

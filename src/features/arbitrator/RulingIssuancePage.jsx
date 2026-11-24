@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { Award } from 'lucide-react';
 
-import { issueRuling } from '../../data/apiRepository';
+import { issueRulingThunk } from '../../store/slices/supportSlice';
 import { useApp } from '../../app/context/AppContext';
 
 import { TextField } from '../../design-system/primitives/TextField';
@@ -17,6 +18,7 @@ const MINIMUM_WORDS = 20;
 
 export function RulingIssuancePage() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { showToast } = useApp();
 
   const { caseId, cases, selectedCase, selectCase, loading, error, refresh } = useAssignedCase();
@@ -62,11 +64,14 @@ export function RulingIssuancePage() {
     setBusy(true);
 
     try {
-      await issueRuling(caseId, {
-        verdict,
-        awardAmount: amount,
-        reason: rulingReason.trim()
-      });
+      await dispatch(issueRulingThunk({
+        disputeId: caseId,
+        rulingData: {
+          verdict,
+          awardAmount: amount,
+          reason: rulingReason.trim()
+        }
+      })).unwrap();
 
       setIssued({ caseId, verdict, awardAmount: amount, reason: rulingReason.trim() });
       showToast(

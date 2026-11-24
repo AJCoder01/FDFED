@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   FileText,
   Search,
@@ -14,9 +15,13 @@ import {
   ChevronRight,
   Filter
 } from 'lucide-react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getDisputes } from '../../data/apiRepository';
-import { useApp } from '../../app/context/AppContext';
+import {
+  selectDisputes,
+  selectSupportLoading,
+  selectSupportError,
+  fetchDisputesThunk
+} from '../../store/slices/supportSlice';
+import { selectCurrentUser } from '../../store/slices/authSlice';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
@@ -25,21 +30,24 @@ import { ErrorState } from '../../design-system/primitives/ErrorState';
 
 export function ArbitratorCasesPage() {
   const navigate = useNavigate();
-  const { currentUser } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const allDisputes = useSelector(selectDisputes);
+  const loading = useSelector(selectSupportLoading);
+  const error = useSelector(selectSupportError);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('active'); // 'active', 'pending_hearing', 'scheduled', 'all'
 
-  const load = useCallback(async () => {
-    const allDisputes = await getDisputes();
-    const userDisputes = allDisputes.filter(
+  useEffect(() => {
+    dispatch(fetchDisputesThunk());
+  }, [dispatch]);
+
+  const disputes = useMemo(() => {
+    return (allDisputes || []).filter(
       (d) => d.arbitratorId === currentUser?.id
     );
-    return userDisputes;
-  }, [currentUser?.id]);
-
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const disputes = data || [];
+  }, [allDisputes, currentUser?.id]);
 
   const filteredDisputes = useMemo(() => {
     return disputes.filter((disp) => {
@@ -72,7 +80,7 @@ export function ArbitratorCasesPage() {
   }, [disputes, statusFilter, searchTerm]);
 
   if (error) {
-    return <ErrorState description={error} onRetry={refresh} />;
+    return <ErrorState description={error} onRetry={() => dispatch(fetchDisputesThunk())} />;
   }
 
   const activeCount = disputes.filter(

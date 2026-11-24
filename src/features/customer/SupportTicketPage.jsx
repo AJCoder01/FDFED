@@ -1,27 +1,47 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-
-import { getBookings, getTickets, createTicket } from '../../data/apiRepository';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  selectTickets,
+  selectSupportLoading,
+  selectSupportError,
+  fetchTicketsThunk,
+  createTicketThunk,
+} from '../../store/slices/supportSlice';
+import {
+  selectBookings,
+  fetchBookingsThunk,
+} from '../../store/slices/bookingsSlice';
+import { selectCurrentUser } from '../../store/slices/authSlice';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 
 export function SupportTicketPage() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
   const bookingIdParam = searchParams.get('bookingId') || '';
-  const { currentUser, showToast } = useApp();
+  const currentUser = useSelector(selectCurrentUser);
+  const tickets = useSelector(selectTickets);
+  const bookings = useSelector(selectBookings);
+  const loading = useSelector(selectSupportLoading);
+  const error = useSelector(selectSupportError);
+  const { showToast } = useApp();
 
-  const load = useCallback(async () => {
-    const [tickets, bookings] = await Promise.all([getTickets('customer', currentUser.id), getBookings('customer', currentUser.id)]);
-    return { tickets, bookings };
-  }, [currentUser.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const refresh = useCallback(() => {
+    dispatch(fetchTicketsThunk());
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
   const [bookingId, setBookingId] = useState(bookingIdParam);
   useEffect(() => { setBookingId(bookingIdParam); }, [bookingIdParam]);
   const [issueType, setIssueType] = useState('Service Quality Issue');
@@ -39,16 +59,24 @@ export function SupportTicketPage() {
 
     setBusy(true);
     try {
-      const created = await createTicket({ bookingId, customerId: currentUser.id, issueType, severity, description });
+      const created = await dispatch(createTicketThunk({
+        bookingId,
+        customerId: currentUser.id,
+        issueType,
+        severity,
+        description
+      })).unwrap();
       setDescription('');
       showToast(`Support Ticket #${created.id} opened.`, 'success');
-    } catch (error) { showToast(error.message, 'warning'); }
-    finally { setBusy(false); }
+    } catch (error) {
+      showToast(error.message, 'warning');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" />;
-  const { tickets, bookings } = data;
+  if (loading && tickets.length === 0) return <Skeleton height="300px" />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -99,42 +127,49 @@ export function SupportTicketPage() {
             label="Detailed Description & Evidence Notes"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe what went wrong and what resolution you expect..."
+            placeholder="Explain what went wrong, technician conduct, or requested remedy..."
             multiline
             rows={4}
             required
+            disabled={busy}
           />
 
-          <Button type="submit" disabled={busy || !bookingId} variant="primary" fullWidth size="lg">
-            Submit Support Ticket
+          <Button type="submit" variant="primary" fullWidth size="lg" disabled={busy}>
+            {busy ? 'Submitting…' : 'Submit Support Ticket'}
           </Button>
         </form>
 
         {/* Existing Tickets List */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Your Open & Past Tickets</h2>
-
+          <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Your Tickets History</h2>
+          
           {tickets.length === 0 ? (
-            <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>No support tickets opened yet.</p>
+            <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--color-muted)' }}>
+              No support tickets filed yet.
+            </div>
           ) : (
-            tickets.map((t) => (
-              <div key={t.id} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-control)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '14px', color: 'var(--color-ink)' }}>#{t.id}</strong>
-                  <StatusBadge status={t.status} />
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-ink)' }}>{t.issueType}</div>
-                <p style={{ fontSize: '12px', color: 'var(--color-muted)' }}>{t.description}</p>
-                <div style={{ fontSize: '11px', color: 'var(--color-muted)', marginTop: '4px' }}>
-                  Booking: #{t.bookingId} | Opened: {t.createdAt}
-                </div>
-                {t.resolutionOutcome && (
-                  <div style={{ fontSize: '12px', color: 'var(--color-success)', backgroundColor: 'var(--color-success-bg)', padding: '6px 10px', borderRadius: '4px', marginTop: '4px' }}>
-                    <strong>Resolution:</strong> {t.resolutionOutcome}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {tickets.map((t) => (
+                <div key={t.id} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-control)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <strong style={{ fontSize: '13px', color: 'var(--color-ink)' }}>#{t.id}</strong>
+                      <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>· Booking #{t.bookingId}</span>
+                    </div>
+                    <StatusBadge status={t.status} />
                   </div>
-                )}
-              </div>
-            ))
+                  
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--color-ink)' }}>{t.issueType} ({t.severity})</div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-muted)' }}>"{t.description}"</div>
+
+                  {t.resolutionOutcome && (
+                    <div style={{ backgroundColor: 'var(--color-success-bg)', padding: '8px', borderRadius: '4px', fontSize: '12px', color: 'var(--color-ink)', marginTop: '4px' }}>
+                      <strong>Resolution Outcome:</strong> {t.resolutionOutcome}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

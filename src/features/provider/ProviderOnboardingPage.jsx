@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser, fetchCurrentUserThunk } from '../../store/slices/authSlice';
+import { saveProviderThunk } from '../../store/slices/usersSlice';
 import { useApp } from '../../app/context/AppContext';
-import { saveProvider } from '../../data/apiRepository';
 import { TextField } from '../../design-system/primitives/TextField';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -8,7 +10,9 @@ import { Upload } from 'lucide-react';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ProviderOnboardingPage() {
-  const { currentUser, showToast } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const { showToast } = useApp();
 
   const handleAvatarFile = (e) => {
     const file = e.target.files?.[0];
@@ -30,13 +34,13 @@ export function ProviderOnboardingPage() {
   const [error, setError] = useState('');
 
   const saved = JSON.stringify([
-    currentUser.name,
-    currentUser.phone,
-    currentUser.avatar,
-    currentUser.businessName,
-    currentUser.serviceArea,
-    currentUser.skills,
-    currentUser.documentName
+    currentUser?.name,
+    currentUser?.phone,
+    currentUser?.avatar,
+    currentUser?.businessName,
+    currentUser?.serviceArea,
+    currentUser?.skills,
+    currentUser?.documentName
   ]);
 
   useEffect(() => {
@@ -60,100 +64,103 @@ export function ProviderOnboardingPage() {
     setBusy(true);
     setError('');
     try {
-      await saveProvider(currentUser.id, {
-        ...form,
-        skills: form.skills.split(',').map(skill => skill.trim()).filter(Boolean)
-      }, submit);
-      showToast(submit ? 'Verification profile submitted for Admin review.' : 'Provider profile saved.', 'success');
-    } catch (error) {
-      setError(error.message);
-      showToast(error.message, 'error');
+      const skillsArray = form.skills.split(',').map(s => s.trim()).filter(Boolean);
+      await dispatch(saveProviderThunk({
+        id: currentUser.id,
+        values: {
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          avatar: form.avatar.trim() || DEFAULT_BLANK_AVATAR,
+          businessName: form.businessName.trim(),
+          serviceArea: form.serviceArea.trim(),
+          skills: skillsArray,
+          documentName: form.documentName.trim()
+        },
+        submit
+      })).unwrap();
+      await dispatch(fetchCurrentUserThunk()).unwrap();
+      showToast(submit ? 'Application submitted for moderation.' : 'Draft saved.');
+    } catch (err) {
+      setError(err.message);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="provider-page provider-narrow" style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div className="provider-page">
       <div className="page-header">
         <h1 className="page-title">Provider Profile & Verification</h1>
-        <p className="page-subtitle">Manage business credentials, contact info, trade skills, and verification status.</p>
+        <p className="page-subtitle">Submit credentials and business information for administrator approval</p>
       </div>
-      <form className="card provider-stack" onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '28px' }}>
-        <div className="provider-record provider-row provider-between" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '14px', borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <strong>Current Verification Status</strong>
-            <p style={{ fontSize: '12px', color: 'var(--color-muted)', margin: '2px 0 0 0' }}>Verified providers appear in public marketplace search</p>
-          </div>
-          <StatusBadge status={currentUser.verificationStatus} />
-        </div>
-        {currentUser.verificationFeedback && <p className="provider-hint" style={{ fontSize: '13px', color: 'var(--color-primary)', backgroundColor: 'var(--color-primary-light)', padding: '10px 14px', borderRadius: 'var(--radius-control)' }}>{currentUser.verificationFeedback}</p>}
 
-        <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '8px', borderBottom: '1px dashed var(--color-border)', paddingBottom: '8px' }}>
-          Personal & Contact Details
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <TextField name="name" label="Contact Person / Full Name *" value={form.name} onChange={change} required disabled={busy} placeholder="e.g. Ramesh Kumar" />
-          <TextField name="phone" label="Contact Phone Number" value={form.phone} onChange={change} disabled={busy} placeholder="e.g. +91 98888 77665" />
+      <div className="card provider-stack">
+        <div className="provider-row provider-between">
+          <h2>Verification Status</h2>
+          <StatusBadge status={currentUser?.verificationStatus} />
         </div>
+        {currentUser?.verificationFeedback && (
+          <p className="provider-record">Admin Feedback: {currentUser.verificationFeedback}</p>
+        )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)' }}>Profile Picture</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <form className="provider-stack" onSubmit={e => save(e, false)}>
+          <div className="provider-row" style={{ alignItems: 'center', gap: '16px' }}>
             <img
               src={form.avatar || DEFAULT_BLANK_AVATAR}
-              alt="Avatar preview"
-              style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-success)', backgroundColor: 'var(--color-page-bg)' }}
-              onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
+              alt="Profile"
+              style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-border)' }}
             />
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <input
-                type="file"
-                id="providerAvatarUpload"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleAvatarFile}
-                disabled={busy}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                icon={Upload}
-                onClick={() => document.getElementById('providerAvatarUpload').click()}
-                disabled={busy}
-              >
-                Upload Picture
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setForm(f => ({ ...f, avatar: DEFAULT_BLANK_AVATAR }))}
-                disabled={busy}
-              >
-                Clear to Empty Avatar
-              </Button>
-            </div>
+            <label style={{ cursor: 'pointer' }}>
+              <input type="file" accept="image/*" onChange={handleAvatarFile} style={{ display: 'none' }} />
+              <span className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Upload size={14} /> Upload Avatar
+              </span>
+            </label>
           </div>
-        </div>
 
-        <TextField name="provider-email" label="Account Email (Read-Only)" value={currentUser.email} disabled helperText="Used for authentication and dispatch communications" />
+          <div className="provider-row">
+            <TextField name="name" label="Full Name" value={form.name} onChange={change} required />
+            <TextField name="phone" label="Phone" value={form.phone} onChange={change} required />
+          </div>
 
-        <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '12px', borderBottom: '1px dashed var(--color-border)', paddingBottom: '8px' }}>
-          Business & Service Information
-        </h3>
-        <TextField name="businessName" label="Business / Trading Name *" value={form.businessName} onChange={change} required disabled={busy} placeholder="e.g. Urban Clean Pro & Pest Solutions" />
-        <TextField name="serviceArea" label="Service Coverage Area *" value={form.serviceArea} onChange={change} required disabled={busy} placeholder="e.g. Bengaluru Urban, Indiranagar, Whitefield, Koramangala" multiline />
-        <TextField name="skills" label="Trade Skills (Comma separated) *" value={form.skills} onChange={change} required disabled={busy} placeholder="Cleaning, Electrical, Plumbing, Appliance Repair" helperText="Used to match custom job requests and catalog filters" />
-        <TextField name="documentName" label="Verification Document Record" value={form.documentName} onChange={change} disabled={busy} placeholder="e.g. trade-license-ka-2025.pdf" helperText="Demo document record only; no real identity document is uploaded or verified." />
+          <div className="provider-row">
+            <TextField name="businessName" label="Business / Trade Name" value={form.businessName} onChange={change} required />
+            <TextField name="serviceArea" label="Operating City / Region" value={form.serviceArea} onChange={change} required />
+          </div>
 
-        {error && <p role="alert" className="provider-error" style={{ color: 'var(--color-danger)', fontSize: '13px', fontWeight: '600' }}>{error}</p>}
-        <div className="provider-row" style={{ display: 'flex', gap: '12px', marginTop: '12px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-          <Button type="submit" disabled={busy}>{busy ? 'Saving Profile…' : 'Save Profile Details'}</Button>
-          <Button variant="outline" disabled={busy || currentUser.verificationStatus === 'submitted'} onClick={event => save(event, true)}>Submit for Verification</Button>
-        </div>
-      </form>
+          <TextField
+            name="skills"
+            label="Service Specialties (comma separated)"
+            value={form.skills}
+            onChange={change}
+            placeholder="e.g. Plumbing, Leak Repair, Water Heater Installation"
+            required
+          />
+
+          <TextField
+            name="documentName"
+            label="Verification Document Reference / License"
+            value={form.documentName}
+            onChange={change}
+            placeholder="e.g. Trade License #TR-88912 or Govt ID"
+          />
+
+          {error && <p role="alert" className="provider-error">{error}</p>}
+
+          <div className="provider-row">
+            <Button type="submit" variant="secondary" disabled={busy}>
+              Save Draft
+            </Button>
+            <Button
+              type="button"
+              disabled={busy || currentUser?.verificationStatus === 'submitted' || currentUser?.verificationStatus === 'approved'}
+              onClick={e => save(e, true)}
+            >
+              {currentUser?.verificationStatus === 'submitted' ? 'Application Under Review' : 'Submit for Admin Approval'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,25 +1,38 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/apiRepository';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  selectBookings,
+  selectBookingsLoading,
+  selectBookingsError,
+  fetchBookingsThunk,
+} from '../../store/slices/bookingsSlice';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
 import { Select } from '../../design-system/primitives/Select';
 import { JobRequestActions } from './JobRequestActions';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { formatDate, isAccepted, isPending } from './providerUtils';
 
 export function JobInboxPage() {
-  const { currentUser } = useApp();
+  const dispatch = useDispatch();
+  const jobs = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
-  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, setData: setJobs, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="200px" borderRadius="12px" />;
+  if (loading && jobs.length === 0) return <Skeleton height="200px" borderRadius="12px" />;
   const filtered = jobs.filter(job => filter === 'all' || (filter === 'pending' ? isPending(job) : job.status === filter));
 
   return (
@@ -45,7 +58,7 @@ export function JobInboxPage() {
             <strong>{formatDate(job.scheduledDate)} at {job.scheduledSlot}</strong>
           </div>
           <div className="provider-stack">
-            <JobRequestActions job={job} onUpdate={updated => setJobs(list => list.map(item => item.id === updated.id ? updated : item))} onRefresh={refresh} />
+            <JobRequestActions job={job} onRefresh={refresh} />
             <Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>Workspace</Button>
           </div>
         </div>

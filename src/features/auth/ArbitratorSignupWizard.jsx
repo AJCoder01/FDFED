@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText, Scale, Check } from 'lucide-react';
-import { submitArbitratorApplication } from '../../data/apiRepository';
+import { useDispatch } from 'react-redux';
+import { submitArbitratorApplicationThunk } from '../../store/slices/platformSlice';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
 import { useApp } from '../../app/context/AppContext';
 
 export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { showToast } = useApp();
 
@@ -141,7 +143,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
     setBusy(true);
 
     try {
-      await submitArbitratorApplication({
+      await dispatch(submitArbitratorApplicationThunk({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
@@ -154,7 +156,7 @@ export function ArbitratorSignupWizard({ onBackToRoleSelect }) {
         organization: organization.trim(),
         prevExperience: prevExperience.trim(),
         files
-      });
+      })).unwrap();
 
       setSubmitted(true);
       showToast('Arbitrator application submitted successfully.', 'success');

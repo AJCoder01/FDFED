@@ -1,6 +1,12 @@
-import { useState } from 'react';
-import { getProviders, moderateProvider } from '../../data/apiRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  selectProviders,
+  selectUsersLoading,
+  selectUsersError,
+  fetchProvidersThunk,
+  moderateProviderThunk
+} from '../../store/slices/usersSlice';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -11,8 +17,17 @@ import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 
 export function ProviderModerationPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
-  const { data: providers, loading, error, refresh } = useRepositoryQuery(getProviders);
+
+  const providers = useSelector(selectProviders);
+  const loading = useSelector(selectUsersLoading);
+  const error = useSelector(selectUsersError);
+
+  useEffect(() => {
+    dispatch(fetchProvidersThunk());
+  }, [dispatch]);
+
   const [decision, setDecision] = useState(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -23,13 +38,17 @@ export function ProviderModerationPage() {
     if (busy) return;
     setBusy(true); setSaveError('');
     try {
-      await moderateProvider(decision.id, decision.status, reason);
+      await dispatch(moderateProviderThunk({
+        providerId: decision.id,
+        status: decision.status,
+        reason
+      })).unwrap();
       setDecision(null); setReason(''); showToast('Provider verification decision saved.');
     } catch (error) { setSaveError(error.message); }
     finally { setBusy(false); }
   };
-  if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" />;
+  if (error) return <ErrorState description={error} onRetry={() => dispatch(fetchProvidersThunk())} />;
+  if (loading && (!providers || providers.length === 0)) return <Skeleton height="300px" />;
   const columns = [
     { header: 'Business Name', accessor: 'businessName' }, { header: 'Applicant', accessor: 'name' },
     { header: 'Service Area', accessor: 'serviceArea' },

@@ -1,60 +1,91 @@
-import { useCallback } from 'react';
-import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/apiRepository';
-import { DataTable } from '../../design-system/primitives/DataTable';
-import { StatusBadge } from '../../design-system/primitives/StatusBadge';
-import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { useCallback, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  selectBookings,
+  selectBookingsLoading,
+  selectBookingsError,
+  fetchBookingsThunk,
+} from '../../store/slices/bookingsSlice';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { isPaid, money, netPayout, platformFee } from './providerUtils';
+import { Skeleton } from '../../design-system/primitives/Skeleton';
+import { formatDate, isPaid, money, netPayout, platformFee } from './providerUtils';
 
 export function EarningsPage() {
-  const { currentUser } = useApp();
-  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, loading, error, refresh } = useRepositoryQuery(load);
+  const dispatch = useDispatch();
+  const jobs = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchBookingsThunk());
+  }, [dispatch]);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" borderRadius="12px" />;
-  const paid = jobs.filter(isPaid);
-  const payments = jobs.filter(job => isPaid(job) || job.paymentStatus === 'Refunded');
-  const completed = paid.filter(job => job.status === 'completed');
-  const pending = paid.filter(job => ['active', 'in_progress', 'reschedule_proposed'].includes(job.status));
-  const held = paid.filter(job => !['completed', 'active', 'in_progress', 'reschedule_proposed'].includes(job.status));
-  const sumPayout = list => list.reduce((sum, job) => sum + netPayout(job), 0);
-  const stats = [
-    ['COMPLETED NET EARNINGS', sumPayout(completed)],
-    ['PENDING NET EARNINGS', sumPayout(pending)],
-    ['DISPUTED / HELD PAYMENTS', sumPayout(held)],
-    ['GROSS CUSTOMER PAYMENTS', payments.reduce((sum, job) => sum + Number(job.amount), 0)],
-    ['REFUNDED CUSTOMER PAYMENTS', jobs.reduce((sum, job) => sum + Number(job.refundedAmount || 0), 0)],
-    ['PLATFORM FEES ON PAID BOOKINGS', paid.reduce((sum, job) => sum + platformFee(job), 0)]
-  ];
-  const columns = [
-    { header: 'Job ID', accessor: 'id', render: row => <strong>#{row.id}</strong> },
-    { header: 'Service', accessor: 'serviceTitle' },
-    { header: 'Customer', accessor: 'customerName' },
-    { header: 'Date', accessor: 'scheduledDate' },
-    { header: 'Gross Price', render: row => money(row.amount) },
-    { header: 'Platform Fee (5%)', render: row => money(platformFee(row)) },
-    { header: 'Net Amount', render: row => money(netPayout(row)) },
-    { header: 'Job Status', render: row => <StatusBadge status={row.status} /> },
-    { header: 'Refunded', render: row => money(row.refundedAmount || 0) },
-    { header: 'Payment Status', accessor: 'paymentStatus' }
-  ];
+  if (loading && jobs.length === 0) return <Skeleton height="300px" borderRadius="12px" />;
+
+  const paidJobs = jobs.filter(isPaid);
+  const totalGross = paidJobs.reduce((sum, j) => sum + Number(j.amount || 0), 0);
+  const totalFees = paidJobs.reduce((sum, j) => sum + platformFee(j), 0);
+  const totalNet = paidJobs.reduce((sum, j) => sum + netPayout(j), 0);
 
   return (
     <div className="provider-page">
       <div className="page-header">
-        <h1 className="page-title">Provider Earnings & Payments</h1>
-        <p className="page-subtitle">Booking amounts after the 5% platform fee. Refunds and cash payments are recorded in the demo ledger.</p>
+        <h1 className="page-title">Earnings & Settlement Breakdown</h1>
+        <p className="page-subtitle">Track simulated settlements, platform commission deductions, and net payouts</p>
       </div>
-      <div className="provider-stats">
-        {stats.map(([label, value]) => <div className="card" key={label}><span className="provider-hint">{label}</span><div className="provider-stat-value">{money(value)}</div></div>)}
+
+      <div className="grid-cols-3">
+        <div className="card provider-stack">
+          <span className="provider-hint">GROSS COLLECTED</span>
+          <strong style={{ fontSize: '24px', color: 'var(--color-ink)' }}>{money(totalGross)}</strong>
+        </div>
+        <div className="card provider-stack">
+          <span className="provider-hint">PLATFORM COMMISSION (5%)</span>
+          <strong style={{ fontSize: '24px', color: 'var(--color-danger)' }}>{money(totalFees)}</strong>
+        </div>
+        <div className="card provider-stack">
+          <span className="provider-hint">NET PROVIDER PAYOUT</span>
+          <strong style={{ fontSize: '24px', color: 'var(--color-success)' }}>{money(totalNet)}</strong>
+        </div>
       </div>
+
       <div className="card provider-stack">
-        <h2>Booking Payment History</h2>
-        <p className="provider-hint">Completed paid jobs count as earned. Active jobs are pending; disputed and cancelled payments are shown separately. Refunds reduce the retained payment and platform fee.</p>
-        <DataTable columns={columns} data={jobs} keyField="id" emptyMessage="No booking payments yet." />
+        <h2>Settlement Records</h2>
+        {paidJobs.length === 0 ? (
+          <p className="provider-hint">No settlements recorded yet. Completed jobs will show here.</p>
+        ) : (
+          <table className="provider-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left' }}>
+                <th style={{ padding: '8px' }}>Booking</th>
+                <th style={{ padding: '8px' }}>Service</th>
+                <th style={{ padding: '8px' }}>Date</th>
+                <th style={{ padding: '8px' }}>Payment Method</th>
+                <th style={{ padding: '8px' }}>Gross</th>
+                <th style={{ padding: '8px' }}>Fee (5%)</th>
+                <th style={{ padding: '8px' }}>Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paidJobs.map(job => (
+                <tr key={job.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <td style={{ padding: '8px' }}>#{job.id}</td>
+                  <td style={{ padding: '8px' }}>{job.serviceTitle}</td>
+                  <td style={{ padding: '8px' }}>{formatDate(job.scheduledDate)}</td>
+                  <td style={{ padding: '8px' }}>{job.paymentMethod}</td>
+                  <td style={{ padding: '8px' }}>{money(job.amount)}</td>
+                  <td style={{ padding: '8px', color: 'var(--color-danger)' }}>{money(platformFee(job))}</td>
+                  <td style={{ padding: '8px', fontWeight: '700', color: 'var(--color-success)' }}>{money(netPayout(job))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

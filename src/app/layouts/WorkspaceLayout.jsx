@@ -1,6 +1,9 @@
 import { Component, Suspense, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, ChevronRight, LogOut, Menu, Shield } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectCurrentUser, logoutThunk } from '../../store/slices/authSlice';
+import { selectUnreadCount, fetchNotificationsThunk } from '../../store/slices/platformSlice';
 import { useApp } from '../context/AppContext';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
@@ -27,7 +30,10 @@ class WorkspacePageBoundary extends Component {
 }
 
 export function WorkspaceLayout({ role, title, label, accent, navItems }) {
-  const { currentUser, logout, toast, clearToast, unreadCount, showToast, reloadNotifications } = useApp();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  const unreadCount = useSelector(selectUnreadCount);
+  const { toast, clearToast, showToast } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -62,12 +68,12 @@ export function WorkspaceLayout({ role, title, label, accent, navItems }) {
             <ThemeToggle />
             <button type="button" className="workspace-logout" aria-label="Log out" disabled={leaving} onClick={async () => {
               setLeaving(true);
-              try { await logout(); navigate('/'); } catch (error) { showToast(error.message, 'error'); } finally { setLeaving(false); }
+              try { await dispatch(logoutThunk()).unwrap(); navigate('/'); } catch (error) { showToast(error.message, 'error'); } finally { setLeaving(false); }
             }}><LogOut size={16} /><span>{leaving ? 'Leaving…' : 'Log Out'}</span></button>
             <button type="button" className="icon-control workspace-notifications" aria-label={`Open notifications (${unreadCount} unread)`} onClick={async event => {
               event.currentTarget.focus();
               setNotifOpen(true);
-              try { await reloadNotifications(); } catch (error) { showToast(error.message, 'error'); }
+              try { await dispatch(fetchNotificationsThunk()).unwrap(); } catch (error) { showToast(error.message, 'error'); }
             }}><Bell size={20} />{unreadCount > 0 && <span className="notification-count" aria-hidden="true">{unreadCount}</span>}</button>
             <Link to={`/${role}/profile`} className="workspace-user" aria-label={`View profile for ${currentUser?.name}`}>
               <img src={currentUser?.avatar || DEFAULT_BLANK_AVATAR} alt="" width="40" height="40" />
