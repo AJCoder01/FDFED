@@ -40,16 +40,18 @@ test("provider pages, availability and admin moderation are reachable", async ({
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page, "provider", "rohan@gmail.com");
-  for (const path of [
-    "/provider/services",
-    "/provider/jobs",
-    "/provider/availability",
-    "/provider/earnings",
-    "/provider/reviews",
-    "/provider/profile",
+  await page.waitForLoadState("networkidle");
+  for (const [path, heading] of [
+    ["/provider/services", "Service Listing Management"],
+    ["/provider/jobs", "Provider Job Inbox"],
+    ["/provider/availability", "Working Availability"],
+    ["/provider/earnings", "Provider Earnings & Payments"],
+    ["/provider/reviews", "Customer Reviews & Ratings"],
+    ["/provider/profile", "Service Provider Profile"],
   ]) {
     await page.goto(path);
-    await expect(page.locator("main")).toBeVisible();
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await page.waitForLoadState("networkidle");
     await expect(page.getByText("Unable to load data.")).toHaveCount(0);
   }
   await page.goto("/provider/availability");
@@ -63,6 +65,7 @@ test("provider pages, availability and admin moderation are reachable", async ({
     "2100-01-01, 2100-01-02",
   );
   await page.getByRole("button", { name: "Log out", exact: true }).click();
+  await expect(page).toHaveURL("/");
   await login(page, "admin", "staffadmin@gmail.com");
   await page.goto("/admin/providers");
   await expect(
