@@ -17,6 +17,8 @@ export const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 export const demoEnabled = () =>
   process.env.NODE_ENV !== "production" && process.env.DEMO_ENABLED === "true";
+const nextExpiry = () => new Date(Date.now() + 7 * 86400000);
+const newRefreshToken = () => randomBytes(48).toString("base64url");
 @Injectable()
 export class AuthService {
   constructor(
@@ -90,19 +92,23 @@ export class AuthService {
     demoOriginId?: string | null,
     tx: Tx = this.db,
   ) {
-    const token = randomBytes(48).toString("base64url");
+    const token = newRefreshToken();
     const s = await tx.userSession.create({
       data: {
         userId,
         tokenHash: digest(token),
         demoOriginId,
-        expiresAt: new Date(Date.now() + 7 * 86400000),
+        expiresAt: nextExpiry(),
       },
+      include: { user: { include: userInclude } },
     });
-    const u = await tx.user.findUniqueOrThrow({
-      where: { id: userId },
-      include: userInclude,
-    });
+    return this.credentials(s, token);
+  }
+  private async credentials(
+    s: { id: string; demoOriginId: string | null; user: Parameters<typeof userView>[0] },
+    token: string,
+  ) {
+    const { user: u, demoOriginId } = s;
     return {
       refreshToken: token,
       accessToken: await this.jwt.signAsync(
@@ -116,22 +122,23 @@ export class AuthService {
       },
     };
   }
-  async refresh(token?: string) {
-    if (!token) throw new UnauthorizedException();
-    const s = await this.db.userSession.findUnique({
-      where: { tokenHash: digest(token) },
-      include: { user: true },
-    });
-    if (!s || s.revokedAt || s.expiresAt < new Date() || s.user.deletedAt)
-      throw new UnauthorizedException("Session expired.");
+  async refresh(token: string) {
+    const tokenHash = digest(token);
     return this.db.$transaction(async (tx) => {
-      const claimed = await tx.userSession.updateMany({
-        where: { id: s.id, revokedAt: null },
-        data: { revokedAt: new Date() },
+      const freshToken = newRefreshToken();
+      // Rotate the refresh credential while keeping valid access tokens for this session.
+      const sessions = await tx.userSession.updateManyAndReturn({
+        where: { tokenHash, revokedAt: null, expiresAt: { gt: new Date() } },
+        data: { tokenHash: digest(freshToken), expiresAt: nextExpiry() },
       });
-      if (!claimed.count)
-        throw new UnauthorizedException("Refresh token already used.");
-      return this.session(s.userId, s.demoOriginId, tx);
+      const [session] = sessions;
+      if (!session) throw new UnauthorizedException("Session expired.");
+      const user = await tx.user.findUniqueOrThrow({
+        where: { id: session.userId },
+        include: userInclude,
+      });
+      if (user.deletedAt) throw new UnauthorizedException("Session expired.");
+      return this.credentials({ ...session, user }, freshToken);
     });
   }
   async logout(token?: string) {

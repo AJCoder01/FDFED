@@ -7,13 +7,15 @@ import {
   Post,
   Param,
   Req,
+  Res,
   Query,
   Module,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import { UsersService } from "./users.service";
 import {
-  ProfileDto,
+  ProfileUpdateDto,
   AddressesDto,
   ProviderDto,
   ScheduleDto,
@@ -27,7 +29,7 @@ export class UsersController {
   @Get("users/me") me(@Req() r: any) {
     return this.service.me(r.user);
   }
-  @Patch("users/me") profile(@Req() r: any, @Body() d: ProfileDto) {
+  @Patch("users/me") profile(@Req() r: any, @Body() d: ProfileUpdateDto) {
     return this.service.profile(r.user, d);
   }
   @Put("customers/me/addresses") addresses(
@@ -39,11 +41,12 @@ export class UsersController {
   @Get("providers") providers(@Req() r: any, @Query() q: any) {
     return this.service.providers(r.user, q);
   }
-  @Public() @Get("providers/:id") provider(
+  @Public() @Get("providers/:id") async provider(
     @Req() r: any,
     @Param("id") id: string,
+    @Res() response: Response,
   ) {
-    return this.service.provider(r.user, id);
+    response.json(await this.service.provider(r.user, id));
   }
   @Put("providers/me") save(@Req() r: any, @Body() d: ProviderDto) {
     return this.service.saveProvider(r.user, d);

@@ -3,10 +3,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
-  startTransition,
 } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector, useStore } from "react-redux";
 import {
   restoreSessionThunk,
   loginThunk,
@@ -31,27 +31,21 @@ import {
   selectUnreadCount,
 } from "../../store/slices/platformSlice";
 import { subscribeToRepository } from "../../data/repositoryEvents";
-
+import { notificationsLoaded, profileLoaded, restorationFailed } from "../store";
 const AppContext = createContext();
 
 export const isSuperUserAccount = (user) =>
   user?.role === "admin" && user?.isSuperUser === true;
 
 export function AppProvider({ children }) {
-  const dispatch = useDispatch();
-  const currentUser = useSelector(selectCurrentUser);
-  const currentRole = useSelector(selectCurrentRole);
-  const authLoading = useSelector(selectAuthLoading);
-  const authError = useSelector(selectAuthError);
-  const savedIntent = useSelector(selectSavedIntent);
-  const isSuperUser = useSelector(selectIsSuperUser);
-  const isSuperUserDemoMode = useSelector(selectIsSuperUserDemoMode);
-  const notifications = useSelector(selectNotifications);
-  const unreadCount = useSelector(selectUnreadCount);
-
+  const { user: currentUser, loading: authLoading, error: authError, identity, notifications } =
+    useSelector((state) => state.session);
+  const store = useStore();
   const [theme, setTheme] = useState(() =>
     localStorage.getItem("servicehub_theme") === "dark" ? "dark" : "light"
   );
+  const notificationRequest = useRef(0);
+  const [savedIntent, setSavedIntent] = useState(null);
   const [toast, setToast] = useState({ message: null, type: "info" });
 
   const showToast = useCallback(
@@ -64,34 +58,41 @@ export function AppProvider({ children }) {
   );
 
   useEffect(() => {
-    dispatch(restoreSessionThunk());
-
-    const expire = () => {
-      dispatch(logoutThunk());
-    };
-    window.addEventListener("servicehub:session-expired", expire);
-    return () => {
-      window.removeEventListener("servicehub:session-expired", expire);
-    };
-  }, [dispatch]);
-
+    let active = true;
+    refreshSession().catch((error) => {
+      if (active) store.dispatch(restorationFailed(error.message));
+    });
+    return () => { active = false; };
+  }, [store]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("servicehub_theme", theme);
   }, [theme]);
-
+  const reloadNotifications = useCallback(async () => {
+    const { identity, user } = store.getState().session;
+    if (!user) return;
+    const request = ++notificationRequest.current;
+    const notifications = await getNotifications();
+    if (request === notificationRequest.current)
+      store.dispatch(notificationsLoaded({ identity, notifications }));
+  }, [store]);
+  const userId = currentUser?.id;
   useEffect(() => {
-    if (!currentUser?.id) {
-      return;
-    }
+    if (!userId) return;
+    let active = true;
+    let request = 0;
     const reload = async () => {
       try {
         await Promise.all([
-          dispatch(fetchCurrentUserThunk()).unwrap(),
-          dispatch(fetchNotificationsThunk()).unwrap(),
+          getUserProfile().then((profile) => {
+            if (active && version === request)
+              store.dispatch(profileLoaded({ identity, profile }));
+          }),
+          reloadNotifications(),
         ]);
       } catch (e) {
-        // quiet error or toast on periodic polling
+        if (active && version === request && store.getState().session.identity === identity)
+          showToast(e.message, "error");
       }
     };
     reload();
@@ -101,44 +102,24 @@ export function AppProvider({ children }) {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [currentUser?.id, dispatch]);
-
-  const login = async (email, password, role) => {
-    const result = await dispatch(
-      loginThunk({ email, password, role })
-    ).unwrap();
-    return result;
-  };
-
-  const signup = async (data) => {
-    const result = await dispatch(signupThunk(data)).unwrap();
-    return result;
-  };
-
+  }, [userId, identity, reloadNotifications, showToast, store]);
   const logout = useCallback(async () => {
-    await dispatch(logoutThunk()).unwrap();
-  }, [dispatch]);
-
+    await logoutUser();
+    setSavedIntent(null);
+  }, []);
   const switchRole = async (role) => {
     try {
       if (role === "guest") {
         await logout();
         return { success: true, path: "/" };
       }
-      const u = await dispatch(switchDemoRoleThunk(role)).unwrap();
+      const u = await switchDemoRole(role);
       return { success: true, path: `/${u.role}` };
     } catch (e) {
       showToast(e.message || "Failed to switch role", "error");
       return { success: false, path: `/${currentRole}` };
     }
   };
-
-  const reloadNotifications = useCallback(async () => {
-    if (currentUser) {
-      await dispatch(fetchNotificationsThunk()).unwrap();
-    }
-  }, [currentUser?.id, dispatch]);
-
   const handleResetDemoData = async () => {
     try {
       const r = await dispatch(resetDemoDataThunk()).unwrap();
@@ -172,8 +153,8 @@ export function AppProvider({ children }) {
         demoEnabled: !!currentUser?.demoEnabled,
         switchRole,
         theme,
-        login,
-        signup,
+        login: authenticateUser,
+        signup: signUpUser,
         logout,
         toggleTheme: () => setTheme((v) => (v === "light" ? "dark" : "light")),
         notifications,

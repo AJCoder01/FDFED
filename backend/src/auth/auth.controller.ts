@@ -43,10 +43,12 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.deliver(
-      res,
-      await this.auth.refresh(req.cookies.servicehub_refresh),
-    );
+    const token = req.cookies.servicehub_refresh;
+    if (!token) {
+      res.status(204);
+      return;
+    }
+    return this.deliver(res, await this.auth.refresh(token));
   }
   @Public() @Post("logout") async logout(
     @Req() req: any,

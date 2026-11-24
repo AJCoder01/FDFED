@@ -168,6 +168,7 @@ describe("authentication and authorization", () => {
     expect(String(old)).toContain("HttpOnly");
     const fresh = await agent.post(base + "/auth/refresh");
     expect(fresh.status).toBe(201);
+    expect((await call("get", "/users/me", r.body.accessToken)).status).toBe(200);
     expect(
       (
         await request(app.getHttpServer())
@@ -176,9 +177,27 @@ describe("authentication and authorization", () => {
       ).status,
     ).toBe(401);
     await agent.post(base + "/auth/logout");
+    expect((await call("get", "/users/me", r.body.accessToken)).status).toBe(401);
     expect(
       (await call("get", "/users/me", fresh.body.accessToken)).status,
     ).toBe(401);
+  });
+  test("guest session restoration returns an empty 204", async () => {
+    const guest = await call("post", "/auth/refresh");
+    expect(guest.status).toBe(204);
+    expect(guest.text).toBe("");
+  });
+  test("profile and address edits roll back together when a profile update conflicts", async () => {
+    const customer = await login();
+    const initial = (await call("get", "/users/me", customer)).body;
+    const addresses = [{ id: "new-home", label: "Home", addressLine: "12 Updated Road", city: "Bengaluru", pincode: "560001" }];
+    expect((await call("patch", "/users/me", customer, { addresses: [[]] })).status).toBe(400);
+    expect((await call("patch", "/users/me", customer, { addresses, email: emails.provider })).status).toBe(409);
+    expect((await call("get", "/users/me", customer)).body.addresses).toEqual(initial.addresses);
+    const result = await call("patch", "/users/me", customer, { addresses, name: "New Customer Name" });
+    expect(result.status).toBe(200);
+    expect(result.body.name).toBe("New Customer Name");
+    expect(result.body.addresses).toEqual([expect.objectContaining({ id: "new-home", isDefault: true })]);
   });
   test("demo switching requires trusted superuser; production endpoints unavailable", async () => {
     const c = await login();
@@ -224,6 +243,12 @@ describe("authentication and authorization", () => {
   });
 });
 describe("marketplace and profiles", () => {
+  test("unavailable listing details serialize as JSON null", async () => {
+    const missing = await call("get", "/services/does-not-exist");
+    expect(missing.status).toBe(200);
+    expect(missing.headers["content-type"]).toContain("application/json");
+    expect(missing.body).toBeNull();
+  });
   test("search, price and categories are based on records", async () => {
     const r = await call("get", "/services?search=handyman&maxPrice=400");
     expect(r.body.items).toHaveLength(1);
@@ -288,7 +313,7 @@ describe("marketplace and profiles", () => {
     expect(
       await db.booking.count({ where: { serviceId: "srv-1" } }),
     ).toBeGreaterThan(0);
-    expect((await call("get", "/services/srv-1")).body).toEqual({});
+    expect((await call("get", "/services/srv-1")).body).toBeNull();
   });
   test("address validation and single default; no other customer access", async () => {
     const c = await login();

@@ -27,6 +27,37 @@ test('protected routes reject guests and wrong roles without crashing', async ({
   await expect(page.getByRole('heading', { name: /Welcome|Dashboard/ }).first()).toBeVisible();
 });
 
+test('missing catalog detail shows the missing-service state', async ({ page }) => {
+  await page.goto('/services/does-not-exist');
+  await expect(page.getByRole('heading', { name: 'Service Not Found' })).toBeVisible();
+});
+
+test('a failed workspace page download can be retried', async ({ page }) => {
+  const pageModule = /\/(?:assets\/BookingsListPage-[^/]+\.js|src\/features\/customer\/BookingsListPage\.jsx)(?:\?.*)?$/;
+  await page.route(pageModule, route => route.abort());
+  await login(page, 'customer');
+  await page.goto('/customer/bookings');
+  await expect(page.getByRole('heading', { name: 'Unable to open this page' })).toBeVisible();
+  await page.unroute(pageModule);
+  await page.getByRole('button', { name: 'Retry Action' }).click();
+  await expect(page.getByRole('heading', { name: 'My Bookings' })).toBeVisible();
+});
+
+test('two tabs restore the same account and logout revokes the shared session', async ({ page, context }) => {
+  await login(page, 'customer');
+  const secondTab = await context.newPage();
+  await secondTab.goto('/customer');
+  await expect(secondTab.getByRole('link', { name: /View profile for/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Open notifications', exact: false }).click();
+  const drawer = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(drawer.getByRole('alert')).toBeHidden();
+  await drawer.getByRole('button', { name: 'Close notifications' }).click();
+  await secondTab.getByRole('button', { name: 'Log out', exact: true }).click();
+  await expect(secondTab).toHaveURL('/');
+  await page.reload();
+  await expect(page).toHaveURL('/login');
+});
+
 test('demo controller switches actors after authentication completes', async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 375, height: 850 });

@@ -10,9 +10,9 @@ interpreted in Asia/Kolkata. IDs are opaque strings (seed IDs are retained).
 
 | Frontend operation/source | REST operation | Permission and response |
 |---|---|---|
-| auth/LoginPage, SignupPage, AppContext | POST auth/login, auth/signup; POST auth/refresh, auth/logout; GET users/me | Signup only customer/provider. Access JWT in memory, rotating opaque refresh cookie. User response excludes all credentials. |
+| auth/LoginPage, SignupPage, AppContext | POST auth/login, auth/signup; POST auth/refresh, auth/logout; GET users/me | Signup only customer/provider. Access JWT in memory, rotating opaque refresh cookie. A guest refresh returns 204. Rotating the cookie keeps existing access tokens valid until expiration or logout. |
 | CustomerProfilePage; BookingWizard | PUT customers/me/addresses | Customer only; `{addresses:[{id,label,addressLine,city,pincode,isDefault}]}`. Unique IDs, Home/Work/Other, six digits, one default when nonempty. Returns profile. |
-| all role profile pages | PATCH users/me | Allowlisted profile fields; role and superuser never writable. Returns profile. |
+| all role profile pages | PATCH users/me | Allowlisted profile fields. Customers may include `addresses` to update their profile and address book in one transaction. Returns profile. |
 | ProviderProfilePage, ProviderOnboardingPage | GET providers/:id; PUT providers/me; PUT providers/me/availability | Own private profile; approved public profile excludes contacts/documents. Submission enters submitted; admin moderation supplies reason. |
 | ProviderModerationPage | GET providers; POST providers/:id/moderation | Admin only. draft/submitted/changes_requested/approved/rejected/suspended. |
 | LandingPage, ServiceSearchPage, ServiceDetailPage | GET categories; GET services; GET services/:id; GET services/:id/reviews | Only published listings with approved providers. Search/title/category/description, category, maxPrice, price_low/price_high/rating. |

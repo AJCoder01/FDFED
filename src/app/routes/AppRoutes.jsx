@@ -1,5 +1,3 @@
-import { AvailabilityPage } from '../../features/provider/AvailabilityPage';
-import { ProviderModerationPage } from '../../features/admin/ProviderModerationPage';
 import { lazy, Suspense } from 'react';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -13,7 +11,6 @@ import { ArbitratorLayout } from '../layouts/ArbitratorLayout';
 import { AuthGuard } from './AuthGuard';
 
 // Public Pages
-const LandingPage = lazy(() => import('../../features/public/LandingPage').then(module => ({ default: module.LandingPage })));
 import { ServiceSearchPage } from '../../features/public/ServiceSearchPage';
 import { ServiceDetailPage } from '../../features/public/ServiceDetailPage';
 import { PostAJobPage } from '../../features/public/PostAJobPage';
@@ -21,44 +18,48 @@ import { HelpPage } from '../../features/public/HelpPage';
 import { LoginPage } from '../../features/auth/LoginPage';
 import { SignupPage } from '../../features/auth/SignupPage';
 
+const lazyPage = (load, name) => lazy(async () => ({ default: (await load())[name] }));
+const LandingPage = lazyPage(() => import('../../features/public/LandingPage'), 'LandingPage');
+
 // Customer Pages
-import { CustomerDashboard } from '../../features/customer/CustomerDashboard';
-import { CustomerProfilePage } from '../../features/customer/CustomerProfilePage';
-import { BookingWizard } from '../../features/customer/BookingWizard';
-import { BookingsListPage } from '../../features/customer/BookingsListPage';
-import { BookingDetailPage } from '../../features/customer/BookingDetailPage';
-import { SupportTicketPage } from '../../features/customer/SupportTicketPage';
-import { DisputeFilingPage } from '../../features/customer/DisputeFilingPage';
+const CustomerDashboard = lazyPage(() => import('../../features/customer/CustomerDashboard'), 'CustomerDashboard');
+const CustomerProfilePage = lazyPage(() => import('../../features/customer/CustomerProfilePage'), 'CustomerProfilePage');
+const BookingWizard = lazyPage(() => import('../../features/customer/BookingWizard'), 'BookingWizard');
+const BookingsListPage = lazyPage(() => import('../../features/customer/BookingsListPage'), 'BookingsListPage');
+const BookingDetailPage = lazyPage(() => import('../../features/customer/BookingDetailPage'), 'BookingDetailPage');
+const SupportTicketPage = lazyPage(() => import('../../features/customer/SupportTicketPage'), 'SupportTicketPage');
+const DisputeFilingPage = lazyPage(() => import('../../features/customer/DisputeFilingPage'), 'DisputeFilingPage');
 
 // Provider Pages
-import { ProviderDashboard } from '../../features/provider/ProviderDashboard';
-import { ProviderProfilePage } from '../../features/provider/ProviderProfilePage';
-import { ProviderOnboardingPage } from '../../features/provider/ProviderOnboardingPage';
-import { ListingManagerPage } from '../../features/provider/ListingManagerPage';
-import { JobInboxPage } from '../../features/provider/JobInboxPage';
-import { JobDetailPage } from '../../features/provider/JobDetailPage';
-import { EarningsPage } from '../../features/provider/EarningsPage';
-import { ReviewsPage } from '../../features/provider/ReviewsPage';
+const ProviderDashboard = lazyPage(() => import('../../features/provider/ProviderDashboard'), 'ProviderDashboard');
+const ProviderProfilePage = lazyPage(() => import('../../features/provider/ProviderProfilePage'), 'ProviderProfilePage');
+const ListingManagerPage = lazyPage(() => import('../../features/provider/ListingManagerPage'), 'ListingManagerPage');
+const JobInboxPage = lazyPage(() => import('../../features/provider/JobInboxPage'), 'JobInboxPage');
+const JobDetailPage = lazyPage(() => import('../../features/provider/JobDetailPage'), 'JobDetailPage');
+const EarningsPage = lazyPage(() => import('../../features/provider/EarningsPage'), 'EarningsPage');
+const ReviewsPage = lazyPage(() => import('../../features/provider/ReviewsPage'), 'ReviewsPage');
+const AvailabilityPage = lazyPage(() => import('../../features/provider/AvailabilityPage'), 'AvailabilityPage');
 
 // Admin Pages
-import { AdminDashboard } from '../../features/admin/AdminDashboard';
-import { AdminServicesPage } from '../../features/admin/AdminServicesPage';
-import { AdminAccountsPage } from '../../features/admin/AdminAccountsPage';
-import { ArbitratorApplicationPage } from '../../features/admin/ArbitratorApplicationPage';
-import { BookingInspectorPage } from '../../features/admin/BookingInspectorPage';
-import { TicketResolutionPage } from '../../features/admin/TicketResolutionPage';
-import { CategoryManagerPage } from '../../features/admin/CategoryManagerPage';
-import { DisputeAssignmentPage } from '../../features/admin/DisputeAssignmentPage';
-import { AdminRevenuePage } from '../../features/admin/AdminRevenuePage';
-import { AdminProfilePage } from '../../features/admin/AdminProfilePage';
+const AdminDashboard = lazyPage(() => import('../../features/admin/AdminDashboard'), 'AdminDashboard');
+const AdminServicesPage = lazyPage(() => import('../../features/admin/AdminServicesPage'), 'AdminServicesPage');
+const AdminAccountsPage = lazyPage(() => import('../../features/admin/AdminAccountsPage'), 'AdminAccountsPage');
+const ArbitratorApplicationPage = lazyPage(() => import('../../features/admin/ArbitratorApplicationPage'), 'ArbitratorApplicationPage');
+const BookingInspectorPage = lazyPage(() => import('../../features/admin/BookingInspectorPage'), 'BookingInspectorPage');
+const TicketResolutionPage = lazyPage(() => import('../../features/admin/TicketResolutionPage'), 'TicketResolutionPage');
+const CategoryManagerPage = lazyPage(() => import('../../features/admin/CategoryManagerPage'), 'CategoryManagerPage');
+const DisputeAssignmentPage = lazyPage(() => import('../../features/admin/DisputeAssignmentPage'), 'DisputeAssignmentPage');
+const AdminRevenuePage = lazyPage(() => import('../../features/admin/AdminRevenuePage'), 'AdminRevenuePage');
+const AdminProfilePage = lazyPage(() => import('../../features/admin/AdminProfilePage'), 'AdminProfilePage');
+const ProviderModerationPage = lazyPage(() => import('../../features/admin/ProviderModerationPage'), 'ProviderModerationPage');
 
 // Arbitrator Pages
-import { ArbitratorDashboard } from '../../features/arbitrator/ArbitratorDashboard';
-import { ArbitratorCasesPage } from '../../features/arbitrator/ArbitratorCasesPage';
-import { DisputeCaseDetailPage } from '../../features/arbitrator/DisputeCaseDetailPage';
-import { HearingSchedulerPage } from '../../features/arbitrator/HearingSchedulerPage';
-import { RulingIssuancePage } from '../../features/arbitrator/RulingIssuancePage';
-import { ArbitratorProfilePage } from '../../features/arbitrator/ArbitratorProfilePage';
+const ArbitratorDashboard = lazyPage(() => import('../../features/arbitrator/ArbitratorDashboard'), 'ArbitratorDashboard');
+const ArbitratorCasesPage = lazyPage(() => import('../../features/arbitrator/ArbitratorCasesPage'), 'ArbitratorCasesPage');
+const DisputeCaseDetailPage = lazyPage(() => import('../../features/arbitrator/DisputeCaseDetailPage'), 'DisputeCaseDetailPage');
+const HearingSchedulerPage = lazyPage(() => import('../../features/arbitrator/HearingSchedulerPage'), 'HearingSchedulerPage');
+const RulingIssuancePage = lazyPage(() => import('../../features/arbitrator/RulingIssuancePage'), 'RulingIssuancePage');
+const ArbitratorProfilePage = lazyPage(() => import('../../features/arbitrator/ArbitratorProfilePage'), 'ArbitratorProfilePage');
 
 export function AppRoutes() {
   return (

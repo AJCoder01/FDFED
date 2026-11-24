@@ -3,7 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "predev": "npm run prisma:generate",
     "dev": "node --watch --require ts-node/register src/main.ts",
+    "prebuild": "npm run prisma:generate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/main.js",
     "prisma:generate": "prisma generate",
@@ -58,6 +60,9 @@
     ]
   },
   "overrides": {
+    "@prisma/config": {
+      "effect": "3.22.1"
+    },
     "glob": "^14.0.6",
     "minimatch": "^11.0.8"
   }

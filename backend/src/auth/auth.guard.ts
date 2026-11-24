@@ -29,24 +29,16 @@ export class AuthGuard implements CanActivate {
       if (optional) return true;
       throw new UnauthorizedException();
     }
-    try {
-      const payload = await this.jwt.verifyAsync(token);
-      const s = await this.db.userSession.findUnique({
-        where: { id: payload.sid },
-        include: { user: true },
-      });
-      if (
-        !s ||
-        s.userId !== payload.sub ||
-        s.revokedAt ||
-        s.expiresAt < new Date() ||
-        s.user.deletedAt
-      )
-        throw new Error();
-      req.user = { ...s.user, sessionId: s.id, demoOriginId: s.demoOriginId };
-      return true;
-    } catch {
+    const payload = await this.jwt.verifyAsync(token).catch(() => null);
+    if (typeof payload?.sid !== "string" || typeof payload.sub !== "string")
       throw new UnauthorizedException("Session expired.");
-    }
+    const s = await this.db.userSession.findUnique({
+      where: { id: payload.sid },
+      include: { user: true },
+    });
+    if (!s || s.userId !== payload.sub || s.revokedAt || s.expiresAt <= new Date() || s.user.deletedAt)
+      throw new UnauthorizedException("Session expired.");
+    req.user = { ...s.user, sessionId: s.id, demoOriginId: s.demoOriginId };
+    return true;
   }
 }

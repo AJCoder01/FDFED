@@ -42,7 +42,8 @@ separate API base URL when needed. Add the frontend origin to `CORS_ORIGIN`.
 
 Database records survive restarts. Refresh tokens use an HttpOnly, SameSite
 cookie; access tokens live only in memory. Authentication is restored from the
-API when the browser reloads. Only theme preferences use localStorage.
+API when the browser reloads. Redux manages the current user and notifications.
+Only theme preferences use localStorage.
 
 ## Demo accounts
 
@@ -88,9 +89,10 @@ TEST_BROWSER=webkit npm run test:e2e
 TEST_PREVIEW=true npm run test:e2e
 ```
 
-The backend integration suite applies migrations and resets only the specified
-test database. Playwright starts separate backend/frontend servers on ports
-3001/5174 and resets the same test database. Run those suites sequentially.
+Both the API and browser suites apply migrations and reset the specified test
+database. Playwright starts test servers on ports 3001 and 5174. Run suites that
+share a database sequentially. For parallel browser runs, give each run a
+dedicated database and distinct `TEST_API_PORT` and `TEST_FRONTEND_PORT` values.
 The former browser-local mock tests have been replaced by API adapter,
 scheduling, financial, PostgreSQL/Supertest, and browser tests.
 

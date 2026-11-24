@@ -1,4 +1,9 @@
 import { defineConfig } from "@playwright/test";
+const apiPort = Number(process.env.TEST_API_PORT || 3001);
+const frontendPort = Number(process.env.TEST_FRONTEND_PORT || 5174);
+const frontendUrl = `http://127.0.0.1:${frontendPort}`;
+const apiUrl = `http://127.0.0.1:${apiPort}`;
+
 export default defineConfig({
   testDir: "./tests",
   outputDir: `test-results/${process.env.TEST_BROWSER || 'chromium'}${process.env.TEST_PREVIEW === 'true' ? '-production' : ''}`,
@@ -7,7 +12,7 @@ export default defineConfig({
   retries: 0,
   use: {
     browserName: process.env.TEST_BROWSER || 'chromium',
-    baseURL: "http://127.0.0.1:5174",
+    baseURL: frontendUrl,
     timezoneId: "Asia/Kolkata",
     trace: "retain-on-failure",
   },
@@ -16,16 +21,16 @@ export default defineConfig({
     {
       command:
         "npm --prefix backend run build && npm --prefix backend run test:serve",
-      url: "http://127.0.0.1:3001/api/v1/health",
+      url: `${apiUrl}/api/v1/health`,
       timeout: 60000,
       reuseExistingServer: false,
     },
     {
       command: process.env.TEST_PREVIEW === 'true'
-        ? "npm run build && npm run preview -- --host 127.0.0.1 --port 5174 --strictPort"
-        : "npm run dev -- --host 127.0.0.1 --port 5174 --strictPort",
-      url: "http://127.0.0.1:5174",
-      env: { API_PROXY: "http://127.0.0.1:3001" },
+        ? `npm run build && npm run preview -- --host 127.0.0.1 --port ${frontendPort} --strictPort`
+        : `npm run dev -- --host 127.0.0.1 --port ${frontendPort} --strictPort`,
+      url: frontendUrl,
+      env: { API_PROXY: apiUrl },
       reuseExistingServer: false,
     },
   ],

@@ -50,16 +50,13 @@ export function CustomerProfilePage() {
 
     setSaving(true);
     try {
-      await dispatch(updateUserProfileThunk({
-        id: currentUser.id,
-        values: {
-          name: name.trim(),
-          phone: phone.trim(),
-          avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
-          addresses
-        }
-      })).unwrap();
-      await dispatch(fetchCurrentUserThunk()).unwrap();
+      const profile = await updateUserProfile(currentUser.id, {
+        name: name.trim(),
+        phone: phone.trim(),
+        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+        addresses
+      });
+      setAddresses(profile.addresses);
       setIsEditing(false);
       showToast('Profile updated successfully!', 'success');
     } catch (err) {
@@ -99,7 +96,7 @@ export function CustomerProfilePage() {
   const handleRemoveAddress = (addressId) => {
     const updated = addresses.filter(a => a.id !== addressId);
     if (updated.length > 0 && !updated.some(a => a.isDefault)) {
-      updated[0].isDefault = true;
+      updated[0] = { ...updated[0], isDefault: true };
     }
     setAddresses(updated);
   };

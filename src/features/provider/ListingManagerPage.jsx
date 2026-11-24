@@ -192,9 +192,7 @@ export function ListingManagerPage() {
       <div className="grid-cols-3">
         {services.map(service => (
           <div key={service.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ height: '140px', backgroundColor: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src={service.image || DEFAULT_SERVICE_IMAGE} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={event => { event.currentTarget.src = DEFAULT_SERVICE_IMAGE; }} />
-            </div>
+            <img src={service.image || DEFAULT_SERVICE_IMAGE} alt={service.title} loading="lazy" decoding="async" style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
             <div className="provider-stack" style={{ padding: '16px' }}>
               <div className="provider-row provider-between"><strong>{service.title}</strong><StatusBadge status={service.status} /></div>
               <p className="provider-hint">{service.description}</p>

@@ -44,7 +44,9 @@ test('customer signup validates inputs and persists a real address',async({page}
   await page.getByRole('textbox',{name:'City',exact:true}).fill('Bengaluru');
   await page.getByLabel('PIN Code').fill('560001');
   await page.getByRole('button',{name:/Register as /}).click();
-  await expect(page).toHaveURL(/\/customer$/);await page.reload();
+  await expect(page).toHaveURL(/\/customer$/);
+  await expect(page.getByText("You haven't made any bookings yet.")).toBeVisible();
+  await page.reload();
   await navigate(page,'/customer/profile');await expect(page.getByText('14 Test Lane',{exact:false})).toBeVisible();
 });
 test('provider signup, verification submission and admin moderation work on mobile',async({page})=>{
@@ -130,6 +132,7 @@ test('provider creates a listing on mobile and staff can pause its public visibi
   await row.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(row.getByText('paused', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Log out', exact: true }).click();
+  await expect(page).toHaveURL('/');
   await page.goto(`/services/${listing.id}`);
-  await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Service Not Found' })).toBeVisible();
 });
