@@ -1,6 +1,12 @@
-import { useState } from 'react';
-import { getProviders, moderateProvider } from '../../data/mockRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchProviders,
+  moderateProvider,
+  selectProviders,
+  selectUsersError,
+  selectUsersLoading,
+} from '../../store/slices/usersSlice';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -11,8 +17,20 @@ import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 
 export function ProviderModerationPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
-  const { data: providers, loading, error, refresh } = useRepositoryQuery(getProviders);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchProviders());
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const providers = useSelector(selectProviders);
+  const loading = useSelector(selectUsersLoading);
+  const error = useSelector(selectUsersError);
   const [decision, setDecision] = useState(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -23,13 +41,13 @@ export function ProviderModerationPage() {
     if (busy) return;
     setBusy(true); setSaveError('');
     try {
-      await moderateProvider(decision.id, decision.status, reason);
+      await dispatch(moderateProvider({ providerId: decision.id, status: decision.status, reason })).unwrap();
       setDecision(null); setReason(''); showToast('Provider verification decision saved.');
-    } catch (error) { setSaveError(error.message); }
+    } catch (err) { setSaveError(typeof err === 'string' ? err : err?.message); }
     finally { setBusy(false); }
   };
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" />;
+  if (loading && providers.length === 0) return <Skeleton height="300px" />;
   const columns = [
     { header: 'Business Name', accessor: 'businessName' }, { header: 'Applicant', accessor: 'name' },
     { header: 'Service Area', accessor: 'serviceArea' },

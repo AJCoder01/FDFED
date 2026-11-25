@@ -1,24 +1,58 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Eye, Headphones, Gavel, DollarSign, TrendingUp } from 'lucide-react';
-import { getBookings, getTickets, getDisputes, getServices, getRevenueStats } from '../../data/mockRepository';
-
+import { fetchBookings, selectBookings, selectBookingsError, selectBookingsLoading } from '../../store/slices/bookingsSlice';
+import { fetchDisputes, fetchTickets, selectDisputes, selectGovernanceError, selectGovernanceLoading, selectTickets } from '../../store/slices/governanceSlice';
+import { fetchServices, selectMarketplaceError, selectMarketplaceLoading, selectServices } from '../../store/slices/marketplaceSlice';
+import { fetchRevenueStats, selectFinanceError, selectFinanceLoading, selectRevenueStats } from '../../store/slices/financeSlice';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 
 export function AdminDashboard() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const load = useCallback(async () => {
-    const [bookings, tickets, disputes, services, revenue] = await Promise.all([getBookings('admin'), getTickets(), getDisputes(), getServices({ role: 'admin' }), getRevenueStats()]);
-    return { bookingsCount: bookings.length, ticketsCount: tickets.filter(ticket => ticket.status !== 'resolved').length,
-      disputesCount: disputes.filter(dispute => dispute.status === 'pending_assignment').length,
-      servicesCount: services.length, platformRevenue: revenue.totalRevenue, gmv: revenue.gmv };
-  }, []);
-  const { data: stats, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchBookings({ role: 'admin' }));
+    dispatch(fetchTickets({ role: 'admin' }));
+    dispatch(fetchDisputes());
+    dispatch(fetchServices({ role: 'admin' }));
+    dispatch(fetchRevenueStats());
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const bookings = useSelector(selectBookings);
+  const tickets = useSelector(selectTickets);
+  const disputes = useSelector(selectDisputes);
+  const services = useSelector(selectServices);
+  const revenue = useSelector(selectRevenueStats);
+  const bookingsLoading = useSelector(selectBookingsLoading);
+  const governanceLoading = useSelector(selectGovernanceLoading);
+  const marketplaceLoading = useSelector(selectMarketplaceLoading);
+  const financeLoading = useSelector(selectFinanceLoading);
+  const loading = bookingsLoading || governanceLoading || marketplaceLoading || financeLoading;
+  const bookingsError = useSelector(selectBookingsError);
+  const governanceError = useSelector(selectGovernanceError);
+  const marketplaceError = useSelector(selectMarketplaceError);
+  const financeError = useSelector(selectFinanceError);
+  const error = bookingsError || governanceError || marketplaceError || financeError;
+
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" />;
+  if (loading && !revenue) return <Skeleton height="400px" />;
+
+  const stats = {
+    bookingsCount: bookings.length,
+    ticketsCount: tickets.filter(ticket => ticket.status !== 'resolved').length,
+    disputesCount: disputes.filter(dispute => dispute.status === 'pending_assignment').length,
+    servicesCount: services.length,
+    platformRevenue: revenue?.totalRevenue || 0,
+    gmv: revenue?.gmv || 0,
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

@@ -1,8 +1,21 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Star, Shield, Clock, ArrowLeft } from 'lucide-react';
-import { getAvailableSlots, getServiceById, getServiceReviews } from '../../data/mockRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useDispatch, useSelector } from 'react-redux';
+import { Star, Shield, Clock, ArrowLeft, MapPin, CheckCircle2, AlertTriangle } from 'lucide-react';
+import {
+  fetchServiceById,
+  fetchServiceReviews,
+  selectMarketplaceError,
+  selectMarketplaceLoading,
+  selectSelectedService,
+  selectServiceReviewsMap,
+} from '../../store/slices/marketplaceSlice';
+import {
+  fetchAvailableSlots,
+  selectSlotsByKey,
+  selectSlotsLoading,
+} from '../../store/slices/bookingsSlice';
+import { isServiceAvailableForLocation } from '../../data/bookingRules';
 import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
@@ -10,28 +23,48 @@ import { Button } from '../../design-system/primitives/Button';
 import { getTodayDateInputValue } from '../../utils/date';
 
 export function ServiceDetailPage() {
+  const dispatch = useDispatch();
   const { serviceId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { currentRole, currentUser, setSavedIntent, showToast } = useApp();
   const serviceSearchPath = currentRole === 'customer' ? '/customer/services' : '/services';
 
-  const load = useCallback(async () => {
-    const [service, reviews] = await Promise.all([getServiceById(serviceId, { role: currentRole, userId: currentUser?.id }), getServiceReviews(serviceId)]);
-    return { service, reviews };
-  }, [serviceId, currentRole, currentUser?.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const service = data?.service;
+  const refresh = useCallback(() => {
+    dispatch(fetchServiceById({ serviceId, actor: { role: currentRole, userId: currentUser?.id } }));
+    dispatch(fetchServiceReviews(serviceId));
+  }, [dispatch, serviceId, currentRole, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const service = useSelector(selectSelectedService);
+  const reviewsMap = useSelector(selectServiceReviewsMap);
+  const serviceReviews = reviewsMap[serviceId] || [];
+  const data = { service, reviews: serviceReviews };
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
+
   const [selectedSlot, setSelectedSlot] = useState('');
   const [selectedDate, setSelectedDate] = useState(
     location.state?.selectedDate || getTodayDateInputValue()
   );
 
-  const loadSlots = useCallback(() => selectedDate && service ? getAvailableSlots(service.id, selectedDate) : Promise.resolve([]), [service?.id, selectedDate]);
-  const { data: slots, error: slotError, loading: slotsLoading } = useRepositoryQuery(loadSlots);
-  const availableSlots = slots || [];
   useEffect(() => {
-    if (slots) setSelectedSlot(value => slots.includes(value) ? value : (slots[0] || ''));
+    if (selectedDate && service?.id) {
+      dispatch(fetchAvailableSlots({ serviceId: service.id, date: selectedDate }));
+    }
+  }, [dispatch, service?.id, selectedDate]);
+
+  const slotsByKey = useSelector(selectSlotsByKey);
+  const slotsLoading = useSelector(selectSlotsLoading);
+  const slots = service?.id && selectedDate ? (slotsByKey[`${service.id}::${selectedDate}`] || []) : [];
+  const availableSlots = slots;
+  const slotError = '';
+
+  useEffect(() => {
+    setSelectedSlot(value => slots.includes(value) ? value : (slots[0] || ''));
   }, [slots]);
 
   const handleBookingStart = () => {
@@ -43,11 +76,20 @@ export function ServiceDetailPage() {
     const bookingIntent = {
       serviceId: service.id,
       serviceTitle: service.title,
+      categoryName: service.categoryName,
       price: service.price,
       slot: selectedSlot,
       date: selectedDate,
       providerId: service.providerId,
-      providerName: service.providerName
+      providerName: service.providerName,
+      providerType: service.providerType || 'company',
+      providerOperatingCity: service.providerOperatingCity || 'Bengaluru',
+      providerServiceArea: service.providerServiceArea || '',
+      providerServedAreas: service.providerServedAreas || [],
+      providerServedPincodes: service.providerServedPincodes || [],
+      providerCoverageRadiusKm: service.providerCoverageRadiusKm ?? 25,
+      freeCancellationHours: service.freeCancellationHours ?? 2,
+      cancellationFeePercent: service.cancellationFeePercent ?? 20
     };
 
     if (currentRole === 'guest') {
@@ -116,10 +158,57 @@ export function ServiceDetailPage() {
             {data.reviews.map(review => <div key={review.id}><strong>{review.customerName} · {review.rating}/5</strong><p>{review.comment}</p>{review.reply && <p><strong>Provider Reply:</strong> {review.reply}</p>}</div>)}
           </section>
 
-          {/* Policy & Trust */}
-          <div className="card">
-            <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)', marginBottom: '8px' }}>Cancellation & Service Policy</h3>
-            <p style={{ fontSize: '13px', color: 'var(--color-muted)', lineHeight: '1.5' }}>{service.policy}</p>
+          {/* Policy, Location Coverage & Trust */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)', marginBottom: '6px' }}>Cancellation & Service Policy</h3>
+              <p style={{ fontSize: '13px', color: 'var(--color-muted)', lineHeight: '1.5' }}>{service.policy}</p>
+              <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid var(--color-border)', fontSize: '12px', color: 'var(--color-ink)' }}>
+                <strong>Free cancellation window:</strong> Up to <strong>{service.freeCancellationHours ?? 2} hours</strong> before scheduled slot (100% refund to wallet). After that window, a <strong>{service.cancellationFeePercent ?? 20}%</strong> late cancellation fee applies and the remaining balance is refunded automatically.
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: 'var(--color-ink)', marginBottom: '6px' }}>
+                <MapPin size={15} color="var(--color-primary)" /> Service Coverage & Availability
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-muted)', lineHeight: '1.5' }}>
+                City: <strong>{service.providerOperatingCity || 'Bengaluru'}</strong> · Coverage Radius: <strong>{service.providerCoverageRadiusKm ?? 25} km</strong>
+                {Array.isArray(service.providerServedAreas) && service.providerServedAreas.length > 0 && (
+                  <> · Areas: {service.providerServedAreas.join(', ')}</>
+                )}
+                {Array.isArray(service.providerServedPincodes) && service.providerServedPincodes.length > 0 && (
+                  <> · PINs: {service.providerServedPincodes.join(', ')}</>
+                )}
+              </p>
+              {currentUser?.addresses?.length > 0 && (() => {
+                const defaultAddr = currentUser.addresses.find(a => a.isDefault) || currentUser.addresses[0];
+                const covered = isServiceAvailableForLocation(service, {
+                  city: defaultAddr?.city,
+                  pincode: defaultAddr?.pincode,
+                  address: `${defaultAddr?.addressLine || ''}, ${defaultAddr?.city || ''} - ${defaultAddr?.pincode || ''}`
+                });
+                return (
+                  <div style={{
+                    marginTop: '8px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    backgroundColor: covered ? '#ECFDF5' : '#FEF2F2',
+                    color: covered ? '#065F46' : '#991B1B',
+                  }}>
+                    {covered ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                    {covered
+                      ? `Available at your saved location (${defaultAddr.city} - ${defaultAddr.pincode})`
+                      : `Outside provider coverage for ${defaultAddr.city} - ${defaultAddr.pincode}`}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
 
@@ -129,7 +218,7 @@ export function ServiceDetailPage() {
             <div>
               <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Fixed Total Price</span>
               <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--color-ink)' }}>₹{service.price}</div>
-              <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '600' }}>Includes taxes & service guarantee</span>
+              <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '600' }}>Includes taxes & service guarantee (5% platform fee)</span>
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)' }} />
@@ -141,7 +230,9 @@ export function ServiceDetailPage() {
               </div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-ink)' }}>{service.providerName}</div>
-                <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '600' }}>{service.providerVerificationStatus === 'approved' ? 'Verified Professional' : service.providerVerificationStatus?.replaceAll('_', ' ')}</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '600' }}>
+                  {service.providerType === 'individual' ? 'Individual Freelancer' : 'Registered Company'} · {service.providerVerificationStatus === 'approved' ? 'Verified' : service.providerVerificationStatus?.replaceAll('_', ' ')}
+                </div>
               </div>
             </div>
 

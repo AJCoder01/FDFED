@@ -18,7 +18,7 @@ export function ProviderLayout() {
     { label: 'Overview', path: '/provider', icon: LayoutDashboard },
     { label: 'My Services', path: '/provider/services', icon: Wrench },
     { label: 'Job Inbox', path: '/provider/jobs', icon: Briefcase },
-    { label: 'Earnings Summary', path: '/provider/earnings', icon: DollarSign },
+    { label: 'Wallet & Earnings', path: '/provider/earnings', icon: DollarSign },
     { label: 'Customer Reviews', path: '/provider/reviews', icon: Star },
     { label: 'Profile', path: '/provider/profile', icon: User },
   ];

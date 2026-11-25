@@ -1,11 +1,21 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, CheckCircle2, Clock, Plus, Pencil, Trash2 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { Calendar, CheckCircle2, Clock, Plus, Pencil, Trash2, Wallet } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings, saveCustomerAddresses } from '../../data/mockRepository';
-import { collectedAmount } from '../../data/bookingRules';
+import {
+  fetchBookings,
+  selectBookings,
+  selectBookingsError,
+  selectBookingsLoading,
+} from '../../store/slices/bookingsSlice';
+import {
+  fetchWallet,
+  selectWalletBalance,
+} from '../../store/slices/financeSlice';
+import { saveCustomerAddresses } from '../../store/slices/usersSlice';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { bookingStatusLabel, collectedAmount } from '../../data/bookingRules';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
@@ -13,11 +23,25 @@ import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 
 export function CustomerDashboard() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
   const navigate = useNavigate();
-  const load = useCallback(() => getBookings('customer', currentUser.id), [currentUser.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const bookings = data || [];
+
+  const refresh = useCallback(() => {
+    if (currentUser?.id) {
+      dispatch(fetchBookings({ role: 'customer', userId: currentUser.id }));
+      dispatch(fetchWallet());
+    }
+  }, [dispatch, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const bookings = useSelector(selectBookings);
+  const walletBalance = useSelector(selectWalletBalance);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
   const addresses = currentUser?.addresses || [];
   const emptyAddress = { id: '', label: 'Home', addressLine: '', city: '', pincode: '', isDefault: false };
   const [addressFormOpen, setAddressFormOpen] = useState(false);
@@ -45,21 +69,24 @@ export function CustomerDashboard() {
           ...addresses.map(address => ({ ...address, isDefault: addressForm.isDefault ? false : address.isDefault })),
           { ...addressForm, id: `addr-${crypto.randomUUID().slice(0, 8)}`, isDefault: addresses.length === 0 || addressForm.isDefault }
         ];
-      await saveCustomerAddresses(currentUser.id, nextAddresses);
+      await dispatch(saveCustomerAddresses({ customerId: currentUser.id, addresses: nextAddresses })).unwrap();
       showToast(editingAddressId ? 'Address updated.' : 'Address saved.');
       closeAddressForm();
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to save this address.', 'warning');
+      showToast(typeof error === 'string' ? error : error?.message || 'Unable to save this address.', 'warning');
     } finally {
       setAddressBusy(false);
     }
   };
   const handleSetDefault = async addressId => {
     try {
-      await saveCustomerAddresses(currentUser.id, addresses.map(address => ({ ...address, isDefault: address.id === addressId })));
+      await dispatch(saveCustomerAddresses({
+        customerId: currentUser.id,
+        addresses: addresses.map(address => ({ ...address, isDefault: address.id === addressId }))
+      })).unwrap();
       showToast('Default address updated.');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to update the default address.', 'warning');
+      showToast(typeof error === 'string' ? error : error?.message || 'Unable to update the default address.', 'warning');
     }
   };
   const handleDeleteAddress = async addressId => {
@@ -68,10 +95,10 @@ export function CustomerDashboard() {
       const remaining = addresses
         .filter(address => address.id !== addressId)
         .map((address, index) => ({ ...address, isDefault: removedDefault ? index === 0 : address.isDefault }));
-      await saveCustomerAddresses(currentUser.id, remaining);
+      await dispatch(saveCustomerAddresses({ customerId: currentUser.id, addresses: remaining })).unwrap();
       showToast('Address removed.');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to remove this address.', 'warning');
+      showToast(typeof error === 'string' ? error : error?.message || 'Unable to remove this address.', 'warning');
     }
   };
   const startEditingAddress = address => {
@@ -89,7 +116,24 @@ export function CustomerDashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Top KPI Cards */}
-      <div className="grid-cols-3">
+      <div className="grid-cols-4">
+        <div
+          className="card"
+          onClick={() => navigate('/customer/wallet')}
+          style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', borderLeft: '4px solid var(--color-primary)' }}
+          title="Open ServiceHub Wallet"
+        >
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Wallet size={24} />
+          </div>
+          <div>
+            <span style={{ fontSize: '12px', color: 'var(--color-muted)', fontWeight: '600' }}>WALLET BALANCE (INR)</span>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-primary)' }}>
+              ₹{Number(walletBalance ?? currentUser?.walletBalance ?? 0).toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Calendar size={24} />
@@ -146,7 +190,7 @@ export function CustomerDashboard() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                     <strong style={{ fontSize: '14px', color: 'var(--color-ink)' }}>#{bk.id}</strong>
-                    <StatusBadge status={bk.status} />
+                    <StatusBadge status={bk.status} label={bookingStatusLabel(bk)} />
                   </div>
                   <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>{bk.serviceTitle}</h3>
                   <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '4px' }}>

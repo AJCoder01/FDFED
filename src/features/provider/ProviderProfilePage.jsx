@@ -18,8 +18,9 @@ import {
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';
+import { useDispatch } from 'react-redux';
 import { useApp } from '../../app/context/AppContext';
-import { saveProvider } from '../../data/mockRepository';
+import { saveProvider } from '../../store/slices/usersSlice';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -27,14 +28,21 @@ import { PhoneInputField, validatePhoneNumber } from '../../design-system/primit
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ProviderProfilePage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(currentUser?.name || '');
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+  const [providerType, setProviderType] = useState(currentUser?.providerType || 'company');
   const [businessName, setBusinessName] = useState(currentUser?.businessName || '');
+  const [operatingCity, setOperatingCity] = useState(currentUser?.operatingCity || 'Bengaluru');
   const [serviceArea, setServiceArea] = useState(currentUser?.serviceArea || '');
+  const [servedPincodes, setServedPincodes] = useState((currentUser?.servedPincodes || []).join(', '));
+  const [coverageRadiusKm, setCoverageRadiusKm] = useState(String(currentUser?.coverageRadiusKm ?? 25));
+  const [experienceYears, setExperienceYears] = useState(String(currentUser?.experienceYears ?? ''));
+  const [bio, setBio] = useState(currentUser?.bio || '');
   const [skills, setSkills] = useState((currentUser?.skills || []).join(', '));
   const [documentName, setDocumentName] = useState(currentUser?.documentName || '');
 
@@ -47,8 +55,14 @@ export function ProviderProfilePage() {
       setName(currentUser?.name || '');
       setPhone(currentUser?.phone || '');
       setAvatar(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+      setProviderType(currentUser?.providerType || 'company');
       setBusinessName(currentUser?.businessName || '');
+      setOperatingCity(currentUser?.operatingCity || 'Bengaluru');
       setServiceArea(currentUser?.serviceArea || '');
+      setServedPincodes((currentUser?.servedPincodes || []).join(', '));
+      setCoverageRadiusKm(String(currentUser?.coverageRadiusKm ?? 25));
+      setExperienceYears(String(currentUser?.experienceYears ?? ''));
+      setBio(currentUser?.bio || '');
       setSkills((currentUser?.skills || []).join(', '));
       setDocumentName(currentUser?.documentName || '');
       setError('');
@@ -67,8 +81,14 @@ export function ProviderProfilePage() {
     setName(currentUser?.name || '');
     setPhone(currentUser?.phone || '');
     setAvatar(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
+    setProviderType(currentUser?.providerType || 'company');
     setBusinessName(currentUser?.businessName || '');
+    setOperatingCity(currentUser?.operatingCity || 'Bengaluru');
     setServiceArea(currentUser?.serviceArea || '');
+    setServedPincodes((currentUser?.servedPincodes || []).join(', '));
+    setCoverageRadiusKm(String(currentUser?.coverageRadiusKm ?? 25));
+    setExperienceYears(String(currentUser?.experienceYears ?? ''));
+    setBio(currentUser?.bio || '');
     setSkills((currentUser?.skills || []).join(', '));
     setDocumentName(currentUser?.documentName || '');
     setError('');
@@ -119,19 +139,28 @@ export function ProviderProfilePage() {
 
     setBusy(true);
     try {
-      await saveProvider(
-        currentUser.id,
-        {
+      const areaTokens = serviceArea.split(',').map((s) => s.trim()).filter(Boolean);
+      const pinTokens = servedPincodes.split(',').map((s) => s.trim()).filter(Boolean);
+      await dispatch(saveProvider({
+        providerId: currentUser.id,
+        values: {
           name: name.trim(),
           phone: phone.trim(),
           avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+          providerType,
           businessName: businessName.trim(),
+          operatingCity: operatingCity.trim() || 'Bengaluru',
           serviceArea: serviceArea.trim(),
+          servedAreas: areaTokens,
+          servedPincodes: pinTokens,
+          coverageRadiusKm: Number(coverageRadiusKm) || 25,
+          experienceYears: experienceYears !== '' ? Number(experienceYears) : undefined,
+          bio: bio.trim(),
           skills: skillsArray,
           documentName: documentName.trim()
         },
         submit
-      );
+      })).unwrap();
 
       setIsEditing(false);
       showToast(
@@ -261,10 +290,42 @@ export function ProviderProfilePage() {
 
           {/* Business Information */}
           <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-ink)' }}>Business & Trade Information</h3>
+            <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-ink)' }}>Provider Type, Business & Coverage Area</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {[
+                { value: 'individual', label: 'Individual Freelancer' },
+                { value: 'company', label: 'Registered Company / Agency' },
+              ].map(opt => (
+                <label
+                  key={opt.value}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: `1.5px solid ${providerType === opt.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    backgroundColor: providerType === opt.value ? 'var(--color-primary-light)' : 'transparent',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="providerTypeEdit"
+                    checked={providerType === opt.value}
+                    onChange={() => setProviderType(opt.value)}
+                    disabled={busy}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
 
             <TextField
-              label="Business / Trading Name *"
+              label={providerType === 'individual' ? 'Display / Brand Name *' : 'Business / Trading Name *'}
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
               placeholder="e.g. UrbanFix Home Solutions"
@@ -272,14 +333,61 @@ export function ProviderProfilePage() {
               disabled={busy}
             />
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <TextField
+                label="Operating City *"
+                value={operatingCity}
+                onChange={(e) => setOperatingCity(e.target.value)}
+                placeholder="e.g. Bengaluru"
+                required
+                disabled={busy}
+              />
+              <TextField
+                label="Coverage Radius (km)"
+                type="number"
+                min="1"
+                max="100"
+                value={coverageRadiusKm}
+                onChange={(e) => setCoverageRadiusKm(e.target.value)}
+                disabled={busy}
+              />
+            </div>
+
             <TextField
-              label="Service Coverage Area *"
+              label="Service Coverage Areas (Comma separated) *"
               value={serviceArea}
               onChange={(e) => setServiceArea(e.target.value)}
-              placeholder="e.g. Bengaluru"
+              placeholder="e.g. Indiranagar, Whitefield, Koramangala"
               required
               disabled={busy}
             />
+
+            <TextField
+              label="Served PIN Codes (Comma separated)"
+              value={servedPincodes}
+              onChange={(e) => setServedPincodes(e.target.value)}
+              placeholder="e.g. 560038, 560066, 560034"
+              disabled={busy}
+            />
+
+            {providerType === 'individual' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
+                <TextField
+                  label="Experience (Years)"
+                  type="number"
+                  min="0"
+                  value={experienceYears}
+                  onChange={(e) => setExperienceYears(e.target.value)}
+                  disabled={busy}
+                />
+                <TextField
+                  label="Short Bio / Specialization"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  disabled={busy}
+                />
+              </div>
+            )}
 
             <TextField
               label="Trade Skills (Comma separated) *"
@@ -337,9 +445,12 @@ export function ProviderProfilePage() {
               onError={(e) => { e.currentTarget.src = DEFAULT_BLANK_AVATAR; }}
             />
             <div style={{ flex: 1, minWidth: '240px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-ink)' }}>{currentUser?.businessName || currentUser?.name}</h2>
                 <StatusBadge status={currentUser?.verificationStatus || 'approved'} />
+                <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '999px', backgroundColor: '#EEF2FF', color: '#3730A3' }}>
+                  {currentUser?.providerType === 'individual' ? 'Individual Freelancer' : 'Registered Company'}
+                </span>
               </div>
               <p style={{ fontSize: '14px', color: 'var(--color-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <User size={14} /> Contact Person: <strong>{currentUser?.name}</strong>
@@ -412,9 +523,30 @@ export function ProviderProfilePage() {
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
                 <div>
+                  <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>OPERATING CITY & RADIUS</span>
+                  <strong style={{ color: 'var(--color-ink)' }}>
+                    {currentUser?.operatingCity || 'Bengaluru'} · {currentUser?.coverageRadiusKm ?? 25} km radius
+                  </strong>
+                </div>
+                <div>
                   <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>SERVICE COVERAGE AREA</span>
                   <strong style={{ color: 'var(--color-ink)' }}>{currentUser?.serviceArea || 'Bengaluru'}</strong>
+                  {Array.isArray(currentUser?.servedPincodes) && currentUser.servedPincodes.length > 0 && (
+                    <div style={{ fontSize: '12px', color: 'var(--color-muted)', marginTop: '4px' }}>
+                      Served PINs: {currentUser.servedPincodes.join(', ')}
+                    </div>
+                  )}
                 </div>
+                {currentUser?.providerType === 'individual' && (currentUser?.experienceYears || currentUser?.bio) && (
+                  <div>
+                    <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>FREELANCER PROFILE</span>
+                    <span style={{ color: 'var(--color-ink)' }}>
+                      {currentUser?.experienceYears ? `${currentUser.experienceYears} yrs experience` : ''}
+                      {currentUser?.experienceYears && currentUser?.bio ? ' · ' : ''}
+                      {currentUser?.bio || ''}
+                    </span>
+                  </div>
+                )}
 
                 <div>
                   <span style={{ color: 'var(--color-muted)', display: 'block', fontSize: '11px', fontWeight: '700', marginBottom: '8px' }}>PRIMARY TRADE SKILLS</span>

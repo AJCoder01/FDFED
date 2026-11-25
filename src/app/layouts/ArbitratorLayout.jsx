@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Scale, FileText, Calendar, Award, User, Bell, RotateCcw, ChevronRight, LogOut } from 'lucide-react';
+import { Shield, Scale, FileText, Calendar, Award, Wallet, User, Bell, RotateCcw, ChevronRight, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
@@ -19,6 +19,7 @@ export function ArbitratorLayout() {
     { label: 'Active Dispute Cases', path: '/arbitrator/cases', icon: FileText },
     { label: 'Hearing Schedule', path: '/arbitrator/hearings', icon: Calendar },
     { label: 'Rulings & Awards', path: '/arbitrator/rulings', icon: Award },
+    { label: 'My Wallet', path: '/arbitrator/wallet', icon: Wallet },
     { label: 'Profile', path: '/arbitrator/profile', icon: User },
   ];
 
@@ -49,7 +50,7 @@ export function ArbitratorLayout() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     padding: '11px 16px',
                     borderRadius: 'var(--radius-control)',
                     fontSize: '14px',

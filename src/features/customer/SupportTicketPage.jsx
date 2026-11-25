@@ -1,9 +1,21 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 
-import { getBookings, getTickets, createTicket } from '../../data/mockRepository';
+import {
+  fetchBookings,
+  selectBookings,
+  selectBookingsError,
+  selectBookingsLoading,
+} from '../../store/slices/bookingsSlice';
+import {
+  createTicket,
+  fetchTickets,
+  selectGovernanceError,
+  selectGovernanceLoading,
+  selectTickets,
+} from '../../store/slices/governanceSlice';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
@@ -12,16 +24,32 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 
 export function SupportTicketPage() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const bookingIdParam = searchParams.get('bookingId') || '';
   const { currentUser, showToast } = useApp();
 
-  const load = useCallback(async () => {
-    const [tickets, bookings] = await Promise.all([getTickets('customer', currentUser.id), getBookings('customer', currentUser.id)]);
-    return { tickets, bookings };
-  }, [currentUser.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  const refresh = useCallback(() => {
+    if (currentUser?.id) {
+      dispatch(fetchTickets({ role: 'customer', userId: currentUser.id }));
+      dispatch(fetchBookings({ role: 'customer', userId: currentUser.id }));
+    }
+  }, [dispatch, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const tickets = useSelector(selectTickets);
+  const bookings = useSelector(selectBookings);
+  const governanceLoading = useSelector(selectGovernanceLoading);
+  const bookingsLoading = useSelector(selectBookingsLoading);
+  const loading = governanceLoading || bookingsLoading;
+  const governanceError = useSelector(selectGovernanceError);
+  const bookingsError = useSelector(selectBookingsError);
+  const error = governanceError || bookingsError;
+
   const [bookingId, setBookingId] = useState(bookingIdParam);
   useEffect(() => { setBookingId(bookingIdParam); }, [bookingIdParam]);
   const [issueType, setIssueType] = useState('Service Quality Issue');
@@ -39,16 +67,21 @@ export function SupportTicketPage() {
 
     setBusy(true);
     try {
-      const created = await createTicket({ bookingId, customerId: currentUser.id, issueType, severity, description });
+      const created = await dispatch(createTicket({
+        bookingId,
+        customerId: currentUser.id,
+        issueType,
+        severity,
+        description,
+      })).unwrap();
       setDescription('');
       showToast(`Support Ticket #${created.id} opened.`, 'success');
-    } catch (error) { showToast(error.message, 'warning'); }
+    } catch (error) { showToast(typeof error === 'string' ? error : error?.message, 'warning'); }
     finally { setBusy(false); }
   };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" />;
-  const { tickets, bookings } = data;
+  if (loading && tickets.length === 0 && bookings.length === 0) return <Skeleton height="300px" />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { Shield, User, Mail, Phone, Lock, CheckCircle2, Award, Server, Key, MapPin, Calendar, Clock, Edit3, Save, X, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
-import { updateUserProfile } from '../../data/mockRepository';
+import { updateUserProfile } from '../../store/slices/usersSlice';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function AdminProfilePage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState('');
   const [name, setName] = useState(currentUser?.name || '');
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || DEFAULT_BLANK_AVATAR);
@@ -47,16 +49,19 @@ export function AdminProfilePage() {
 
     setSaving(true);
     try {
-      await updateUserProfile(currentUser.id, {
-        name: name.trim(),
-        phone: phone.trim(),
-        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
-        department: department.trim()
-      });
+      await dispatch(updateUserProfile({
+        userId: currentUser.id,
+        updates: {
+          name: name.trim(),
+          phone: phone.trim(),
+          avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+          department: department.trim()
+        }
+      })).unwrap();
       setIsEditing(false);
       showToast('Admin profile updated successfully!', 'success');
     } catch (err) {
-      showToast(err.message || 'Unable to update profile.', 'error');
+      showToast(typeof err === 'string' ? err : err?.message || 'Unable to update profile.', 'error');
     } finally {
       setSaving(false);
     }

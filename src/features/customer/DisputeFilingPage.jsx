@@ -1,37 +1,47 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Scale, AlertTriangle, Upload, FileText, X } from 'lucide-react';
-import { createDispute, getBookingById } from '../../data/mockRepository';
+import {
+  fetchBookingById,
+  selectBookingsLoading,
+  selectSelectedBooking,
+} from '../../store/slices/bookingsSlice';
+import {
+  createDispute,
+  selectDisputes,
+} from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 
 export function DisputeFilingPage() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const bookingIdParam = searchParams.get('bookingId') || '';
   const { currentUser, showToast } = useApp();
 
-  const [booking, setBooking] = useState(null);
-  const [loadingBooking, setLoadingBooking] = useState(true);
+  const selectedBooking = useSelector(selectSelectedBooking);
+  const loadingBooking = useSelector(selectBookingsLoading);
+  const disputes = useSelector(selectDisputes);
+  const booking = selectedBooking?.id === bookingIdParam ? selectedBooking : null;
+
   const [claimAmount, setClaimAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [statement, setStatement] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState([]);
-  const [submittedDispute, setSubmittedDispute] = useState(null);
+  const [submittedDisputeId, setSubmittedDisputeId] = useState(null);
+
+  const submittedDispute = submittedDisputeId
+    ? disputes.find(d => d.id === submittedDisputeId) || null
+    : null;
 
   useEffect(() => {
-    if (!bookingIdParam) {
-      setLoadingBooking(false);
-      return;
+    if (bookingIdParam) {
+      dispatch(fetchBookingById(bookingIdParam));
     }
-    getBookingById(bookingIdParam)
-      .then(b => {
-        setBooking(b);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingBooking(false));
-  }, [bookingIdParam]);
+  }, [dispatch, bookingIdParam]);
 
   const handleFileChange = (e) => {
     if (e.target.files) {
@@ -72,6 +82,16 @@ export function DisputeFilingPage() {
       return;
     }
 
+    const numericClaim = Number(claimAmount);
+    if (!Number.isFinite(numericClaim) || numericClaim <= 0) {
+      showToast('Please enter a valid positive claim amount.', 'warning');
+      return;
+    }
+    if (booking && numericClaim > Number(booking.amount || 0)) {
+      showToast(`Claim amount cannot exceed the paid booking amount of ₹${Number(booking.amount || 0).toLocaleString('en-IN')}.`, 'warning');
+      return;
+    }
+
     setBusy(true);
     try {
       const evidences = evidenceFiles.map((file, idx) => ({
@@ -86,17 +106,17 @@ export function DisputeFilingPage() {
         uploadedAt: new Date().toISOString()
       }));
 
-      const created = await createDispute({
+      const created = await dispatch(createDispute({
         bookingId: bookingIdParam,
         customerId: currentUser.id,
         claimAmount: Number(claimAmount),
         customerStatement: statement,
         evidences
-      });
+      })).unwrap();
 
-      setSubmittedDispute(created);
+      setSubmittedDisputeId(created.id);
       showToast(`Dispute Case #${created.id} filed. An Arbitrator will be assigned.`, 'success');
-    } catch (error) { showToast(error.message, 'warning'); }
+    } catch (error) { showToast(typeof error === 'string' ? error : error?.message, 'warning'); }
     finally { setBusy(false); }
   };
 
@@ -208,9 +228,11 @@ export function DisputeFilingPage() {
           label="Claim Amount / Compensation Requested (INR ₹) *"
           type="number"
           min="1"
+          max={booking?.amount ? Number(booking.amount) : undefined}
           placeholder="e.g. 1500"
           value={claimAmount}
           onChange={(e) => setClaimAmount(e.target.value)}
+          helperText={booking?.amount ? `Maximum claimable amount under escrow policy: ₹${Number(booking.amount).toLocaleString('en-IN')} (100% of booking paid)` : undefined}
           required
         />
 

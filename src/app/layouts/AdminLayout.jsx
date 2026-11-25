@@ -65,7 +65,7 @@ export function AdminLayout() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     padding: '11px 16px',
                     borderRadius: 'var(--radius-control)',
                     fontSize: '14px',

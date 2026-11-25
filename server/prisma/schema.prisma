@@ -1,0 +1,385 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountRole {
+  GUEST
+  CUSTOMER
+  PROVIDER
+  ADMIN
+  SUPER_ADMIN
+  ARBITRATOR
+}
+
+enum ServiceStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  ARCHIVED
+  FLAGGED
+}
+
+model Account {
+  id              String      @id
+  email           String      @unique
+  passwordHash    String
+  name            String
+  phone           String
+  role            AccountRole
+  isSuperUser     Boolean     @default(false)
+  status          String      @default("active")
+  avatar          String      @default("")
+  location        String      @default("Bengaluru")
+  city            String?
+  country         String?
+  department      String?
+  walletBalanceInr Int        @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  customerProfile    CustomerProfile?
+  providerProfile    ProviderProfile?
+  arbitratorProfile  ArbitratorProfile?
+  bespokeJobRequests BespokeJobRequest[]
+  customerBookings   Booking[]           @relation("CustomerBookings")
+  reviews            Review[]
+  ticketsCreated     SupportTicket[]
+  customerDisputes   Dispute[]           @relation("CustomerDisputes")
+  arbitratorDisputes Dispute[]           @relation("ArbitratorDisputes")
+  notifications      Notification[]
+  walletTransactions WalletTransaction[]
+}
+
+model CustomerProfile {
+  id        String         @id
+  accountId String         @unique
+  account   Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  addresses SavedAddress[]
+}
+
+model SavedAddress {
+  id         String          @id
+  customerId String
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label      String
+  line1      String
+  city       String
+  state      String          @default("Karnataka")
+  pinCode    String
+  isDefault  Boolean         @default(false)
+}
+
+model ProviderProfile {
+  id                   String           @id
+  accountId            String           @unique
+  account              Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  providerType         String           @default("company")
+  businessName         String
+  bio                  String           @default("")
+  experienceYears      Int              @default(0)
+  operatingCity        String           @default("Bengaluru")
+  serviceArea          String           @default("")
+  servedAreas          Json             @default("[]")
+  servedPincodes       Json             @default("[]")
+  coverageRadiusKm     Int              @default(25)
+  skills               String[]
+  documentName         String           @default("")
+  verificationStatus   String           @default("draft")
+  verificationFeedback String           @default("")
+  weeklyAvailability   Json
+  blackoutDates        Json             @default("[]")
+  leadTimeMinutes      Int              @default(0)
+  bufferMinutes        Int              @default(0)
+  ratingAvg            Float            @default(0)
+  reviewCount          Int              @default(0)
+
+  services ServiceListing[]
+  bookings Booking[]
+  reviews  Review[]
+  disputes Dispute[]
+}
+
+model ArbitratorProfile {
+  id              String  @id
+  accountId       String  @unique
+  account         Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  title           String  @default("Senior Independent Arbitrator")
+  barCouncilId    String?
+  qualification   String?
+  experienceYears Int     @default(0)
+  specialization  String?
+  organization    String?
+}
+
+model ArbitratorApplication {
+  id              String    @id
+  name            String
+  email           String
+  phone           String
+  country         String
+  linkedin        String    @default("")
+  title           String    @default("Panel Arbitrator")
+  passwordHash    String
+  barCouncilId    String?
+  qualification   String?
+  experienceYears Int       @default(0)
+  specialization  String
+  organization    String
+  prevExperience  String    @default("")
+  files           Json      @default("{}")
+  status          String    @default("pending")
+  rejectReason    String?
+  submittedAt     DateTime  @default(now())
+  decidedAt       DateTime?
+}
+
+model Category {
+  id           String              @id
+  name         String
+  slug         String              @unique
+  icon         String              @default("Layers")
+  description  String              @default("")
+  serviceCount Int                 @default(0)
+  enabled      Boolean             @default(true)
+
+  services    ServiceListing[]
+  jobRequests BespokeJobRequest[]
+}
+
+model ServiceListing {
+  id                     String          @id
+  providerId             String
+  provider               ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  categoryId             String
+  category               Category        @relation(fields: [categoryId], references: [id])
+  categoryName           String
+  providerName           String
+  title                  String
+  description            String
+  priceInr               Int
+  durationMinutes        Int
+  duration               String
+  mode                   String          @default("On-site")
+  image                  String          @default("")
+  inclusions             Json            @default("[]")
+  exclusions             Json            @default("[]")
+  policy                 String          @default("")
+  freeCancellationHours  Int             @default(2)
+  cancellationFeePercent Int             @default(20)
+  availableSlots         Json            @default("[]")
+  status                 ServiceStatus   @default(PUBLISHED)
+  rating                 Float?
+  reviewCount            Int             @default(0)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  bookings Booking[]
+  reviews  Review[]
+}
+
+model BespokeJobRequest {
+  id            String    @id
+  requestCode   String    @unique
+  customerId    String?
+  customer      Account?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryName  String
+  title         String
+  description   String
+  location      String
+  budgetInr     Int
+  preferredDate String
+  contactName   String
+  contactPhone  String
+  status        String    @default("open")
+  createdAt     DateTime  @default(now())
+}
+
+model Booking {
+  id                     String          @id
+  bookingCode            String          @unique
+  customerId             String
+  customer               Account         @relation("CustomerBookings", fields: [customerId], references: [id])
+  providerId             String
+  provider               ProviderProfile @relation(fields: [providerId], references: [id])
+  serviceId              String
+  service                ServiceListing  @relation(fields: [serviceId], references: [id])
+  serviceTitle           String
+  categoryName           String
+  customerName           String
+  customerPhone          String
+  providerName           String
+  providerPhone          String
+  address                String
+  addressSnapshot        Json?
+  scheduledDate          String
+  scheduledSlot          String
+  scheduledStart         DateTime?
+  scheduledEnd           DateTime?
+  duration               String
+  amountInr              Int
+  freeCancellationHours  Int             @default(2)
+  cancellationFeePercent Int             @default(20)
+  freeCancellationUntil  DateTime?
+  status                 String          @default("active")
+  statusBeforeDispute    String?
+  acceptedAt             DateTime?
+  notes                  String          @default("")
+  timeProposal           Json?
+  proposedStart          DateTime?
+  proposedEnd            DateTime?
+  timeline               Json            @default("[]")
+  hasTicket              Boolean         @default(false)
+  hasDispute             Boolean         @default(false)
+  disputeId              String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  paymentLedger      PaymentLedger?
+  review             Review?
+  tickets            SupportTicket[]
+  dispute            Dispute?
+  walletTransactions WalletTransaction[]
+}
+
+model PaymentLedger {
+  id                   String   @id
+  bookingId            String   @unique
+  booking              Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  grossAmountInr       Int
+  platformFeeInr       Int
+  providerNetPayoutInr Int
+  refundedAmountInr    Int      @default(0)
+  cancellationFeeInr   Int      @default(0)
+  arbitratorFeeInr     Int      @default(0)
+  paymentMethod        String
+  paymentStatus        String
+  updatedAt            DateTime @updatedAt
+}
+
+model WalletTransaction {
+  id                    String   @id
+  accountId             String
+  account               Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  bookingId             String?
+  booking               Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  disputeId             String?
+  type                  String
+  direction             String
+  amountInr             Int
+  grossAmountInr        Int      @default(0)
+  platformFeeInr        Int      @default(0)
+  netAmountInr          Int      @default(0)
+  cancellationChargeInr Int      @default(0)
+  status                String   @default("Successful")
+  description           String
+  createdAt             DateTime @default(now())
+}
+
+model Review {
+  id           String          @id
+  bookingId    String          @unique
+  booking      Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Account         @relation(fields: [customerId], references: [id])
+  providerId   String
+  provider     ProviderProfile @relation(fields: [providerId], references: [id])
+  serviceId    String
+  service      ServiceListing  @relation(fields: [serviceId], references: [id])
+  customerName String
+  rating       Int
+  comment      String
+  reply        String?
+  createdAt    DateTime        @default(now())
+  repliedAt    DateTime?
+}
+
+model SupportTicket {
+  id                String   @id
+  ticketCode        String   @unique
+  creatorId         String
+  creator           Account  @relation(fields: [creatorId], references: [id])
+  bookingId         String
+  booking           Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  providerId        String?
+  serviceTitle      String
+  customerName      String
+  providerName      String
+  issueType         String
+  severity          String
+  subject           String
+  category          String
+  priority          String
+  description       String
+  status            String   @default("open")
+  messages          Json     @default("[]")
+  resolutionOutcome String?
+  resolutionNotes   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Dispute {
+  id                String          @id
+  disputeCode       String          @unique
+  bookingId         String          @unique
+  booking           Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customerId        String
+  customer          Account         @relation("CustomerDisputes", fields: [customerId], references: [id])
+  providerId        String
+  provider          ProviderProfile @relation(fields: [providerId], references: [id])
+  arbitratorId      String?
+  arbitrator        Account?        @relation("ArbitratorDisputes", fields: [arbitratorId], references: [id])
+  serviceTitle      String
+  customerName      String
+  providerName      String
+  arbitratorName    String?
+  amountInDispute   Int
+  claimAmount       Int
+  reason            String
+  customerStatement String
+  customerEvidence  Json            @default("[]")
+  providerStatement String          @default("")
+  providerEvidence  Json            @default("[]")
+  evidences         Json            @default("[]")
+  hearingSchedule   Json?
+  hearingDate       DateTime?
+  ruling            Json?
+  rulingDecision    String?
+  refundPercentage  Float?
+  status            String          @default("pending_assignment")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model Notification {
+  id         String   @id
+  userId     String?
+  user       Account? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   @default("ALERT")
+  title      String
+  message    String
+  targetLink String   @default("/")
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model ActivityLog {
+  id          String   @id
+  actorId     String
+  actorEmail  String
+  actorName   String
+  actorRole   String
+  action      String
+  entityType  String   @default("SYSTEM")
+  entityId    String   @default("")
+  description String
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+}

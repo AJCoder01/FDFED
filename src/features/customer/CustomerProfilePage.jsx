@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { User, Mail, Phone, MapPin, Plus, Trash2, CheckCircle2, Save, Edit3, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { updateUserProfile } from '../../data/mockRepository';
+import { updateUserProfile } from '../../store/slices/usersSlice';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
@@ -9,6 +10,7 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function CustomerProfilePage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -46,16 +48,19 @@ export function CustomerProfilePage() {
 
     setSaving(true);
     try {
-      await updateUserProfile(currentUser.id, {
-        name: name.trim(),
-        phone: phone.trim(),
-        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
-        addresses
-      });
+      await dispatch(updateUserProfile({
+        userId: currentUser.id,
+        updates: {
+          name: name.trim(),
+          phone: phone.trim(),
+          avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+          addresses
+        }
+      })).unwrap();
       setIsEditing(false);
       showToast('Profile updated successfully!', 'success');
     } catch (err) {
-      showToast(err.message || 'Unable to update profile.', 'error');
+      showToast(typeof err === 'string' ? err : err?.message || 'Unable to update profile.', 'error');
     } finally {
       setSaving(false);
     }

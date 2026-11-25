@@ -1,22 +1,40 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/mockRepository';
+import {
+  fetchBookings,
+  selectBookings,
+  selectBookingsError,
+  selectBookingsLoading,
+} from '../../store/slices/bookingsSlice';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
 import { Select } from '../../design-system/primitives/Select';
 import { JobRequestActions } from './JobRequestActions';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { formatDate, isAccepted, isPending } from './providerUtils';
 
 export function JobInboxPage() {
+  const dispatch = useDispatch();
   const { currentUser } = useApp();
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
-  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, setData: setJobs, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    if (currentUser?.id) {
+      dispatch(fetchBookings({ role: 'provider', userId: currentUser.id }));
+    }
+  }, [dispatch, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const jobs = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="200px" borderRadius="12px" />;
@@ -45,7 +63,7 @@ export function JobInboxPage() {
             <strong>{formatDate(job.scheduledDate)} at {job.scheduledSlot}</strong>
           </div>
           <div className="provider-stack">
-            <JobRequestActions job={job} onUpdate={updated => setJobs(list => list.map(item => item.id === updated.id ? updated : item))} onRefresh={refresh} />
+            <JobRequestActions job={job} onRefresh={refresh} />
             <Button variant="secondary" size="sm" onClick={() => navigate(`/provider/jobs/${job.id}`)}>Workspace</Button>
           </div>
         </div>

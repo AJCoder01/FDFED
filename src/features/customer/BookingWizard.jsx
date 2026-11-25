@@ -1,16 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { AlertTriangle, CheckCircle2, Shield } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { createBooking, saveCustomerAddresses } from '../../data/mockRepository';
+import { createBooking, selectBookings } from '../../store/slices/bookingsSlice';
+import { saveCustomerAddresses } from '../../store/slices/usersSlice';
+import { fetchServiceById, selectSelectedService } from '../../store/slices/marketplaceSlice';
+import { fetchWallet, selectWalletBalance } from '../../store/slices/financeSlice';
+import { isServiceAvailableForLocation } from '../../data/bookingRules';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
 
 export function BookingWizard() {
+  const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, savedIntent, setSavedIntent, showToast } = useApp();
+  const { currentUser, currentRole, savedIntent, setSavedIntent, showToast } = useApp();
+  const bookings = useSelector(selectBookings);
+  const selectedService = useSelector(selectSelectedService);
+  const walletBalance = useSelector(selectWalletBalance);
 
   const bookingData = location.state?.intent || savedIntent;
   const addresses = currentUser?.addresses || [];
@@ -23,45 +32,79 @@ export function BookingWizard() {
   const [savingAddress, setSavingAddress] = useState(false);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('UPI (Mock Pay)');
-  const [confirmedBooking, setConfirmedBooking] = useState(null);
+  const [confirmedBookingId, setConfirmedBookingId] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchWallet());
+    if (bookingData?.serviceId && !bookingData?.providerOperatingCity) {
+      dispatch(fetchServiceById({ serviceId: bookingData.serviceId, actor: { role: currentRole, userId: currentUser?.id } }));
+    }
+  }, [dispatch, bookingData?.serviceId, bookingData?.providerOperatingCity, currentRole, currentUser?.id]);
+
+  const effectiveService = {
+    ...bookingData,
+    ...(selectedService?.id === bookingData?.serviceId ? selectedService : {}),
+  };
+
+  const confirmedBooking = confirmedBookingId
+    ? bookings.find(b => b.id === confirmedBookingId) || null
+    : null;
   const selectedAddress = addresses.find(addressItem => addressItem.id === selectedAddressId);
   const address = selectedAddress
     ? `${selectedAddress.addressLine}, ${selectedAddress.city} - ${selectedAddress.pincode}`
     : '';
+  const locationCovered = selectedAddress
+    ? isServiceAvailableForLocation(effectiveService, {
+        city: selectedAddress.city,
+        pincode: selectedAddress.pincode,
+        address,
+      })
+    : true;
 
   const handleSaveAddress = async event => {
     event.preventDefault();
     if (savingAddress) return;
     setSavingAddress(true);
     try {
-      const saved = await saveCustomerAddresses(currentUser.id, [
-        ...addresses,
-        { ...newAddress, id: `addr-${crypto.randomUUID().slice(0, 8)}`, isDefault: addresses.length === 0 }
-      ]);
+      const saved = await dispatch(saveCustomerAddresses({
+        customerId: currentUser.id,
+        addresses: [
+          ...addresses,
+          { ...newAddress, id: `addr-${crypto.randomUUID().slice(0, 8)}`, isDefault: addresses.length === 0 }
+        ]
+      })).unwrap();
       const created = saved.addresses[saved.addresses.length - 1];
       setSelectedAddressId(created.id);
       setNewAddressOpen(false);
       setNewAddress({ label: 'Home', addressLine: '', city: '', pincode: '' });
       showToast('Address saved to your address book.');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to save this address.', 'warning');
+      showToast(typeof error === 'string' ? error : error?.message || 'Unable to save this address.', 'warning');
     } finally {
       setSavingAddress(false);
     }
   };
 
   const handleConfirmOrder = async () => {
+    if (!locationCovered) {
+      showToast('This service is currently unavailable in your location. Please change your location or select a service provider operating in your area.', 'error');
+      setStep(1);
+      return;
+    }
     setLoading(true);
     try {
-      const newBooking = await createBooking({
+      const newBooking = await dispatch(createBooking({
         serviceId: bookingData.serviceId,
         serviceTitle: bookingData.serviceTitle,
-        categoryName: 'Home Services',
+        categoryName: effectiveService.categoryName || 'Home Services',
         customerId: currentUser.id,
         customerName: currentUser.name,
         customerPhone: currentUser.phone,
         address: address,
+        customerCity: selectedAddress?.city || '',
+        customerPincode: selectedAddress?.pincode || '',
+        addressSnapshot: selectedAddress || null,
         providerId: bookingData.providerId,
         providerName: bookingData.providerName,
         scheduledDate: bookingData.date,
@@ -69,13 +112,18 @@ export function BookingWizard() {
         amount: bookingData.price,
         paymentMethod: paymentMethod,
         notes: notes
-      });
+      })).unwrap();
+      if (paymentMethod === 'ServiceHub Wallet') {
+        await dispatch(fetchWallet());
+      }
 
       setSavedIntent(null);
-      setConfirmedBooking(newBooking);
+      setConfirmedBookingId(newBooking.id);
       showToast(`Booking #${newBooking.id} created successfully!`, 'success');
     } catch (error) {
-      const message = error instanceof Error
+      const message = typeof error === 'string'
+        ? error
+        : error instanceof Error
         ? error.message
         : 'Unable to create the booking. Please try again.';
       showToast(message, 'warning');
@@ -216,7 +264,22 @@ export function BookingWizard() {
             placeholder="e.g. Please ring doorbell 402, gate code 1234"
           />
 
-          <Button variant="primary" size="lg" disabled={!address || newAddressOpen} onClick={() => setStep(2)}>
+          {effectiveService?.providerOperatingCity && (
+            <div style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid var(--color-border)', fontSize: '12px', color: 'var(--color-muted)' }}>
+              <strong>Provider Service Area:</strong> {effectiveService.providerOperatingCity}
+              {Array.isArray(effectiveService.providerServedAreas) && effectiveService.providerServedAreas.length > 0 && ` (${effectiveService.providerServedAreas.join(', ')})`}
+              {Array.isArray(effectiveService.providerServedPincodes) && effectiveService.providerServedPincodes.length > 0 && ` · PINs: ${effectiveService.providerServedPincodes.join(', ')}`}
+            </div>
+          )}
+
+          {selectedAddress && !locationCovered && (
+            <div role="alert" style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span>This service is currently unavailable in your location. Please change your location or select a service provider operating in your area.</span>
+            </div>
+          )}
+
+          <Button variant="primary" size="lg" disabled={!address || newAddressOpen || !locationCovered} onClick={() => setStep(2)}>
             Continue to Price Review →
           </Button>
         </div>
@@ -232,6 +295,14 @@ export function BookingWizard() {
               <span>Base Service Fee:</span>
               <span>₹{bookingData.price}</span>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-muted)', fontSize: '13px' }}>
+              <span>Provider Share (95%):</span>
+              <span>₹{bookingData.price - Math.round(Number(bookingData.price) * 0.05)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-muted)', fontSize: '13px' }}>
+              <span>Platform Fee Included (5%):</span>
+              <span>₹{Math.round(Number(bookingData.price) * 0.05)}</span>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-success)' }}>
               <span>ServiceHub Safety & Buyer Protection:</span>
               <span>INCLUDED (₹0)</span>
@@ -245,6 +316,13 @@ export function BookingWizard() {
               <span>Final Total Amount:</span>
               <span>₹{bookingData.price}</span>
             </div>
+          </div>
+
+          <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid var(--color-border)', fontSize: '12px', color: 'var(--color-ink)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+            <Shield size={16} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span>
+              <strong>Cancellation Policy:</strong> Free cancellation up to <strong>{effectiveService.freeCancellationHours ?? 2} hours</strong> before the scheduled slot. Late cancellations incur a <strong>{effectiveService.cancellationFeePercent ?? 20}%</strong> fee, with the remaining refund automatically credited to your ServiceHub Wallet.
+            </span>
           </div>
 
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -262,13 +340,14 @@ export function BookingWizard() {
       {step === 3 && (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-ink)' }}>Select Demo Payment Method</h3>
-          <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>This is a mock checkout demonstration. No real transaction occurs.</p>
+          <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>Choose ServiceHub Wallet (real DB balance deduction) or a simulated demo method.</p>
 
           <Select
             label="Payment Option"
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
             options={[
+              { value: 'ServiceHub Wallet', label: `ServiceHub Wallet (Balance: ₹${Number(walletBalance || 0).toLocaleString('en-IN')})` },
               { value: 'UPI (Mock Pay)', label: 'UPI Instant Pay (GPay / PhonePe)' },
               { value: 'Card (Mock Pay)', label: 'Credit / Debit Card (Mock)' },
               { value: 'Cash After Service', label: 'Cash / Pay After Service' },

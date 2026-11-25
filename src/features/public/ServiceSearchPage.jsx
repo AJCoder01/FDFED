@@ -1,9 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Search, Filter, Star, X, Shield } from 'lucide-react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { getServices, getCategories } from '../../data/mockRepository';
+import {
+  fetchCategories,
+  fetchServices,
+  selectCategories,
+  selectMarketplaceError,
+  selectMarketplaceLoading,
+  selectServices,
+} from '../../store/slices/marketplaceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { EmptyState } from '../../design-system/primitives/EmptyState';
@@ -11,6 +18,7 @@ import { Button } from '../../design-system/primitives/Button';
 import { Select } from '../../design-system/primitives/Select';
 
 export function ServiceSearchPage() {
+  const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { currentRole } = useApp();
@@ -22,13 +30,20 @@ export function ServiceSearchPage() {
   const currentMaxPrice = searchParams.get('maxPrice') || '';
 
   const [searchInput, setSearchInput] = useState(currentSearch);
-  const load = useCallback(async () => {
-    const [services, categories] = await Promise.all([getServices({ search: currentSearch, category: currentCategory, sort: currentSort, maxPrice: currentMaxPrice }), getCategories()]);
-    return { services, categories };
-  }, [currentSearch, currentCategory, currentSort, currentMaxPrice]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const services = data?.services || [];
-  const categories = data?.categories || [];
+  const load = useCallback(() => {
+    dispatch(fetchServices({ search: currentSearch, category: currentCategory, sort: currentSort, maxPrice: currentMaxPrice }));
+    dispatch(fetchCategories());
+  }, [dispatch, currentSearch, currentCategory, currentSort, currentMaxPrice]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const services = useSelector(selectServices);
+  const categories = useSelector(selectCategories);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
+  const refresh = load;
   if (error) return <ErrorState description={error} onRetry={refresh} />;
 
   const updateFilters = (key, value) => {

@@ -1,22 +1,39 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Eye } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/mockRepository';
+import {
+  fetchBookings,
+  selectBookings,
+  selectBookingsError,
+  selectBookingsLoading,
+} from '../../store/slices/bookingsSlice';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
+import { bookingStatusLabel } from '../../data/bookingRules';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { EmptyState } from '../../design-system/primitives/EmptyState';
 import { Button } from '../../design-system/primitives/Button';
 
 export function BookingsListPage() {
+  const dispatch = useDispatch();
   const { currentUser } = useApp();
   const navigate = useNavigate();
 
-  const load = useCallback(() => getBookings('customer', currentUser.id), [currentUser.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const bookings = data || [];
+  const refresh = useCallback(() => {
+    if (currentUser?.id) {
+      dispatch(fetchBookings({ role: 'customer', userId: currentUser.id }));
+    }
+  }, [dispatch, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const bookings = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
   const [activeTab, setActiveTab] = useState('all');
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
@@ -79,7 +96,7 @@ export function BookingsListPage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                   <strong style={{ fontSize: '15px', color: 'var(--color-ink)' }}>#{bk.id}</strong>
-                  <StatusBadge status={bk.status} />
+                  <StatusBadge status={bk.status} label={bookingStatusLabel(bk)} />
                   {bk.hasTicket && <span style={{ fontSize: '11px', color: 'var(--color-danger)', fontWeight: '600' }}>[Ticket Open]</span>}
                   {bk.hasDispute && <span style={{ fontSize: '11px', color: 'var(--color-conflict)', fontWeight: '600' }}>[Dispute Escalated]</span>}
                 </div>

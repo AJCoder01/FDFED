@@ -1,32 +1,50 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Star } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings, replyToReview } from '../../data/mockRepository';
+import {
+  fetchBookings,
+  selectBookings,
+  selectBookingsError,
+  selectBookingsLoading,
+} from '../../store/slices/bookingsSlice';
+import { replyToReview } from '../../store/slices/marketplaceSlice';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { formatDate } from './providerUtils';
 
 export function ReviewsPage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
   const [replyId, setReplyId] = useState(null);
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
   const [replyError, setReplyError] = useState('');
-  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, setData: setJobs, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    if (currentUser?.id) {
+      dispatch(fetchBookings({ role: 'provider', userId: currentUser.id }));
+    }
+  }, [dispatch, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const jobs = useSelector(selectBookings);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
 
   const sendReply = async event => {
     event.preventDefault();
     if (busy) return;
     setBusy(true); setReplyError('');
     try {
-      const updated = await replyToReview(replyId, reply, currentUser.id);
-      setJobs(list => list.map(job => job.id === updated.id ? updated : job));
+      await dispatch(replyToReview({ bookingId: replyId, reply })).unwrap();
       setReplyId(null); setReply(''); showToast('Public reply saved.');
-    } catch (error) { setReplyError(error.message); }
+    } catch (err) { setReplyError(typeof err === 'string' ? err : err?.message); }
     finally { setBusy(false); }
   };
 

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Briefcase, CheckCircle2, ArrowRight, Lock, UserPlus, LogIn } from 'lucide-react';
+import { createJobRequest, selectJobRequests } from '../../store/slices/marketplaceSlice';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
@@ -9,9 +11,11 @@ import { useApp } from '../../app/context/AppContext';
 import { getTodayDateInputValue } from '../../utils/date';
 
 export function PostAJobPage() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { showToast, currentUser, currentRole } = useApp();
   const isCustomer = currentUser && currentRole === 'customer';
+  const jobRequests = useSelector(selectJobRequests);
 
   const [formData, setFormData] = useState({
     category: 'Home Cleaning',
@@ -24,14 +28,19 @@ export function PostAJobPage() {
     contactPhone: currentUser?.phone || ''
   });
 
-  const [submittedRequest, setSubmittedRequest] = useState(null);
+  const [submittedRequestId, setSubmittedRequestId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  const submittedRequest = submittedRequestId
+    ? jobRequests.find((r) => r.id === submittedRequestId) || null
+    : null;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!isCustomer) {
@@ -45,14 +54,19 @@ export function PostAJobPage() {
       return;
     }
 
-    const reqId = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
-    setSubmittedRequest({
-      id: reqId,
-      ...formData,
-      customerId: currentUser.id,
-      createdAt: new Date().toLocaleDateString('en-GB')
-    });
-    showToast('Custom job request submitted successfully!', 'success');
+    setSubmitting(true);
+    try {
+      const created = await dispatch(createJobRequest({
+        ...formData,
+        customerId: currentUser.id,
+      })).unwrap();
+      setSubmittedRequestId(created.id);
+      showToast('Custom job request submitted successfully!', 'success');
+    } catch (err) {
+      showToast(typeof err === 'string' ? err : err?.message || 'Unable to submit job request.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submittedRequest) {
@@ -80,7 +94,7 @@ export function PostAJobPage() {
           </p>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-            <Button variant="outline" onClick={() => setSubmittedRequest(null)}>
+            <Button variant="outline" onClick={() => setSubmittedRequestId(null)}>
               Post Another Job
             </Button>
             <Button variant="primary" onClick={() => navigate('/services')}>

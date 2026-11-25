@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   FileText,
   Calendar,
@@ -8,8 +9,12 @@ import {
   TrendingUp
 } from 'lucide-react';
 
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getDisputes } from '../../data/mockRepository';
+import {
+  fetchDisputes,
+  selectDisputes,
+  selectGovernanceError,
+  selectGovernanceLoading,
+} from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 
 import { ErrorState } from '../../design-system/primitives/ErrorState';
@@ -18,24 +23,35 @@ import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 
 export function ArbitratorDashboard() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { currentUser } = useApp();
 
-  const load = useCallback(async () => {
-    const allDisputes = await getDisputes();
-    return allDisputes.filter(
-      dispute => dispute.arbitratorId === currentUser?.id || (!currentUser?.id && dispute.arbitratorId === 'user-arbit-1') || (currentUser?.id === 'user-arbit-1' && dispute.arbitratorId === 'user-arbit-1')
-    );
-  }, [currentUser?.id]);
+  const refresh = useCallback(() => {
+    dispatch(fetchDisputes());
+  }, [dispatch]);
 
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const disputes = data || [];
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const allDisputes = useSelector(selectDisputes);
+  const loading = useSelector(selectGovernanceLoading);
+  const error = useSelector(selectGovernanceError);
+  const disputes = allDisputes.filter((dispute) => {
+    if (!currentUser) return dispute.arbitratorId === 'user-arbit-1';
+    if (currentUser.isSuperUser) return Boolean(dispute.arbitratorId);
+    if (currentUser.role === 'arbitrator') {
+      return (
+        dispute.arbitratorId === currentUser.id ||
+        (currentUser.name && dispute.arbitratorName?.toLowerCase() === currentUser.name.toLowerCase())
+      );
+    }
+    return dispute.arbitratorId === currentUser.id;
+  });
 
   const activeCases = disputes.filter(
-    dispute =>
-      dispute.status === 'assigned' ||
-      dispute.status === 'hearing_scheduled' ||
-      dispute.status === 'pending_assignment'
+    dispute => dispute.status !== 'ruled' && dispute.status !== 'closed'
   );
 
   const ruledCases = disputes.filter(
@@ -49,6 +65,8 @@ export function ArbitratorDashboard() {
   );
 
   const totalClaimValue = disputes.reduce((sum, d) => sum + (Number(d.claimAmount) || Number(d.amountInDispute) || 0), 0);
+  const totalAwardedValue = disputes.reduce((sum, d) => sum + (Number(d.ruling?.awardAmount) || 0), 0);
+  const totalDisputedValue = totalClaimValue + totalAwardedValue;
 
   if (error) {
     return <ErrorState description={error} onRetry={refresh} />;
@@ -141,9 +159,11 @@ export function ArbitratorDashboard() {
               TOTAL DISPUTED VALUE
             </span>
             <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--color-ink)', lineHeight: 1.2 }}>
-              ₹{totalClaimValue.toLocaleString('en-IN')}
+              ₹{totalDisputedValue.toLocaleString('en-IN')}
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>Cumulative claims filed</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>
+              Claims: ₹{totalClaimValue.toLocaleString('en-IN')} · Awarded: ₹{totalAwardedValue.toLocaleString('en-IN')}
+            </span>
           </div>
         </div>
       </div>

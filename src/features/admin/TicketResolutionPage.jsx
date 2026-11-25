@@ -1,8 +1,14 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 
-import { getTickets, resolveTicket } from '../../data/mockRepository';
+import {
+  fetchTickets,
+  resolveTicket,
+  selectGovernanceError,
+  selectGovernanceLoading,
+  selectTickets,
+} from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -11,8 +17,20 @@ import { Modal } from '../../design-system/primitives/Modal';
 import { Select } from '../../design-system/primitives/Select';
 
 export function TicketResolutionPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
-  const { data: tickets, loading, error, refresh } = useRepositoryQuery(getTickets);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchTickets({ role: 'admin' }));
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const tickets = useSelector(selectTickets);
+  const loading = useSelector(selectGovernanceLoading);
+  const error = useSelector(selectGovernanceError);
   const [busy, setBusy] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [outcome, setOutcome] = useState('Full Mock Refund Issued');
@@ -26,12 +44,16 @@ export function TicketResolutionPage() {
   const handleConfirmResolve = async () => {
     if (busy) return;
     setBusy(true);
-    try { await resolveTicket(selectedTicket.id, outcome); setModalOpen(false); showToast('Ticket resolution saved.'); }
-    catch (error) { showToast(error.message, 'warning'); }
+    try {
+      await dispatch(resolveTicket({ ticketId: selectedTicket.id, outcome })).unwrap();
+      setModalOpen(false);
+      showToast('Ticket resolution saved.');
+    }
+    catch (err) { showToast(typeof err === 'string' ? err : err?.message, 'warning'); }
     finally { setBusy(false); }
   };
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <p>Loading tickets…</p>;
+  if (loading && tickets.length === 0) return <p>Loading tickets…</p>;
 
   const columns = [
     { header: 'Ticket ID', accessor: 'id', render: (row) => <strong>#{row.id}</strong> },

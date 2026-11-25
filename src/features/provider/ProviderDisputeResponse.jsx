@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useApp } from '../../app/context/AppContext';
-import { saveDisputeResponse } from '../../data/mockRepository';
+import { saveDisputeResponse } from '../../store/slices/governanceSlice';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Upload, FileText, X } from 'lucide-react';
 
 export function ProviderDisputeResponse({ dispute }) {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
   const [statement, setStatement] = useState(dispute.providerStatement || '');
   const [evidenceFiles, setEvidenceFiles] = useState([]);
@@ -44,10 +46,15 @@ export function ProviderDisputeResponse({ dispute }) {
     if (busy) return;
     setBusy(true); setError('');
     try {
-      await saveDisputeResponse(dispute.id, currentUser.id, statement, evidenceFiles);
+      await dispatch(saveDisputeResponse({
+        disputeId: dispute.id,
+        providerId: currentUser.id,
+        statement,
+        filename: evidenceFiles,
+      })).unwrap();
       setEvidenceFiles([]);
       showToast('Dispute response and evidence saved.');
-    } catch (error) { setError(error.message); }
+    } catch (err) { setError(typeof err === 'string' ? err : err?.message); }
     finally { setBusy(false); }
   };
 

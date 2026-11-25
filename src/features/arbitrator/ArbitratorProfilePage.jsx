@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Scale, User, Mail, Phone, ShieldCheck, CheckCircle2, Award, FileText, Calendar, Clock, MapPin, Gavel, Edit3, Save, X, Upload } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
 import { PhoneInputField, validatePhoneNumber } from '../../design-system/primitives/PhoneInputField';
-import { updateUserProfile, getDisputes } from '../../data/mockRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { updateUserProfile } from '../../store/slices/usersSlice';
+import { fetchDisputes, selectDisputes } from '../../store/slices/governanceSlice';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ArbitratorProfilePage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
-  const { data: disputes } = useRepositoryQuery(getDisputes);
+
+  useEffect(() => {
+    dispatch(fetchDisputes());
+  }, [dispatch]);
+
+  const disputes = useSelector(selectDisputes);
 
   const myDisputes = (disputes || []).filter(
     (d) => d.arbitratorId === currentUser?.id || d.arbitratorId === 'user-arbit-1'
@@ -60,16 +67,19 @@ export function ArbitratorProfilePage() {
 
     setSaving(true);
     try {
-      await updateUserProfile(currentUser.id, {
-        name: name.trim(),
-        phone: phone.trim(),
-        avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
-        title: title.trim()
-      });
+      await dispatch(updateUserProfile({
+        userId: currentUser.id,
+        updates: {
+          name: name.trim(),
+          phone: phone.trim(),
+          avatar: avatar.trim() || DEFAULT_BLANK_AVATAR,
+          title: title.trim()
+        }
+      })).unwrap();
       setIsEditing(false);
       showToast('Arbitrator profile updated successfully!', 'success');
     } catch (err) {
-      showToast(err.message || 'Unable to update profile.', 'error');
+      showToast(typeof err === 'string' ? err : err?.message || 'Unable to update profile.', 'error');
     } finally {
       setSaving(false);
     }

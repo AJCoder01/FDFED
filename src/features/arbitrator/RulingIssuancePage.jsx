@@ -1,22 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Award } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { Award, ShieldAlert } from 'lucide-react';
 
-import { issueRuling } from '../../data/mockRepository';
+import {
+  fetchDisputeById,
+  issueRuling,
+  selectSelectedDispute,
+} from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 
 import { TextField } from '../../design-system/primitives/TextField';
 import { Select } from '../../design-system/primitives/Select';
 import { Button } from '../../design-system/primitives/Button';
 
-const MINIMUM_WORDS = 20;
+const MINIMUM_CHARACTERS = 10;
 
 export function RulingIssuancePage() {
+  const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { showToast } = useApp();
 
   const caseId = searchParams.get('caseId') || 'DISP-101';
+
+  useEffect(() => {
+    if (caseId) {
+      dispatch(fetchDisputeById(caseId));
+    }
+  }, [dispatch, caseId]);
+
+  const selectedDispute = useSelector(selectSelectedDispute);
+  const dispute = selectedDispute?.id === caseId ? selectedDispute : null;
+  const maxAllowedAward = dispute ? Number(dispute.amountInDispute || 0) : null;
 
   const [verdict, setVerdict] = useState('In favour of Customer');
   const [awardAmount, setAwardAmount] = useState('0');
@@ -24,21 +40,26 @@ export function RulingIssuancePage() {
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState(false);
 
-  // Count words, ignoring extra spaces and empty input.
-  const wordCount = rulingReason.trim()
-    ? rulingReason.trim().split(/\s+/).length
-    : 0;
+  const isFavorProvider = verdict.toLowerCase().includes('provider');
 
-  const hasEnoughWords = wordCount >= MINIMUM_WORDS;
+  const charCount = rulingReason.trim().length;
+  const hasEnoughCharacters = charCount >= MINIMUM_CHARACTERS;
+
+  const handleVerdictChange = (nextVerdict) => {
+    setVerdict(nextVerdict);
+    if (nextVerdict.toLowerCase().includes('provider')) {
+      setAwardAmount('0');
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (busy) return;
 
-    if (!hasEnoughWords) {
+    if (!hasEnoughCharacters) {
       showToast(
-        `Please enter at least ${MINIMUM_WORDS} words in the ruling rationale. You have entered ${wordCount}.`,
+        `Please enter at least ${MINIMUM_CHARACTERS} characters in the ruling rationale. You have entered ${charCount}.`,
         'warning'
       );
       return;
@@ -51,14 +72,30 @@ export function RulingIssuancePage() {
       return;
     }
 
+    if (isFavorProvider && amount > 0) {
+      showToast('A ruling in favour of the Provider cannot award refund compensation.', 'warning');
+      return;
+    }
+
+    if (maxAllowedAward !== null && amount > maxAllowedAward) {
+      showToast(
+        `Award amount (₹${amount.toLocaleString('en-IN')}) cannot exceed the escrow booking limit of ₹${maxAllowedAward.toLocaleString('en-IN')}.`,
+        'warning'
+      );
+      return;
+    }
+
     setBusy(true);
 
     try {
-      await issueRuling(caseId, {
-        verdict,
-        awardAmount: amount,
-        reason: rulingReason.trim()
-      });
+      await dispatch(issueRuling({
+        disputeId: caseId,
+        values: {
+          verdict,
+          awardAmount: amount,
+          reason: rulingReason.trim()
+        }
+      })).unwrap();
 
       setIssued(true);
       showToast(
@@ -67,7 +104,7 @@ export function RulingIssuancePage() {
       );
     } catch (error) {
       showToast(
-        error?.message || 'Unable to issue the ruling. Please try again.',
+        (typeof error === 'string' ? error : error?.message) || 'Unable to issue the ruling. Please try again.',
         'warning'
       );
     } finally {
@@ -197,10 +234,23 @@ export function RulingIssuancePage() {
           disabled
         />
 
+        {dispute && (
+          <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-control)', backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD', display: 'flex', gap: '12px', alignItems: 'flex-start', fontSize: '13px', color: '#075985' }}>
+            <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <strong>Escrow Refund Cap Policy: Maximum Award ₹{Number(maxAllowedAward || 0).toLocaleString('en-IN')}</strong>
+              <span>
+                Booking Paid Value: <strong>₹{Number(dispute.amountInDispute || 0).toLocaleString('en-IN')}</strong> · Customer Claimed:{' '}
+                <strong>₹{Number(dispute.claimAmount || dispute.amountInDispute || 0).toLocaleString('en-IN')}</strong>. Refunds are capped at 100% of the paid booking escrow.
+              </span>
+            </div>
+          </div>
+        )}
+
         <Select
           label="Verdict Decision"
           value={verdict}
-          onChange={(event) => setVerdict(event.target.value)}
+          onChange={(event) => handleVerdictChange(event.target.value)}
           options={[
             {
               value: 'In favour of Customer',
@@ -213,10 +263,6 @@ export function RulingIssuancePage() {
             {
               value: 'Mutual Settlement / Split',
               label: 'Mutual Settlement / Split Responsibility'
-            },
-            {
-              value: 'Other',
-              label: 'Other Verdict'
             }
           ]}
         />
@@ -224,8 +270,18 @@ export function RulingIssuancePage() {
         <TextField
           label="Awarded Compensation Amount (INR ₹)"
           type="number"
-          value={awardAmount}
+          min="0"
+          max={isFavorProvider ? 0 : (maxAllowedAward ?? undefined)}
+          value={isFavorProvider ? '0' : awardAmount}
+          disabled={isFavorProvider || busy}
           onChange={(event) => setAwardAmount(event.target.value)}
+          helperText={
+            isFavorProvider
+              ? 'Customer compensation is ₹0 when verdict favours the Provider.'
+              : maxAllowedAward !== null
+                ? `Allowed range: ₹0 to ₹${maxAllowedAward.toLocaleString('en-IN')} (100% of paid booking value)`
+                : undefined
+          }
           required
         />
 
@@ -248,19 +304,19 @@ export function RulingIssuancePage() {
               gap: '12px',
               marginTop: '8px',
               fontSize: '13px',
-              color: hasEnoughWords
+              color: hasEnoughCharacters
                 ? 'var(--color-success)'
                 : 'var(--color-muted)'
             }}
           >
             <span>
-              {hasEnoughWords
-                ? 'Minimum word requirement met.'
-                : `Please enter at least ${MINIMUM_WORDS} words.`}
+              {hasEnoughCharacters
+                ? 'Minimum character requirement met.'
+                : `Please enter at least ${MINIMUM_CHARACTERS} characters.`}
             </span>
 
             <strong>
-              {wordCount} / {MINIMUM_WORDS} words
+              {charCount} / {MINIMUM_CHARACTERS} chars
             </strong>
           </div>
         </div>

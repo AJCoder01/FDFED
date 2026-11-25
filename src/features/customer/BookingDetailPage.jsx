@@ -1,8 +1,19 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, HelpCircle, Scale } from 'lucide-react';
-import { getBookingById, getDisputes, updateBookingStatus, submitReview, respondToTimeProposal } from '../../data/mockRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useDispatch, useSelector } from 'react-redux';
+import { ArrowLeft, Clock, Star, HelpCircle, Scale } from 'lucide-react';
+import {
+  fetchBookingById,
+  respondToTimeProposal,
+  selectBookingsError,
+  selectBookingsLoading,
+  selectSelectedBooking,
+  updateBookingStatus,
+} from '../../store/slices/bookingsSlice';
+import { submitReview } from '../../store/slices/marketplaceSlice';
+import { fetchDisputes, selectDisputes } from '../../store/slices/governanceSlice';
+import { fetchWallet } from '../../store/slices/financeSlice';
+import { bookingStatusLabel, calculateCancellationRefund, isAccepted } from '../../data/bookingRules';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -13,18 +24,32 @@ import { ConfirmDialog } from '../../design-system/primitives/ConfirmDialog';
 import { TextField } from '../../design-system/primitives/TextField';
 
 export function BookingDetailPage() {
+  const dispatch = useDispatch();
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const { currentUser, showToast } = useApp();
 
-  const load = useCallback(async () => {
-    const job = await getBookingById(bookingId);
-    if (!job || job.customerId !== currentUser.id) return null;
-    const disputes = await getDisputes();
-    const dispute = disputes.find(d => d.bookingId === job.id) || null;
-    return { ...job, dispute };
-  }, [bookingId, currentUser.id]);
-  const { data: booking, setData: setBooking, loading, error, refresh } = useRepositoryQuery(load);
+  const refresh = useCallback(() => {
+    if (bookingId) {
+      dispatch(fetchBookingById(bookingId));
+      dispatch(fetchDisputes());
+    }
+  }, [dispatch, bookingId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const rawBooking = useSelector(selectSelectedBooking);
+  const disputes = useSelector(selectDisputes);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
+
+  const dispute = rawBooking ? disputes.find((d) => d.bookingId === rawBooking.id) || null : null;
+  const booking = rawBooking && rawBooking.id === bookingId && rawBooking.customerId === currentUser?.id
+    ? { ...rawBooking, dispute }
+    : null;
+
   const [busy, setBusy] = useState(false);
 
   // Modals
@@ -32,31 +57,76 @@ export function BookingDetailPage() {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const acceptedJob = booking ? isAccepted(booking) : false;
+  const isCancellableStatus = booking && ['active', 'reschedule_proposed'].includes(booking.status);
+
+  useEffect(() => {
+    if (!isCancellableStatus || !acceptedJob || !booking?.freeCancellationUntil) return undefined;
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [isCancellableStatus, acceptedJob, booking?.freeCancellationUntil]);
+
+  const cancellationPreview = booking
+    ? acceptedJob
+      ? calculateCancellationRefund(
+          booking.amount,
+          booking.freeCancellationUntil,
+          booking.cancellationFeePercent ?? 20,
+          new Date(nowMs),
+        )
+      : {
+          withinFreeWindow: true,
+          feePercent: 0,
+          cancellationCharge: 0,
+          refundAmount: Number(booking.amount || 0),
+          remainingMs: 0,
+        }
+    : null;
+
+  const formatCountdown = (ms) => {
+    if (!ms || ms <= 0) return '0s';
+    const totalSec = Math.floor(ms / 1000);
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    return hrs > 0 ? `${hrs}h ${mins}m ${secs}s` : `${mins}m ${secs}s`;
+  };
 
   const handleCancelConfirm = async () => {
-    const updated = await updateBookingStatus(booking.id, 'cancelled', 'Cancelled by customer.', { role: 'customer', userId: currentUser.id });
-    setBooking(prev => ({ ...prev, ...updated }));
-    showToast(updated.paymentStatus === 'Refunded' ? 'Booking cancelled and mock payment refunded.' : 'Booking cancelled.', 'info');
+    const updated = await dispatch(updateBookingStatus({
+      bookingId: booking.id,
+      status: 'cancelled',
+      note: 'Cancelled by customer.',
+    })).unwrap();
+    await dispatch(fetchWallet());
+    const refunded = Number(updated.refundedAmount || 0);
+    const fee = Number(updated.cancellationFee || 0);
+    showToast(
+      refunded > 0
+        ? `Booking cancelled. ₹${refunded} refunded to your ServiceHub Wallet${fee > 0 ? ` (₹${fee} cancellation fee applied)` : ''}.`
+        : 'Booking cancelled.',
+      'info'
+    );
   };
   const handleReviewSubmit = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      const updated = await submitReview(booking.id, rating, reviewText, currentUser.id);
-      setBooking(prev => ({ ...prev, ...updated }));
+      await dispatch(submitReview({ bookingId: booking.id, rating, comment: reviewText })).unwrap();
       setReviewModalOpen(false);
       showToast('Your review has been saved.');
-    } catch (error) { showToast(error.message, 'warning'); }
+    } catch (error) { showToast(typeof error === 'string' ? error : error?.message, 'warning'); }
     finally { setBusy(false); }
   };
   const respond = async accept => {
     if (busy) return;
     setBusy(true);
     try {
-      const updated = await respondToTimeProposal(booking.id, accept, currentUser.id);
-      setBooking(prev => ({ ...prev, ...updated }));
+      await dispatch(respondToTimeProposal({ bookingId: booking.id, accept })).unwrap();
       showToast(accept ? 'New appointment confirmed.' : 'Proposal declined. Original appointment retained.');
-    } catch (error) { showToast(error.message, 'warning'); }
+    } catch (error) { showToast(typeof error === 'string' ? error : error?.message, 'warning'); }
     finally { setBusy(false); }
   };
 
@@ -77,14 +147,14 @@ export function BookingDetailPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-ink)' }}>Booking #{booking.id}</h1>
-            <StatusBadge status={booking.status} />
+            <StatusBadge status={booking.status} label={bookingStatusLabel(booking)} />
           </div>
           <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>{booking.serviceTitle}</p>
         </div>
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {(['active', 'in_progress', 'reschedule_proposed'].includes(booking.status)) && (
+          {isCancellableStatus && (
             <Button variant="danger" size="sm" onClick={() => setCancelModalOpen(true)}>
               Cancel Booking
             </Button>
@@ -107,6 +177,49 @@ export function BookingDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Live Cancellation Countdown & Policy Banner */}
+      {isCancellableStatus && cancellationPreview && (
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            borderLeft: `4px solid ${!acceptedJob || cancellationPreview.withinFreeWindow ? 'var(--color-success)' : 'var(--color-warning, #D97706)'}`,
+            backgroundColor: !acceptedJob || cancellationPreview.withinFreeWindow ? '#ECFDF5' : '#FFFBEB',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Clock size={18} color={!acceptedJob || cancellationPreview.withinFreeWindow ? '#059669' : '#D97706'} />
+            <div style={{ fontSize: '13px', color: 'var(--color-ink)' }}>
+              {!acceptedJob ? (
+                <>
+                  <strong>Awaiting Provider Acceptance:</strong> Free cancellation (100% refund of ₹{booking.amount}) is active until the provider accepts. Unaccepted bookings auto-cancel with a full refund at scheduled job time. Your {booking.freeCancellationHours ?? 2}h free-cancellation timer starts once accepted.
+                </>
+              ) : cancellationPreview.withinFreeWindow ? (
+                <>
+                  <strong>Free Cancellation Window Active (Started at Acceptance):</strong> Cancel within{' '}
+                  <strong>{formatCountdown(cancellationPreview.remainingMs)}</strong> for a 100% wallet refund (₹{booking.amount}).
+                </>
+              ) : (
+                <>
+                  <strong>Last-Minute Cancellation Fee Applies:</strong> Free cancellation window ended ({booking.freeCancellationHours ?? 2}h after acceptance). Cancelling now deducts{' '}
+                  <strong>{cancellationPreview.feePercent}% (₹{cancellationPreview.cancellationCharge})</strong> and refunds{' '}
+                  <strong>₹{cancellationPreview.refundAmount}</strong> to your ServiceHub Wallet.
+                </>
+              )}
+            </div>
+          </div>
+          {acceptedJob && booking.freeCancellationUntil && (
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+              Free until: {new Date(booking.freeCancellationUntil).toLocaleString('en-IN')}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Dispute, Hearing & Ruling Information Section */}
       {booking.dispute && (
@@ -250,7 +363,13 @@ export function BookingDetailPage() {
         onClose={() => setCancelModalOpen(false)}
         onConfirm={handleCancelConfirm}
         title="Confirm Booking Cancellation"
-        message={`Cancel booking #${booking.id}? Any recorded payment will be refunded in this demo.`}
+        message={
+          !acceptedJob
+            ? `This booking is still Awaiting Acceptance. Cancelling booking #${booking.id} credits ₹${booking.amount} back to your ServiceHub Wallet with ₹0 fee.`
+            : cancellationPreview?.withinFreeWindow
+              ? `Free cancellation window active (${formatCountdown(cancellationPreview.remainingMs)} remaining). Cancelling booking #${booking.id} credits ₹${booking.amount} back to your ServiceHub Wallet with ₹0 fee.`
+              : `Last-minute cancellation: Cancelling booking #${booking.id} applies a ${cancellationPreview?.feePercent ?? 20}% fee (₹${cancellationPreview?.cancellationCharge ?? 0}). The remaining ₹${cancellationPreview?.refundAmount ?? 0} will be refunded to your ServiceHub Wallet.`
+        }
         confirmLabel="Yes, Cancel Booking"
         variant="danger"
       />

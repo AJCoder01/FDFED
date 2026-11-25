@@ -1,34 +1,55 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, CheckCircle2, Play } from 'lucide-react';
-import { getBookingById, getDisputes } from '../../data/mockRepository';
+import {
+  fetchBookingById,
+  selectBookingsError,
+  selectBookingsLoading,
+  selectSelectedBooking,
+  updateBookingStatus,
+} from '../../store/slices/bookingsSlice';
+import { fetchDisputes, selectDisputes } from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
 import { TextField } from '../../design-system/primitives/TextField';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ProviderDisputeResponse } from './ProviderDisputeResponse';
 import { JobRequestActions } from './JobRequestActions';
-import { formatDate, formatTimestamp, isAccepted, isPaid, money, netPayout, platformFee, updateJob } from './providerUtils';
+import { ACTION_TO_STATUS, formatDate, formatTimestamp, isAccepted, isPaid, money, netPayout, platformFee } from './providerUtils';
 
 export function JobDetailPage() {
+  const dispatch = useDispatch();
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { currentUser, showToast } = useApp();
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
-  const load = useCallback(async () => {
-    const job = await getBookingById(jobId);
-    if (!job || job.providerId !== currentUser.id) return { job: null, disputes: [] };
-    const disputes = await getDisputes();
-    return { job, disputes: disputes.filter(dispute => dispute.bookingId === job.id && dispute.providerId === currentUser.id) };
-  }, [jobId, currentUser.id]);
-  const { data, setData, error, loading, refresh } = useRepositoryQuery(load);
-  const job = data?.job;
-  const setJob = updated => setData(value => ({ ...value, job: updated }));
+
+  const refresh = useCallback(() => {
+    if (jobId) {
+      dispatch(fetchBookingById(jobId));
+      dispatch(fetchDisputes());
+    }
+  }, [dispatch, jobId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const rawJob = useSelector(selectSelectedBooking);
+  const allDisputes = useSelector(selectDisputes);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
+
+  const job = rawJob && rawJob.id === jobId && rawJob.providerId === currentUser?.id ? rawJob : null;
+  const data = {
+    job,
+    disputes: job ? allDisputes.filter(dispute => dispute.bookingId === job.id && dispute.providerId === currentUser?.id) : [],
+  };
 
   useEffect(() => {
     setNotes('');
@@ -46,11 +67,11 @@ export function JobDetailPage() {
     setActionError('');
     try {
       const note = action === 'start' ? 'Provider started work at the service location.' : `Job completed. Notes: ${notes.trim()}`;
-      setJob(await updateJob(job.id, currentUser.id, action, note));
+      await dispatch(updateBookingStatus({ bookingId: job.id, status: ACTION_TO_STATUS[action], note })).unwrap();
       setNotes('');
       showToast(action === 'start' ? 'Job started.' : 'Job marked completed. Earnings summary updated.');
-    } catch (error) {
-      setActionError(error.message);
+    } catch (err) {
+      setActionError(typeof err === 'string' ? err : err?.message);
       refresh();
     } finally {
       setBusy(false);
@@ -69,7 +90,7 @@ export function JobDetailPage() {
           <div className="provider-row"><h1>Job Workspace #{job.id}</h1><StatusBadge status={job.status} label={job.status === 'active' ? (isAccepted(job) ? 'Accepted' : 'Awaiting Acceptance') : undefined} /></div>
           <p className="provider-hint">{job.serviceTitle} · {formatDate(job.scheduledDate)} at {job.scheduledSlot}</p>
         </div>
-        <JobRequestActions job={job} onUpdate={setJob} onRefresh={refresh} />
+        <JobRequestActions job={job} onRefresh={refresh} />
         {job.status === 'active' && isAccepted(job) && <Button icon={Play} disabled={busy} onClick={event => changeStatus(event, 'start')}>{busy ? 'Saving…' : 'Start Work'}</Button>}
       </div>
       {actionError && <p role="alert" className="provider-error">{actionError}</p>}

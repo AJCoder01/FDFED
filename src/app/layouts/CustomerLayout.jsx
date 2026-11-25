@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Home, Search, Calendar, HelpCircle, Bell, RotateCcw, ChevronRight, LogOut, User } from 'lucide-react';
+import { Shield, Home, Search, Calendar, Wallet, HelpCircle, Bell, RotateCcw, ChevronRight, LogOut, User } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Toast } from '../../design-system/primitives/Toast';
 import { NotificationDrawer } from '../../features/notifications/NotificationDrawer';
@@ -18,6 +18,7 @@ export function CustomerLayout() {
     { label: 'Overview', path: '/customer', icon: Home },
     { label: 'Find Services', path: '/customer/services', icon: Search },
     { label: 'My Bookings', path: '/customer/bookings', icon: Calendar },
+    { label: 'My Wallet', path: '/customer/wallet', icon: Wallet },
     { label: 'Profile', path: '/customer/profile', icon: User },
     { label: 'Help & Support', path: '/customer/support', icon: HelpCircle },
   ];

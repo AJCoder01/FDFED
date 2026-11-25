@@ -37,9 +37,15 @@ export function SignupPage() {
   const [pincode, setPincode] = useState('');
 
   // Provider specific
+  const [providerType, setProviderType] = useState('individual');
   const [businessName, setBusinessName] = useState('');
+  const [experienceYears, setExperienceYears] = useState('3');
+  const [bio, setBio] = useState('');
   const [skill, setSkill] = useState('Home Cleaning');
-  const [serviceArea, setServiceArea] = useState('Bengaluru Urban');
+  const [operatingCity, setOperatingCity] = useState('Bengaluru');
+  const [serviceArea, setServiceArea] = useState('Bengaluru, Koramangala, Indiranagar');
+  const [servedPincodes, setServedPincodes] = useState('560034, 560038, 560103');
+  const [coverageRadiusKm, setCoverageRadiusKm] = useState('20');
 
   // Arbitrator specific
   const [title, setTitle] = useState('Senior Independent Dispute Arbitrator');
@@ -104,10 +110,17 @@ export function SignupPage() {
           addressLabel: 'Home'
         }),
         ...(selectedRole === 'provider' && {
-          businessName: businessName || `${name}'s Pro Services`,
+          providerType,
+          businessName: providerType === 'individual' ? (businessName.trim() || name.trim()) : (businessName.trim() || `${name}'s Pro Services`),
+          experienceYears: Number(experienceYears) || 0,
+          bio: bio.trim(),
+          operatingCity: operatingCity.trim() || 'Bengaluru',
           skills: [skill],
           skill,
-          serviceArea: serviceArea || 'Bengaluru Urban'
+          serviceArea: serviceArea.trim() || operatingCity.trim() || 'Bengaluru',
+          servedAreas: serviceArea.split(',').map(s => s.trim()).filter(Boolean),
+          servedPincodes: servedPincodes.split(',').map(s => s.trim()).filter(Boolean),
+          coverageRadiusKm: Number(coverageRadiusKm) || 20
         }),
         ...(selectedRole === 'arbitrator' && {
           title: title || 'Senior Independent Arbitrator'
@@ -273,30 +286,124 @@ export function SignupPage() {
           {selectedRole === 'provider' && (
             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                Service Business Details
+                Service Provider Account Type
               </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {[
+                  { key: 'individual', label: 'Individual Freelancer', desc: 'Independent pro offering personal services' },
+                  { key: 'company', label: 'Registered Company', desc: 'Established business / multi-tech agency' },
+                ].map((opt) => {
+                  const active = providerType === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setProviderType(opt.key)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 'var(--radius-control)',
+                        border: active ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                        backgroundColor: active ? 'var(--color-primary-light)' : 'var(--color-surface)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <strong style={{ display: 'block', fontSize: '13px', color: active ? 'var(--color-primary)' : 'var(--color-ink)' }}>{opt.label}</strong>
+                      <span style={{ fontSize: '11px', color: 'var(--color-muted)' }}>{opt.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {providerType === 'individual' ? (
+                <>
+                  <TextField
+                    label="Professional Display Name / Alias (Optional)"
+                    type="text"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="Defaults to your full name"
+                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <TextField
+                      label="Years of Experience"
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={experienceYears}
+                      onChange={(e) => setExperienceYears(e.target.value)}
+                      required
+                    />
+                    <Select
+                      label="Primary Trade / Skill"
+                      value={skill}
+                      onChange={(e) => setSkill(e.target.value)}
+                      options={skillOptions}
+                      required
+                    />
+                  </div>
+                  <TextField
+                    label="Professional Bio & Certifications"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Briefly describe your hands-on expertise and tools..."
+                    multiline
+                    rows={2}
+                  />
+                </>
+              ) : (
+                <>
+                  <TextField
+                    label="Business / Company Name"
+                    type="text"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="e.g. ProClean Experts & Repairs Pvt. Ltd."
+                    required
+                  />
+                  <Select
+                    label="Primary Category / Skill"
+                    value={skill}
+                    onChange={(e) => setSkill(e.target.value)}
+                    options={skillOptions}
+                    required
+                  />
+                </>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <TextField
+                  label="Operating City *"
+                  type="text"
+                  value={operatingCity}
+                  onChange={(e) => setOperatingCity(e.target.value)}
+                  placeholder="e.g. Bengaluru or Delhi"
+                  required
+                />
+                <TextField
+                  label="Coverage Radius (km)"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={coverageRadiusKm}
+                  onChange={(e) => setCoverageRadiusKm(e.target.value)}
+                  required
+                />
+              </div>
               <TextField
-                label="Business / Trade Name"
-                type="text"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="e.g. ProClean Experts & Repairs"
-                required
-              />
-              <Select
-                label="Primary Category / Skill"
-                value={skill}
-                onChange={(e) => setSkill(e.target.value)}
-                options={skillOptions}
-                required
-              />
-              <TextField
-                label="Service Coverage Area"
+                label="Served Localities / Areas (comma-separated) *"
                 type="text"
                 value={serviceArea}
                 onChange={(e) => setServiceArea(e.target.value)}
-                placeholder="e.g. Bengaluru Urban (HSR, Koramangala, Bellandur)"
+                placeholder="e.g. Bengaluru, Koramangala, Indiranagar"
                 required
+              />
+              <TextField
+                label="Served PIN Codes (comma-separated)"
+                type="text"
+                value={servedPincodes}
+                onChange={(e) => setServedPincodes(e.target.value)}
+                placeholder="e.g. 560034, 560038, 560103"
               />
             </div>
           )}

@@ -1,20 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Calendar as CalendarIcon, Video, CheckCircle2 } from 'lucide-react';
 import { getTodayDateInputValue, addDays } from '../../utils/date';
-import { getDisputes, scheduleHearing } from '../../data/mockRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import {
+  fetchDisputes,
+  scheduleHearing,
+  selectDisputes,
+} from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
 import { Button } from '../../design-system/primitives/Button';
 
 export function HearingSchedulerPage() {
+  const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
   const caseIdParam = searchParams.get('caseId') || 'DISP-101';
   const { currentUser, showToast } = useApp();
 
-  const { data: disputes } = useRepositoryQuery(getDisputes);
-  const caseDispute = (disputes || []).find(d => d.id === caseIdParam);
+  useEffect(() => {
+    dispatch(fetchDisputes());
+  }, [dispatch]);
+
+  const disputes = useSelector(selectDisputes);
+  const caseDispute = disputes.find(d => d.id === caseIdParam);
 
   const [date, setDate] = useState(() => addDays(getTodayDateInputValue(), 1));
   const [time, setTime] = useState('11:00 AM');
@@ -33,7 +42,15 @@ export function HearingSchedulerPage() {
   const selected = date || getTodayDateInputValue();
   const monday = new Date(`${selected}T12:00:00Z`);
   monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
-  const hearings = (disputes || []).filter(dispute => (dispute.arbitratorId === currentUser?.id || dispute.arbitratorId === 'user-arbit-1') && dispute.hearingSchedule);
+  const hearings = (disputes || []).filter(dispute => {
+    if (!dispute.hearingSchedule) return false;
+    if (!currentUser) return dispute.arbitratorId === 'user-arbit-1';
+    if (currentUser.isSuperUser) return Boolean(dispute.arbitratorId);
+    return (
+      dispute.arbitratorId === currentUser.id ||
+      (currentUser.name && dispute.arbitratorName?.toLowerCase() === currentUser.name.toLowerCase())
+    );
+  });
   const calendarDays = Array.from({ length: 7 }, (_, index) => {
     const value = addDays(monday.toISOString().slice(0, 10), index);
     return { date: value, day: new Date(`${value}T12:00:00Z`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric' }), slots: hearings.filter(dispute => dispute.hearingSchedule.scheduledDate === value).length, active: value === date };
@@ -44,10 +61,13 @@ export function HearingSchedulerPage() {
     if (busy) return;
     setBusy(true);
     try {
-      await scheduleHearing(caseIdParam, { scheduledDate: date, scheduledTime: time, meetUrl });
+      await dispatch(scheduleHearing({
+        disputeId: caseIdParam,
+        values: { scheduledDate: date, scheduledTime: time, meetUrl },
+      })).unwrap();
       setScheduledSuccess(true);
       showToast(`Hearing scheduled for Case #${caseIdParam} on ${date} at ${time}. Both parties notified.`, 'success');
-    } catch (error) { showToast(error.message, 'warning'); }
+    } catch (err) { showToast(typeof err === 'string' ? err : err?.message, 'warning'); }
     finally { setBusy(false); }
   };
 

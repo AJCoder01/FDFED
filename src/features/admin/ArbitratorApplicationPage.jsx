@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getArbitratorApplications, approveArbitratorApplication, rejectArbitratorApplication } from '../../data/mockRepository';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  approveArbitratorApplication,
+  fetchArbitratorApplications,
+  rejectArbitratorApplication,
+  selectArbitratorApplications,
+  selectGovernanceError,
+  selectGovernanceLoading,
+} from '../../store/slices/governanceSlice';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -11,24 +18,35 @@ import { useApp } from '../../app/context/AppContext';
 import { Scale, CheckCircle2, XCircle, FileText, Eye } from 'lucide-react';
 
 export function ArbitratorApplicationPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
-  const { data: applications, loading, error, refresh } = useRepositoryQuery(getArbitratorApplications);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchArbitratorApplications());
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const applications = useSelector(selectArbitratorApplications);
+  const loading = useSelector(selectGovernanceLoading);
+  const error = useSelector(selectGovernanceError);
   const [selectedApp, setSelectedApp] = useState(null);
   const [busy, setBusy] = useState(false);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  if (loading && applications.length === 0) return <Skeleton height="400px" borderRadius="12px" />;
 
   const handleApprove = async (appId) => {
     if (busy) return;
     setBusy(true);
     try {
-      await approveArbitratorApplication(appId);
+      await dispatch(approveArbitratorApplication(appId)).unwrap();
       showToast('Arbitrator application approved. Account created/activated.', 'success');
       setSelectedApp(null);
-      refresh();
     } catch (err) {
-      showToast(err.message, 'warning');
+      showToast(typeof err === 'string' ? err : err?.message, 'warning');
     } finally {
       setBusy(false);
     }
@@ -38,12 +56,11 @@ export function ArbitratorApplicationPage() {
     if (busy) return;
     setBusy(true);
     try {
-      await rejectArbitratorApplication(appId);
+      await dispatch(rejectArbitratorApplication({ applicationId: appId })).unwrap();
       showToast('Arbitrator application rejected.', 'info');
       setSelectedApp(null);
-      refresh();
     } catch (err) {
-      showToast(err.message, 'warning');
+      showToast(typeof err === 'string' ? err : err?.message, 'warning');
     } finally {
       setBusy(false);
     }

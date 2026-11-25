@@ -34,9 +34,6 @@ export function PublicLayout() {
             <Link to="/services" style={{ color: location.pathname === '/services' ? 'var(--color-primary)' : 'var(--color-ink-secondary)', fontWeight: '600', fontSize: '14px', transition: 'color 0.15s ease' }}>
               Find Services
             </Link>
-            <Link to="/post-a-job" style={{ color: location.pathname === '/post-a-job' ? 'var(--color-primary)' : 'var(--color-ink-secondary)', fontWeight: '600', fontSize: '14px', transition: 'color 0.15s ease' }}>
-              Post a Custom Job
-            </Link>
             <Link to="/help" style={{ color: location.pathname === '/help' ? 'var(--color-primary)' : 'var(--color-ink-secondary)', fontWeight: '600', fontSize: '14px', transition: 'color 0.15s ease' }}>
               Help & Support
             </Link>
@@ -119,7 +116,6 @@ export function PublicLayout() {
               <h4 style={{ color: '#FFFFFF', fontSize: '14px', fontWeight: '700', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Marketplace</h4>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
                 <li><Link to="/services" style={{ color: '#94A3B8' }}>Browse All Services</Link></li>
-                <li><Link to="/post-a-job" style={{ color: '#94A3B8' }}>Post Custom Request</Link></li>
                 <li><Link to="/signup?role=provider" style={{ color: '#94A3B8' }}>Become a Provider</Link></li>
                 <li><Link to="/help" style={{ color: '#94A3B8' }}>Escrow Guarantee</Link></li>
               </ul>

@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { DollarSign, TrendingUp, CreditCard, Users, PieChart, Search, Filter, ShieldCheck, Eye } from 'lucide-react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
-import { getRevenueStats } from '../../data/mockRepository';
+import {
+  fetchRevenueStats,
+  fetchWallet,
+  selectFinanceError,
+  selectFinanceLoading,
+  selectRevenueStats,
+  selectWallet,
+} from '../../store/slices/financeSlice';
 import { platformFee, netPayout } from '../../data/bookingRules';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -13,13 +20,26 @@ import { Select } from '../../design-system/primitives/Select';
 import { Modal } from '../../design-system/primitives/Modal';
 
 export function AdminRevenuePage() {
-  const { data: stats, loading, error, refresh } = useRepositoryQuery(getRevenueStats);
+  const dispatch = useDispatch();
+  const refresh = useCallback(() => {
+    dispatch(fetchRevenueStats());
+    dispatch(fetchWallet());
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const stats = useSelector(selectRevenueStats);
+  const adminWallet = useSelector(selectWallet);
+  const loading = useSelector(selectFinanceLoading);
+  const error = useSelector(selectFinanceError);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedTxn, setSelectedTxn] = useState(null);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" />;
+  if (loading || !stats) return <Skeleton height="400px" />;
 
   // Filter transactions
   const filteredTransactions = stats.recentTransactions.filter(txn => {
@@ -86,11 +106,24 @@ export function AdminRevenuePage() {
       }
     },
     {
-      header: 'Net Provider Payout',
+      header: 'Net Provider Payout (95%)',
       accessor: 'netPayout',
       render: (row) => {
         return <span style={{ fontWeight: '600', color: 'var(--color-ink-secondary)' }}>₹{netPayout(row)}</span>;
       }
+    },
+    {
+      header: 'Refund / Cancel Fee',
+      render: (row) => (
+        <div style={{ fontSize: '11px' }}>
+          <div>Refund: <strong>₹{row.refundedAmount || 0}</strong></div>
+          <div>Cancel Fee: <strong>₹{row.cancellationFee || 0}</strong></div>
+        </div>
+      )
+    },
+    {
+      header: 'Arbitrator Fee',
+      render: (row) => <span style={{ fontSize: '12px' }}>₹{row.arbitratorFee || 0}</span>
     },
     {
       header: 'Payment Method',
@@ -189,11 +222,13 @@ export function AdminRevenuePage() {
             <PieChart size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>AVG FEE PER BOOKING</span>
-            <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '2px' }}>
-              ₹{stats.avgFeePerBooking}
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '700', letterSpacing: '0.04em' }}>ADMIN WALLET & CANCEL FEES</span>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '2px' }}>
+              ₹{(adminWallet?.walletBalance ?? stats.totalRevenue).toLocaleString()}
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Across {stats.transactionCount} bookings</span>
+            <span style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>
+              Cancel charges: ₹{(stats.totalCancellationCharges || 0).toLocaleString()} · Arbitrator fees: ₹{(stats.totalArbitratorFees || 0).toLocaleString()}
+            </span>
           </div>
         </div>
       </div>
@@ -252,6 +287,25 @@ export function AdminRevenuePage() {
         </div>
 
         <DataTable columns={columns} data={filteredTransactions} keyField="id" emptyMessage="No transactions matching filters." />
+      </div>
+
+      {/* Platform-Wide Wallet Ledger */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-ink)', margin: 0 }}>Platform-Wide Wallet & Dispute Transaction Log</h2>
+        <p style={{ fontSize: '13px', color: 'var(--color-muted)', margin: 0 }}>Every wallet credit/debit across customers, providers, arbitrators, and platform fees</p>
+        <DataTable
+          columns={[
+            { header: 'Txn ID', accessor: 'id', render: (r) => <strong>{r.id}</strong> },
+            { header: 'Account', accessor: 'accountId' },
+            { header: 'Type', render: (r) => <strong>{r.type?.replaceAll('_', ' ')}</strong> },
+            { header: 'Description', accessor: 'description' },
+            { header: 'Amount', render: (r) => <strong style={{ color: r.direction === 'CREDIT' ? '#059669' : 'var(--color-ink)' }}>{r.direction === 'CREDIT' ? '+' : '-'}₹{r.amount}</strong> },
+            { header: 'Status', render: (r) => <StatusBadge status={r.status === 'Successful' ? 'approved' : 'info'} label={r.status} /> },
+          ]}
+          data={stats.walletTransactions || []}
+          keyField="id"
+          emptyMessage="No wallet transactions recorded yet."
+        />
       </div>
 
       {/* Transaction Details Modal */}

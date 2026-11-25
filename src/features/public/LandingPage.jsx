@@ -1,31 +1,46 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Search, Shield, Star, Wrench, Sparkles, Zap, Tv, Wind, ArrowRight, X } from 'lucide-react';
-import { getCategories, getServices } from '../../data/mockRepository';
+import {
+  fetchCategories,
+  fetchServices,
+  selectCategories,
+  selectMarketplaceError,
+  selectMarketplaceLoading,
+  selectServices,
+} from '../../store/slices/marketplaceSlice';
+import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { Button } from '../../design-system/primitives/Button';
 import { useApp } from '../../app/context/AppContext';
 
 export function LandingPage() {
+  const dispatch = useDispatch();
   const { currentRole, logout } = useApp();
   const navigate = useNavigate();
 
+  // When on the landing page, ensure any stale session is cleared so user is guest and must log in / sign up
   useEffect(() => {
-    // When on the landing page, ensure any stale session is cleared so user is guest and must log in / sign up
     if (currentRole && currentRole !== 'guest') {
       logout();
     }
   }, [currentRole, logout]);
 
-  const load = useCallback(async () => {
-    const [categories, services] = await Promise.all([getCategories(), getServices()]);
-    return { categories, services };
-  }, []);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const categories = data?.categories || [];
-  const allServices = data?.services || [];
+  const load = useCallback(() => {
+    dispatch(fetchCategories());
+    dispatch(fetchServices({}));
+  }, [dispatch]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const categories = useSelector(selectCategories);
+  const allServices = useSelector(selectServices);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
+  const refresh = load;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -368,6 +383,28 @@ export function LandingPage() {
               </div>
               <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--color-ink)' }}>Approve & Release</h4>
               <p style={{ fontSize: '13px', color: 'var(--color-muted)', marginTop: '4px' }}>Review the job result and release the funds to provider seamlessly.</p>
+            </div>
+          </div>
+
+          {/* 5% / 95% Platform Fee Transparency Callout */}
+          <div style={{ marginTop: '28px', padding: '20px 24px', borderRadius: '14px', backgroundColor: 'var(--color-primary-light)', border: '1px solid var(--color-primary-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Transparent Marketplace Pricing
+              </div>
+              <p style={{ fontSize: '14px', color: 'var(--color-ink)', margin: '4px 0 0 0', lineHeight: 1.5 }}>
+                <strong>ServiceHub charges a 5% platform fee</strong> on applicable transactions. The remaining <strong>95% goes directly to the service provider</strong>, subject to applicable transaction and cancellation policies.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
+              <div style={{ padding: '8px 14px', borderRadius: '10px', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-success)' }}>95%</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Provider Share</div>
+              </div>
+              <div style={{ padding: '8px 14px', borderRadius: '10px', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-primary)' }}>5%</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-muted)', fontWeight: '600' }}>Platform Fee</div>
+              </div>
             </div>
           </div>
         </div>

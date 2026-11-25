@@ -27,6 +27,7 @@ import { BookingsListPage } from '../../features/customer/BookingsListPage';
 import { BookingDetailPage } from '../../features/customer/BookingDetailPage';
 import { SupportTicketPage } from '../../features/customer/SupportTicketPage';
 import { DisputeFilingPage } from '../../features/customer/DisputeFilingPage';
+import { CustomerWalletPage } from '../../features/customer/CustomerWalletPage';
 
 // Provider Pages
 import { ProviderDashboard } from '../../features/provider/ProviderDashboard';
@@ -57,6 +58,7 @@ import { DisputeCaseDetailPage } from '../../features/arbitrator/DisputeCaseDeta
 import { HearingSchedulerPage } from '../../features/arbitrator/HearingSchedulerPage';
 import { RulingIssuancePage } from '../../features/arbitrator/RulingIssuancePage';
 import { ArbitratorProfilePage } from '../../features/arbitrator/ArbitratorProfilePage';
+import { ArbitratorWalletPage } from '../../features/arbitrator/ArbitratorWalletPage';
 
 export function AppRoutes() {
   return (
@@ -80,6 +82,7 @@ export function AppRoutes() {
         <Route path="/customer/checkout" element={<BookingWizard />} />
         <Route path="/customer/bookings" element={<BookingsListPage />} />
         <Route path="/customer/bookings/:bookingId" element={<BookingDetailPage />} />
+        <Route path="/customer/wallet" element={<CustomerWalletPage />} />
         <Route path="/customer/support" element={<SupportTicketPage />} />
         <Route path="/customer/support/new" element={<SupportTicketPage />} />
         <Route path="/customer/dispute/new" element={<DisputeFilingPage />} />
@@ -121,6 +124,7 @@ export function AppRoutes() {
         <Route path="/arbitrator/cases/:caseId" element={<DisputeCaseDetailPage />} />
         <Route path="/arbitrator/hearings" element={<HearingSchedulerPage />} />
         <Route path="/arbitrator/rulings" element={<RulingIssuancePage />} />
+        <Route path="/arbitrator/wallet" element={<ArbitratorWalletPage />} />
         <Route path="/arbitrator/profile" element={<ArbitratorProfilePage />} />
       </Route>
 

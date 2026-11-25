@@ -1,8 +1,20 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Award, Eye } from 'lucide-react';
-import { getDisputes, getAccounts, assignDispute } from '../../data/mockRepository';
+import {
+  assignDispute,
+  fetchDisputes,
+  selectDisputes,
+  selectGovernanceError,
+  selectGovernanceLoading,
+} from '../../store/slices/governanceSlice';
+import {
+  fetchAccounts,
+  selectAccounts,
+  selectUsersError,
+  selectUsersLoading,
+} from '../../store/slices/usersSlice';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
@@ -11,22 +23,29 @@ import { Select } from '../../design-system/primitives/Select';
 import { Modal } from '../../design-system/primitives/Modal';
 
 export function DisputeAssignmentPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
   const [busy, setBusy] = useState(false);
   const [viewVerdictCase, setViewVerdictCase] = useState(null);
 
-  const load = useCallback(async () => {
-    const [disputes, accounts] = await Promise.all([
-      getDisputes(),
-      getAccounts()
-    ]);
-    const arbitrators = (accounts || []).filter(a => a.role === 'arbitrator');
-    return { disputes, arbitrators };
-  }, []);
+  const refresh = useCallback(() => {
+    dispatch(fetchDisputes());
+    dispatch(fetchAccounts());
+  }, [dispatch]);
 
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const disputes = data?.disputes || [];
-  const arbitrators = data?.arbitrators || [];
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const disputes = useSelector(selectDisputes);
+  const accounts = useSelector(selectAccounts);
+  const arbitrators = accounts.filter(a => a.role === 'arbitrator' && a.status !== 'suspended');
+  const governanceLoading = useSelector(selectGovernanceLoading);
+  const usersLoading = useSelector(selectUsersLoading);
+  const loading = governanceLoading || usersLoading;
+  const governanceError = useSelector(selectGovernanceError);
+  const usersError = useSelector(selectUsersError);
+  const error = governanceError || usersError;
 
   const handleAssign = async (disputeId, arbitratorId) => {
     if (busy) return;
@@ -34,18 +53,17 @@ export function DisputeAssignmentPage() {
     if (!selected) return;
     setBusy(true);
     try {
-      await assignDispute(disputeId, selected);
+      await dispatch(assignDispute({ disputeId, arbitrator: selected })).unwrap();
       showToast(`Arbitrator ${selected.name} assigned to Case #${disputeId}.`);
-      refresh();
-    } catch (error) {
-      showToast(error.message, 'warning');
+    } catch (err) {
+      showToast(typeof err === 'string' ? err : err?.message, 'warning');
     } finally {
       setBusy(false);
     }
   };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <p>Loading cases…</p>;
+  if (loading && disputes.length === 0) return <p>Loading cases…</p>;
 
   const arbitratorOptions = arbitrators.map(arb => ({
     value: arb.id,
@@ -113,7 +131,7 @@ export function DisputeAssignmentPage() {
           ) : (
             <Select
               placeholder="Choose"
-              value=""
+              value={row.arbitratorId || ''}
               disabled={busy || row.status === 'ruled'}
               onChange={(e) => {
                 if (e.target.value) handleAssign(row.id, e.target.value);

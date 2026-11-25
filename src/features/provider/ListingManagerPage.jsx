@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Plus, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { getCategories, getServices, saveService, deleteService } from '../../data/mockRepository';
+import {
+  createService,
+  deleteService,
+  fetchCategories,
+  fetchServices,
+  selectCategories,
+  selectMarketplaceError,
+  selectMarketplaceLoading,
+  selectServices,
+  updateService,
+} from '../../store/slices/marketplaceSlice';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { TextField } from '../../design-system/primitives/TextField';
@@ -12,15 +23,15 @@ import { Modal } from '../../design-system/primitives/Modal';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { SlotEditor } from './SlotEditor';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { money, validateSlots } from './providerUtils';
 
 const emptyForm = {
   id: '', title: '', categoryId: '', price: '', duration: '', description: '',
-  availableSlots: [], image: ''
+  freeCancellationHours: 2, cancellationFeePercent: 20, availableSlots: [], image: ''
 };
 
 export function ListingManagerPage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -30,11 +41,23 @@ export function ListingManagerPage() {
   const [draft, setDraft] = useState(false);
   const [formError, setFormError] = useState('');
   const approved = currentUser.verificationStatus === 'approved';
-  const load = useCallback(async () => {
-    const [services, categories] = await Promise.all([getServices({ role: 'provider', userId: currentUser.id }), getCategories()]);
-    return { services, categories };
-  }, [currentUser.id]);
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    if (currentUser?.id) {
+      dispatch(fetchServices({ role: 'provider', userId: currentUser.id }));
+      dispatch(fetchCategories());
+    }
+  }, [dispatch, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const services = useSelector(selectServices);
+  const categories = useSelector(selectCategories);
+  const data = { services, categories };
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
 
   useEffect(() => {
     if (pathname.endsWith('/new')) {
@@ -55,6 +78,8 @@ export function ListingManagerPage() {
     setForm({
       ...service,
       duration: Number.parseInt(service.duration, 10),
+      freeCancellationHours: service.freeCancellationHours ?? 2,
+      cancellationFeePercent: service.cancellationFeePercent ?? 20,
       image: service.image || ''
     });
     setFormError('');
@@ -93,15 +118,18 @@ export function ListingManagerPage() {
     setFormError('');
     try {
       const finalImage = form.image?.trim() || DEFAULT_SERVICE_IMAGE;
-      await saveService({
-        ...(form.id ? { id: form.id } : {}),
+      const freeCancellationHours = Math.max(0, Number(form.freeCancellationHours ?? 2));
+      const cancellationFeePercent = Math.max(0, Math.min(100, Number(form.cancellationFeePercent ?? 20)));
+      const payload = {
         title: form.title.trim(),
         description: form.description.trim(),
         price,
         duration: `${duration} mins`,
         categoryId: category.id,
         categoryName: category.name,
-        policy: form.policy?.trim() || 'Standard 24-hour cancellation policy applies.',
+        policy: form.policy?.trim() || `Free cancellation up to ${freeCancellationHours}h before slot; ${cancellationFeePercent}% fee after.`,
+        freeCancellationHours,
+        cancellationFeePercent,
         image: finalImage,
         inclusions: [],
         exclusions: [],
@@ -109,12 +137,17 @@ export function ListingManagerPage() {
         providerName: currentUser.businessName || currentUser.name,
         availableSlots: form.availableSlots,
         ...(!form.id ? { status: draft ? 'draft' : 'published' } : {})
-      }, { role: 'provider', userId: currentUser.id });
+      };
+      if (form.id) {
+        await dispatch(updateService({ id: form.id, values: payload })).unwrap();
+      } else {
+        await dispatch(createService(payload)).unwrap();
+      }
       setOpen(false);
       if (pathname.endsWith('/new')) navigate('/provider/services', { replace: true });
       showToast(form.id ? 'Listing changes saved.' : draft ? 'Listing draft saved.' : 'Listing published.');
     } catch (error) {
-      setFormError(error.message);
+      setFormError(typeof error === 'string' ? error : error?.message);
     } finally {
       setBusy(false);
     }
@@ -124,10 +157,10 @@ export function ListingManagerPage() {
     if (busy || !approved) return;
     setBusy(true);
     try {
-      await saveService({ id: service.id, status }, { role: 'provider', userId: currentUser.id });
+      await dispatch(updateService({ id: service.id, values: { status } })).unwrap();
       showToast(`Listing status saved as ${status}.`);
     } catch (error) {
-      showToast(error.message, 'error');
+      showToast(typeof error === 'string' ? error : error?.message, 'error');
     } finally {
       setBusy(false);
     }
@@ -138,11 +171,10 @@ export function ListingManagerPage() {
     if (busy || !approved) return;
     setBusy(true);
     try {
-      await deleteService(service.id, { role: 'provider', userId: currentUser.id });
+      await dispatch(deleteService(service.id)).unwrap();
       showToast('Service removed from listing.');
-      refresh();
     } catch (error) {
-      showToast(error.message, 'error');
+      showToast(typeof error === 'string' ? error : error?.message, 'error');
     } finally {
       setBusy(false);
     }
@@ -224,6 +256,10 @@ export function ListingManagerPage() {
             <div className="grid-cols-2">
               <TextField name="price" label="Fixed Price (INR)" type="number" min="1" value={form.price} onChange={change} disabled={busy} required />
               <TextField name="duration" label="Duration (Minutes)" type="number" min="1" placeholder="e.g. 60" value={form.duration} onChange={change} disabled={busy} required />
+            </div>
+            <div className="grid-cols-2">
+              <TextField name="freeCancellationHours" label="Free Cancellation Window (Hours)" type="number" min="0" max="72" value={form.freeCancellationHours} onChange={change} disabled={busy} />
+              <TextField name="cancellationFeePercent" label="Late Cancellation Fee (%)" type="number" min="0" max="100" value={form.cancellationFeePercent} onChange={change} disabled={busy} />
             </div>
             <TextField name="description" label="Detailed Description" value={form.description} onChange={change} disabled={busy} multiline required />
 

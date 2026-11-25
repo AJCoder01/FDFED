@@ -1,27 +1,60 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { Briefcase, DollarSign, Shield, Plus, CheckCircle2, Clock } from 'lucide-react';
 import { useApp } from '../../app/context/AppContext';
-import { getBookings } from '../../data/mockRepository';
+import {
+  fetchBookings,
+  selectBookings,
+  selectBookingsError,
+  selectBookingsLoading,
+} from '../../store/slices/bookingsSlice';
+import {
+  fetchWallet,
+  selectWallet,
+} from '../../store/slices/financeSlice';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Button } from '../../design-system/primitives/Button';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { bookingTime, formatDate, isPending, isPaid, money, netPayout, slotMinutes } from './providerUtils';
 import { getTodayDateInputValue } from '../../utils/date';
 
 export function ProviderDashboard() {
+  const dispatch = useDispatch();
   const { currentUser } = useApp();
   const navigate = useNavigate();
-  const load = useCallback(() => getBookings('provider', currentUser.id), [currentUser.id]);
-  const { data: jobs, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchWallet());
+    if (currentUser?.id) {
+      dispatch(fetchBookings({ role: 'provider', userId: currentUser.id }));
+    }
+  }, [dispatch, currentUser?.id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const jobs = useSelector(selectBookings);
+  const wallet = useSelector(selectWallet);
+  const loading = useSelector(selectBookingsLoading);
+  const error = useSelector(selectBookingsError);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
   if (loading) return <Skeleton height="400px" borderRadius="12px" />;
 
   const completed = jobs.filter(job => job.status === 'completed');
-  const earnings = completed.filter(isPaid).reduce((sum, job) => sum + netPayout(job), 0);
+  const completedGrossEarnings = completed
+    .filter(job => isPaid(job) || job.paymentStatus === 'Refunded')
+    .reduce((sum, job) => sum + netPayout(job), 0);
+  const disputeDeductions = Number(
+    wallet?.totalDisputeDeductions ??
+      (wallet?.transactions || [])
+        .filter(t => t.type === 'DISPUTE_DEDUCTION' && t.direction === 'DEBIT')
+        .reduce((sum, t) => sum + Number(t.amount || 0), 0),
+  );
+  const earnings = completedGrossEarnings - disputeDeductions;
   const recent = [...jobs].sort((a, b) => bookingTime(b.createdAt) - bookingTime(a.createdAt));
   const today = getTodayDateInputValue();
   const upcoming = jobs.filter(job => ['active', 'in_progress', 'reschedule_proposed'].includes(job.status) && job.scheduledDate >= today)

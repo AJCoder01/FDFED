@@ -1,9 +1,14 @@
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, Calendar, Award, Eye, Download, FileText } from 'lucide-react';
-import { getDisputeById } from '../../data/mockRepository';
+import {
+  fetchDisputeById,
+  selectGovernanceError,
+  selectGovernanceLoading,
+  selectSelectedDispute,
+} from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
@@ -11,10 +16,33 @@ import { Button } from '../../design-system/primitives/Button';
 import { Modal } from '../../design-system/primitives/Modal';
 
 export function DisputeCaseDetailPage() {
+  const dispatch = useDispatch();
   const { caseId } = useParams();
   const navigate = useNavigate();
   const { currentUser, showToast } = useApp();
   const [viewingEvidence, setViewingEvidence] = useState(null);
+
+  const refresh = useCallback(() => {
+    if (caseId) dispatch(fetchDisputeById(caseId));
+  }, [dispatch, caseId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const rawDispute = useSelector(selectSelectedDispute);
+  const loading = useSelector(selectGovernanceLoading);
+  const error = useSelector(selectGovernanceError);
+
+  const dispute =
+    rawDispute &&
+    rawDispute.id === caseId &&
+    (rawDispute.arbitratorId === currentUser?.id ||
+      rawDispute.arbitratorId === 'user-arbit-1' ||
+      currentUser?.role === 'arbitrator' ||
+      currentUser?.isSuperUser)
+      ? rawDispute
+      : null;
 
   const handleDownloadEvidence = (ev) => {
     try {
@@ -92,26 +120,11 @@ Admissible before the presiding Arbitrator.
     }
   };
 
-  const load = useCallback(async () => {
-    const dispute = await getDisputeById(caseId);
-
-    return (dispute?.arbitratorId === currentUser?.id || dispute?.arbitratorId === 'user-arbit-1' || currentUser?.role === 'arbitrator' || currentUser?.isSuperUser)
-      ? dispute
-      : null;
-  }, [caseId, currentUser?.id, currentUser?.role, currentUser?.isSuperUser]);
-
-  const {
-    data: dispute,
-    loading,
-    error,
-    refresh,
-  } = useRepositoryQuery(load);
-
   if (error) {
     return <ErrorState description={error} onRetry={refresh} />;
   }
 
-  if (loading) {
+  if (loading && !dispute) {
     return <Skeleton height="400px" borderRadius="12px" />;
   }
 

@@ -1,26 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { Layers } from 'lucide-react';
-import { getCategories, getServices } from '../../data/mockRepository';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchCategories,
+  fetchServices,
+  selectCategories,
+  selectServices,
+} from '../../store/slices/marketplaceSlice';
 import { DataTable } from '../../design-system/primitives/DataTable';
 
 export function CategoryManagerPage() {
-  const [categories, setCategories] = useState([]);
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    async function loadData() {
-      const [list, services] = await Promise.all([
-        getCategories(),
-        getServices({ role: 'admin' })
-      ]);
-      const servicesList = services || [];
-      const updated = (list || []).map(cat => ({
-        ...cat,
-        serviceCount: servicesList.filter(s => s.categoryId === cat.id || s.categoryName?.toLowerCase() === cat.name?.toLowerCase()).length
-      }));
-      setCategories(updated);
-    }
-    loadData();
-  }, []);
+    dispatch(fetchCategories());
+    dispatch(fetchServices({ role: 'admin' }));
+  }, [dispatch]);
+
+  const rawCategories = useSelector(selectCategories);
+  const servicesList = useSelector(selectServices);
+  const categories = rawCategories.map(cat => ({
+    ...cat,
+    serviceCount: servicesList.filter(s => s.categoryId === cat.id || s.categoryName?.toLowerCase() === cat.name?.toLowerCase()).length
+  }));
 
   const columns = [
     { header: 'Category Name', accessor: 'name', render: (row) => <strong>{row.name}</strong> },

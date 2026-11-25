@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getAccounts } from '../../data/mockRepository';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchAccounts,
+  selectAccounts,
+  selectUsersError,
+  selectUsersLoading,
+} from '../../store/slices/usersSlice';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
@@ -47,16 +52,27 @@ function sanitizeData(data) {
 }
 
 export function AdminAccountsPage() {
+  const dispatch = useDispatch();
   const { currentUser, isSuperUser, isSuperUserDemoMode, switchRole } = useApp();
   const navigate = useNavigate();
 
-  const { data: accounts, loading, error, refresh } = useRepositoryQuery(getAccounts);
+  const refresh = useCallback(() => {
+    dispatch(fetchAccounts());
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const accounts = useSelector(selectAccounts);
+  const loading = useSelector(selectUsersLoading);
+  const error = useSelector(selectUsersError);
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedAccount, setSelectedAccount] = useState(null);
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  if (loading && accounts.length === 0) return <Skeleton height="400px" borderRadius="12px" />;
 
   const roleOptions = [
     { value: 'all', label: 'All Actors' },

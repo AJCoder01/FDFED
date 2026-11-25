@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   FileText,
   Search,
@@ -14,8 +15,12 @@ import {
   ChevronRight,
   Filter
 } from 'lucide-react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getDisputes } from '../../data/mockRepository';
+import {
+  fetchDisputes,
+  selectDisputes,
+  selectGovernanceError,
+  selectGovernanceLoading,
+} from '../../store/slices/governanceSlice';
 import { useApp } from '../../app/context/AppContext';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -24,32 +29,45 @@ import { EmptyState } from '../../design-system/primitives/EmptyState';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 
 export function ArbitratorCasesPage() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { currentUser } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('active'); // 'active', 'pending_hearing', 'scheduled', 'all'
 
-  const load = useCallback(async () => {
-    const allDisputes = await getDisputes();
-    const userDisputes = allDisputes.filter(
-      (d) => d.arbitratorId === currentUser?.id || (!currentUser?.id && d.arbitratorId === 'user-arbit-1') || (currentUser?.id === 'user-arbit-1' && d.arbitratorId === 'user-arbit-1')
-    );
-    return userDisputes;
-  }, [currentUser?.id]);
+  const refresh = useCallback(() => {
+    dispatch(fetchDisputes());
+  }, [dispatch]);
 
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
-  const disputes = data || [];
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const allDisputes = useSelector(selectDisputes);
+  const loading = useSelector(selectGovernanceLoading);
+  const error = useSelector(selectGovernanceError);
+  const disputes = useMemo(() => allDisputes.filter((d) => {
+    if (!currentUser) return d.arbitratorId === 'user-arbit-1';
+    if (currentUser.isSuperUser) return Boolean(d.arbitratorId);
+    if (currentUser.role === 'arbitrator') {
+      return (
+        d.arbitratorId === currentUser.id ||
+        (currentUser.name && d.arbitratorName?.toLowerCase() === currentUser.name.toLowerCase())
+      );
+    }
+    return d.arbitratorId === currentUser.id;
+  }), [allDisputes, currentUser]);
 
   const filteredDisputes = useMemo(() => {
     return disputes.filter((disp) => {
       // Status filter
       if (statusFilter === 'active') {
-        if (disp.status !== 'assigned' && disp.status !== 'hearing_scheduled' && disp.status !== 'pending_assignment') {
+        if (disp.status === 'ruled' || disp.status === 'closed') {
           return false;
         }
       } else if (statusFilter === 'pending_hearing') {
-        if (disp.status !== 'assigned' && disp.status !== 'pending_assignment') return false;
+        if (disp.status === 'hearing_scheduled' || disp.status === 'ruled' || disp.status === 'closed') return false;
       } else if (statusFilter === 'scheduled') {
         if (disp.status !== 'hearing_scheduled') return false;
       } else if (statusFilter === 'ruled') {
@@ -76,10 +94,10 @@ export function ArbitratorCasesPage() {
   }
 
   const activeCount = disputes.filter(
-    (d) => d.status === 'assigned' || d.status === 'hearing_scheduled' || d.status === 'pending_assignment'
+    (d) => d.status !== 'ruled' && d.status !== 'closed'
   ).length;
   const pendingHearingCount = disputes.filter(
-    (d) => d.status === 'assigned' || d.status === 'pending_assignment'
+    (d) => d.status !== 'hearing_scheduled' && d.status !== 'ruled' && d.status !== 'closed'
   ).length;
   const scheduledCount = disputes.filter((d) => d.status === 'hearing_scheduled').length;
   const ruledCount = disputes.filter((d) => d.status === 'ruled' || d.status === 'closed').length;

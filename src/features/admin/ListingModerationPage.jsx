@@ -1,6 +1,12 @@
-import { useCallback, useState } from 'react';
-import { getServices, saveService } from '../../data/mockRepository';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
+import { useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchServices,
+  selectMarketplaceError,
+  selectMarketplaceLoading,
+  selectServices,
+  updateService,
+} from '../../store/slices/marketplaceSlice';
 import { ErrorState } from '../../design-system/primitives/ErrorState';
 import { Skeleton } from '../../design-system/primitives/Skeleton';
 import { useApp } from '../../app/context/AppContext';
@@ -9,22 +15,34 @@ import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
 
 export function ListingModerationPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => getServices({ role: 'admin' }), []);
-  const { data: services, loading, error, refresh } = useRepositoryQuery(load);
+
+  const refresh = useCallback(() => {
+    dispatch(fetchServices({ role: 'admin' }));
+  }, [dispatch]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const services = useSelector(selectServices);
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
+
   const handleToggleStatus = async (id, currentStatus) => {
     if (busy) return;
     setBusy(true);
     try {
       const status = currentStatus === 'published' ? 'paused' : 'published';
-      await saveService({ id, status }, { role: 'admin' });
+      await dispatch(updateService({ id, values: { status } })).unwrap();
       showToast(`Listing ${status}.`);
-    } catch (error) { showToast(error.message, 'error'); }
+    } catch (err) { showToast(typeof err === 'string' ? err : err?.message, 'error'); }
     finally { setBusy(false); }
   };
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="300px" />;
+  if (loading && services.length === 0) return <Skeleton height="300px" />;
 
   const columns = [
     { header: 'Title', accessor: 'title', render: (row) => <strong>{row.title}</strong> },

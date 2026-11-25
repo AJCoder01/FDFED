@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useApp } from '../../app/context/AppContext';
-import { saveProvider } from '../../data/mockRepository';
+import { saveProvider } from '../../store/slices/usersSlice';
 import { TextField } from '../../design-system/primitives/TextField';
 import { StatusBadge } from '../../design-system/primitives/StatusBadge';
 import { Button } from '../../design-system/primitives/Button';
@@ -8,6 +9,7 @@ import { Upload } from 'lucide-react';
 import { DEFAULT_BLANK_AVATAR } from '../../data/mockData';
 
 export function ProviderOnboardingPage() {
+  const dispatch = useDispatch();
   const { currentUser, showToast } = useApp();
 
   const handleAvatarFile = (e) => {
@@ -21,8 +23,14 @@ export function ProviderOnboardingPage() {
     name: '',
     phone: '',
     avatar: '',
+    providerType: 'company',
     businessName: '',
+    operatingCity: 'Bengaluru',
     serviceArea: '',
+    servedPincodes: '',
+    coverageRadiusKm: 25,
+    experienceYears: '',
+    bio: '',
     skills: '',
     documentName: ''
   });
@@ -33,20 +41,46 @@ export function ProviderOnboardingPage() {
     currentUser.name,
     currentUser.phone,
     currentUser.avatar,
+    currentUser.providerType,
     currentUser.businessName,
+    currentUser.operatingCity,
     currentUser.serviceArea,
+    currentUser.servedPincodes,
+    currentUser.coverageRadiusKm,
+    currentUser.experienceYears,
+    currentUser.bio,
     currentUser.skills,
     currentUser.documentName
   ]);
 
   useEffect(() => {
-    const [name, phone, avatar, businessName, serviceArea, skills, documentName] = JSON.parse(saved);
+    const [
+      name,
+      phone,
+      avatar,
+      providerType,
+      businessName,
+      operatingCity,
+      serviceArea,
+      servedPincodes,
+      coverageRadiusKm,
+      experienceYears,
+      bio,
+      skills,
+      documentName
+    ] = JSON.parse(saved);
     setForm({
       name: name || '',
       phone: phone || '',
       avatar: avatar || DEFAULT_BLANK_AVATAR,
+      providerType: providerType || 'company',
       businessName: businessName || '',
+      operatingCity: operatingCity || 'Bengaluru',
       serviceArea: serviceArea || '',
+      servedPincodes: Array.isArray(servedPincodes) ? servedPincodes.join(', ') : '',
+      coverageRadiusKm: coverageRadiusKm ?? 25,
+      experienceYears: experienceYears ?? '',
+      bio: bio || '',
       skills: (skills || []).join(', '),
       documentName: documentName || ''
     });
@@ -60,14 +94,25 @@ export function ProviderOnboardingPage() {
     setBusy(true);
     setError('');
     try {
-      await saveProvider(currentUser.id, {
-        ...form,
-        skills: form.skills.split(',').map(skill => skill.trim()).filter(Boolean)
-      }, submit);
+      const areaTokens = form.serviceArea.split(',').map(s => s.trim()).filter(Boolean);
+      const pinTokens = form.servedPincodes.split(',').map(s => s.trim()).filter(Boolean);
+      await dispatch(saveProvider({
+        providerId: currentUser.id,
+        values: {
+          ...form,
+          servedAreas: areaTokens,
+          servedPincodes: pinTokens,
+          coverageRadiusKm: Number(form.coverageRadiusKm) || 25,
+          experienceYears: form.experienceYears !== '' ? Number(form.experienceYears) : undefined,
+          skills: form.skills.split(',').map(skill => skill.trim()).filter(Boolean)
+        },
+        submit
+      })).unwrap();
       showToast(submit ? 'Verification profile submitted for Admin review.' : 'Provider profile saved.', 'success');
-    } catch (error) {
-      setError(error.message);
-      showToast(error.message, 'error');
+    } catch (err) {
+      const msg = typeof err === 'string' ? err : err?.message;
+      setError(msg);
+      showToast(msg, 'error');
     } finally {
       setBusy(false);
     }
@@ -141,10 +186,53 @@ export function ProviderOnboardingPage() {
         <TextField name="provider-email" label="Account Email (Read-Only)" value={currentUser.email} disabled helperText="Used for authentication and dispatch communications" />
 
         <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-ink)', marginTop: '12px', borderBottom: '1px dashed var(--color-border)', paddingBottom: '8px' }}>
-          Business & Service Information
+          Provider Type, Business & Coverage Area
         </h3>
-        <TextField name="businessName" label="Business / Trading Name *" value={form.businessName} onChange={change} required disabled={busy} placeholder="e.g. Urban Clean Pro & Pest Solutions" />
-        <TextField name="serviceArea" label="Service Coverage Area *" value={form.serviceArea} onChange={change} required disabled={busy} placeholder="e.g. Bengaluru Urban, Indiranagar, Whitefield, Koramangala" multiline />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {[
+            { value: 'individual', label: 'Individual Freelancer' },
+            { value: 'company', label: 'Registered Company / Agency' },
+          ].map(opt => (
+            <label
+              key={opt.value}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: `1.5px solid ${form.providerType === opt.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                backgroundColor: form.providerType === opt.value ? 'var(--color-primary-light)' : 'transparent',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="radio"
+                name="providerType"
+                value={opt.value}
+                checked={form.providerType === opt.value}
+                onChange={change}
+                disabled={busy}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        <TextField name="businessName" label={form.providerType === 'individual' ? 'Display / Brand Name *' : 'Business / Trading Name *'} value={form.businessName} onChange={change} required disabled={busy} placeholder={form.providerType === 'individual' ? 'e.g. Vikram Joshi Plumbing' : 'e.g. Urban Clean Pro & Pest Solutions'} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <TextField name="operatingCity" label="Operating City *" value={form.operatingCity} onChange={change} required disabled={busy} placeholder="e.g. Bengaluru" />
+          <TextField name="coverageRadiusKm" label="Coverage Radius (km)" type="number" min="1" max="100" value={form.coverageRadiusKm} onChange={change} disabled={busy} />
+        </div>
+        <TextField name="serviceArea" label="Service Coverage Areas (Comma separated) *" value={form.serviceArea} onChange={change} required disabled={busy} placeholder="e.g. Indiranagar, Whitefield, Koramangala" multiline />
+        <TextField name="servedPincodes" label="Served PIN Codes (Comma separated)" value={form.servedPincodes} onChange={change} disabled={busy} placeholder="e.g. 560038, 560066, 560034" />
+        {form.providerType === 'individual' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
+            <TextField name="experienceYears" label="Experience (Years)" type="number" min="0" value={form.experienceYears} onChange={change} disabled={busy} placeholder="e.g. 5" />
+            <TextField name="bio" label="Short Bio / Specialization" value={form.bio} onChange={change} disabled={busy} placeholder="e.g. Certified technician specializing in home plumbing" />
+          </div>
+        )}
         <TextField name="skills" label="Trade Skills (Comma separated) *" value={form.skills} onChange={change} required disabled={busy} placeholder="Cleaning, Electrical, Plumbing, Appliance Repair" helperText="Used to match custom job requests and catalog filters" />
         <TextField name="documentName" label="Verification Document Record" value={form.documentName} onChange={change} disabled={busy} placeholder="e.g. trade-license-ka-2025.pdf" helperText="Demo document record only; no real identity document is uploaded or verified." />
 

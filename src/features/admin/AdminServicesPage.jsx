@@ -1,6 +1,15 @@
-import React, { useState, useCallback } from 'react';
-import { useRepositoryQuery } from '../../data/useRepositoryQuery';
-import { getServices, getCategories, saveService, deleteService } from '../../data/mockRepository';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  deleteService,
+  fetchCategories,
+  fetchServices,
+  selectCategories,
+  selectMarketplaceError,
+  selectMarketplaceLoading,
+  selectServices,
+  updateService,
+} from '../../store/slices/marketplaceSlice';
 import { DEFAULT_SERVICE_IMAGE } from '../../data/mockData';
 import { useApp } from '../../app/context/AppContext';
 import { DataTable } from '../../design-system/primitives/DataTable';
@@ -14,18 +23,24 @@ import { Eye, Layers, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function AdminServicesPage() {
+  const dispatch = useDispatch();
   const { showToast } = useApp();
   const [busyId, setBusyId] = useState(null);
 
-  const load = useCallback(async () => {
-    const [services, categories] = await Promise.all([
-      getServices({ role: 'admin' }),
-      getCategories()
-    ]);
-    return { services: services || [], categories: categories || [] };
-  }, []);
+  const refresh = useCallback(() => {
+    dispatch(fetchServices({ role: 'admin' }));
+    dispatch(fetchCategories());
+  }, [dispatch]);
 
-  const { data, loading, error, refresh } = useRepositoryQuery(load);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const services = useSelector(selectServices);
+  const categories = useSelector(selectCategories);
+  const data = { services, categories };
+  const loading = useSelector(selectMarketplaceLoading);
+  const error = useSelector(selectMarketplaceError);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -35,10 +50,10 @@ export function AdminServicesPage() {
     setBusyId(id);
     try {
       const status = currentStatus === 'published' ? 'paused' : 'published';
-      await saveService({ id, status }, { role: 'admin' });
+      await dispatch(updateService({ id, values: { status } })).unwrap();
       showToast(`Listing status updated to ${status}.`);
     } catch (err) {
-      showToast(err.message || 'Failed to update service status.', 'error');
+      showToast(typeof err === 'string' ? err : err?.message || 'Failed to update service status.', 'error');
     } finally {
       setBusyId(null);
     }
@@ -49,18 +64,17 @@ export function AdminServicesPage() {
     if (busyId) return;
     setBusyId(id);
     try {
-      await deleteService(id, { role: 'admin' });
+      await dispatch(deleteService(id)).unwrap();
       showToast(`Service "${title}" deleted successfully.`);
-      refresh();
     } catch (err) {
-      showToast(err.message || 'Failed to delete service.', 'error');
+      showToast(typeof err === 'string' ? err : err?.message || 'Failed to delete service.', 'error');
     } finally {
       setBusyId(null);
     }
   };
 
   if (error) return <ErrorState description={error} onRetry={refresh} />;
-  if (loading) return <Skeleton height="400px" borderRadius="12px" />;
+  if (loading && services.length === 0) return <Skeleton height="400px" borderRadius="12px" />;
 
   const categoryMap = new Map((data?.categories || []).map(c => [c.id, c.name]));
 

@@ -1,12 +1,27 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { RotateCcw, ShieldCheck } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import {
+  forceGuestState,
+  selectCurrentRole,
+  selectCurrentUser,
+  selectIsSuperUser,
+  selectIsSuperUserDemoMode,
+  switchDemoRole,
+} from '../../store/slices/authSlice';
+import { resetDemoData } from '../../store/slices/platformSlice';
+import { showToast } from '../../store/slices/uiSlice';
 import { DEMO_USERS } from '../../data/mockData';
 
 export function DemoSwitcherBar() {
-  const { currentRole, currentUser, switchRole, handleResetDemoData, isSuperUser, isSuperUserDemoMode } = useApp();
+  const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  const currentRole = useSelector(selectCurrentRole);
+  const currentUser = useSelector(selectCurrentUser);
+  const isSuperUser = useSelector(selectIsSuperUser);
+  const isSuperUserDemoMode = useSelector(selectIsSuperUserDemoMode);
 
   if (!isSuperUser && !isSuperUserDemoMode) {
     return null;
@@ -46,11 +61,25 @@ export function DemoSwitcherBar() {
       superuser: '/admin',
       staffAdmin: '/admin',
       arbitrator: '/arbitrator',
-      guest: '/'
+      guest: '/',
     };
-    const targetPath = destinations[key] || '/';
-    navigate(targetPath);
-    await switchRole(key);
+    try {
+      await dispatch(switchDemoRole(key)).unwrap();
+      navigate(destinations[key] || '/');
+    } catch (error) {
+      dispatch(showToast({ message: error?.message || String(error), type: 'error' }));
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      const result = await dispatch(resetDemoData()).unwrap();
+      dispatch(forceGuestState());
+      dispatch(showToast({ message: result?.message || 'Demo data reset.', type: 'success' }));
+      navigate('/');
+    } catch (error) {
+      dispatch(showToast({ message: error?.message || String(error), type: 'error' }));
+    }
   };
 
   return (
@@ -67,7 +96,7 @@ export function DemoSwitcherBar() {
         gap: '12px',
         borderBottom: '1px solid rgba(255,255,255,0.08)',
         position: 'relative',
-        zIndex: 50
+        zIndex: 50,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
@@ -78,7 +107,7 @@ export function DemoSwitcherBar() {
             letterSpacing: '0.02em',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            gap: '6px',
           }}
         >
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
@@ -109,7 +138,7 @@ export function DemoSwitcherBar() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  transition: 'all 0.15s ease'
+                  transition: 'all 0.15s ease',
                 }}
               >
                 {key === 'superuser' && <ShieldCheck size={12} />}
@@ -121,7 +150,7 @@ export function DemoSwitcherBar() {
       </div>
       <button
         type="button"
-        onClick={handleResetDemoData}
+        onClick={handleReset}
         style={{
           background: '#EF4444',
           color: '#FFF',
@@ -134,7 +163,7 @@ export function DemoSwitcherBar() {
           display: 'flex',
           alignItems: 'center',
           gap: '5px',
-          boxShadow: '0 2px 4px rgba(239,68,68,0.2)'
+          boxShadow: '0 2px 4px rgba(239,68,68,0.2)',
         }}
       >
         <RotateCcw size={12} /> Reset Demo Data
